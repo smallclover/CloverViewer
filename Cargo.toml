@@ -1,0 +1,17 @@
+[package]
+name = "CloverViewer"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+# LRU 缓存，用于限制内存中的图片数量
+lru = "0.16.2"
+eframe = "0.33.3"
+rfd = "0.16.0"
+image = { version = "0.25.9", features = [
+    "png", "jpeg", "gif", "bmp", "webp", "tiff",
+    "avif-native" # 为了加载avif格式，必须引入，另外为了通过编译还必须安装pkcg和dav1d
+] }
+egui = "0.33.3"
+winapi = { version = "0.3.9", features = ["winuser"] }
+# egui_extras = {version = "0.33.3",features = ["image"]}
