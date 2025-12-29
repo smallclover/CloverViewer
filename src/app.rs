@@ -13,7 +13,7 @@ use crate::{
         menu::draw_menu,
         menu::render_about_window,
         preview::draw_preview_bar,
-        loading::loading
+        loading::{corner_loading, global_loading}
     },
     utils::is_image
 };
@@ -245,12 +245,8 @@ impl MyApp {
 
             // 如果正在加载（说明现在显示的是缩略图，高清图还在路上），在右上角画个小菊花
             if self.loader.is_loading {
-                loading(ui);
+                corner_loading(ui);
             }
-        }
-        // 情况 2：没有任何纹理可以显示，且正在加载，此时才显示中心大菊花
-        else if self.loader.is_loading {
-            loading(ui);
         }
         // 情况 3：加载失败
         else if let Some(err) = &self.error {
@@ -336,6 +332,11 @@ impl eframe::App for MyApp {
         if self.show_about {
             // 这里调用弹窗逻辑
             render_about_window(ctx, &mut self.show_about);
+        }
+
+        // 👇 全局状态，不属于任何 panel
+        if self.current_texture.is_none() && self.loader.is_loading {
+            global_loading(ctx);
         }
     }
 }
