@@ -1,14 +1,11 @@
 use std::path::{Path, PathBuf};
-
-pub fn is_image(path: &Path) -> bool {
-    matches!(
-        path.extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("")
-            .to_lowercase()
-            .as_str(),
-        "png" | "jpg" | "jpeg" | "bmp" | "gif" | "webp" | "avif" | "heic" | "heif"
-    )
+use crate::constants;
+/// 统一的判断逻辑
+pub fn is_image(path: &std::path::Path) -> bool {
+    path.extension()
+        .and_then(|s| s.to_str())
+        .map(|s| constants::SUPPORTED_IMAGE_EXTENSIONS.contains(&s.to_lowercase().as_str()))
+        .unwrap_or(false)
 }
 
 pub fn collect_images(dir: &Path) -> Vec<PathBuf> {

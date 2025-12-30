@@ -1,6 +1,7 @@
 use egui::{Context};
 use rfd::FileDialog;
 use std::path::PathBuf;
+use crate::constants::SUPPORTED_IMAGE_EXTENSIONS;
 
 // 1. 让 draw_menu 返回一个结果，而不是执行回调
 pub fn draw_menu(ctx: &Context, show_about: &mut bool) -> Option<PathBuf> {
@@ -17,7 +18,7 @@ pub fn draw_menu(ctx: &Context, show_about: &mut bool) -> Option<PathBuf> {
 
                     if ui.button("打开文件…").clicked() {
                         if let Some(path) = FileDialog::new()
-                            .add_filter("Image", &["png", "jpg", "jpeg", "bmp", "gif"])
+                            .add_filter("Image", SUPPORTED_IMAGE_EXTENSIONS)
                             .pick_file() {
                             picked_path = Some(path);
                         }
@@ -63,29 +64,7 @@ pub fn render_about_window(ctx: &egui::Context, show_about: &mut bool) {
             // 调用各个平台的API来发声
             if response.clicked() {
                 // 发声音
-                #[cfg(target_os = "windows")]
-                unsafe { winapi::um::winuser::MessageBeep(0xFFFFFFFF) };
-
-                #[cfg(target_os = "macos")]
-                {
-                    let _ = std::process::Command::new("osascript")
-                        .args(&["-e", "beep"])
-                        .spawn();
-                }
-
-                #[cfg(target_os = "linux")]
-                {
-                    let _ = std::process::Command::new("bash")
-                        .args(&["-c", "echo -e '\\a'"])
-                        .spawn();
-                }
-
-                // 请求窗口闪烁 / 抖动提示
-                ctx.send_viewport_cmd(
-                    egui::ViewportCommand::RequestUserAttention(
-                        egui::UserAttentionType::Informational,
-                    ),
-                );
+                play_error_beep();
             }
 
             // 半透明遮罩
@@ -107,13 +86,13 @@ pub fn render_about_window(ctx: &egui::Context, show_about: &mut bool) {
         .pivot(egui::Align2::CENTER_CENTER)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.heading("Light Image Viewer");
-                ui.label("Rust 编写的极简图片查看器");
+                ui.heading("CloverViewer");
+                ui.label("Rust 图片查看器");
                 ui.add_space(8.0);
-                ui.hyperlink_to("GitHub 源码地址", "https://github.com/your-repo");
+                ui.hyperlink_to("GitHub 源码地址", "https://github.com/smallclover/CloverViewer");
                 ui.add_space(12.0);
                 if ui.button("我知道了").clicked() {
-                    request_close = true; // ✅ 只记录意图
+                    request_close = true; // 只记录意图
                 }
             });
         });
@@ -122,4 +101,20 @@ pub fn render_about_window(ctx: &egui::Context, show_about: &mut bool) {
     if request_close {
         *show_about = false;
     }
+}
+
+fn play_error_beep() {
+    #[cfg(target_os = "windows")]
+    unsafe {
+        #[link(name = "user32")]
+        unsafe  extern "system" { fn MessageBeep(u: u32) -> i32; }
+        // uType 为 0xFFFFFFFF 是标准的提示声
+        MessageBeep(0xFFFFFFFF);
+    }
+
+    // #[cfg(target_os = "macos")]
+    // let _ = std::process::Command::new("osascript").args(&["-e", "beep"]).spawn();
+    //
+    // #[cfg(target_os = "linux")]
+    // let _ = std::process::Command::new("bash").args(&["-c", "echo -e '\\a'"]).spawn();
 }

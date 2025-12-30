@@ -1,8 +1,12 @@
+use std::fs::File;
+use std::io::BufReader;
 use egui::{ColorImage, Context, TextureHandle};
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use image::ImageReader;
+use exif::{In, Reader, Tag};
+use image::metadata::Orientation;
 
 pub enum LoadResult {
     Ok(TextureHandle),
@@ -45,12 +49,12 @@ impl ImageLoader {
             self.is_loading = true;
         }
 
-        thread::spawn(move || {
-            // 根据优先级调整线程权重（OS 层面的简单优化）
+        rayon::spawn(move || {
+            // // 如果是低优先级的缩略图，可以稍微让出 CPU
             if !is_priority {
                 thread::yield_now();
             }
-            
+
             let result = match Self::decode_image(&path_clone, size) {
                 Ok(color_image) => {
                     let name = if is_thumbnail {
@@ -64,6 +68,7 @@ impl ImageLoader {
                 }
                 Err(e) => LoadResult::Err(e),
             };
+
             let _ = tx.send(LoadMessage {
                 path: path_clone,
                 result,
@@ -71,40 +76,62 @@ impl ImageLoader {
                 is_thumbnail,
             });
             ctx.request_repaint(); // 唤醒 UI 渲染
+
         });
     }
 
+    // 将 EXIF 的数字映射到 image crate 的枚举
+    fn map_exif_to_orientation(exif_val: u32) -> Orientation {
+        match exif_val {
+            1 => Orientation::NoTransforms,
+            2 => Orientation::FlipHorizontal,
+            3 => Orientation::Rotate180,
+            4 => Orientation::FlipVertical,
+            5 => Orientation::Rotate90FlipH,
+            6 => Orientation::Rotate90,
+            7 => Orientation::Rotate270FlipH,
+            8 => Orientation::Rotate270,
+            _ => Orientation::NoTransforms,
+        }
+    }
+
     fn decode_image(path: &PathBuf, size: Option<(u32, u32)>) -> Result<ColorImage, String> {
-        // 1. 打开文件并自动识别格式
-        let img_reader = ImageReader::open(&path)
+        // A. 读取 EXIF 方向 (修复后的逻辑)
+        let orientation_value = (|| {
+            let file = File::open(path).ok()?;
+            let mut reader = BufReader::new(file);
+            // 这里获取 exif 对象
+            let exif = Reader::new().read_from_container(&mut reader).ok()?;
+            // 在同一个作用域内获取 field，然后立即转换成 u32 (Copy 类型)
+            // 这样就不再依赖 exif 的引用生命周期了
+            exif.get_field(Tag::Orientation, In::PRIMARY)?
+                .value
+                .get_uint(0)
+        })().unwrap_or(1); // 失败则默认 1
+
+        // B. 解码图片
+        let mut img = ImageReader::open(path)
             .map_err(|e| e.to_string())?
             .with_guessed_format()
+            .map_err(|e| e.to_string())?
+            .decode()
             .map_err(|e| e.to_string())?;
 
-        // 2. 解码图片为 DynamicImage
-        let img = img_reader.decode()
-            .map_err(|e| {
-                eprintln!("解码失败详情: {:?}", e);
-                format!("无法解析图片 (格式可能不支持): {}", e)
-            })?;
-        // 3. 处理缩放逻辑
-        // 如果传入了 size，则调用 thumbnail 进行快速缩放。
-        // thumbnail 会根据目标尺寸进行采样，比普通的 resize 快得多。
-        // 如果传入了 size，则调用 thumbnail 进行快速缩放。
-        // thumbnail 会根据目标尺寸进行采样，比普通的 resize 快得多。
+        // C. 应用旋转
+        let img_orient = Self::map_exif_to_orientation(orientation_value);
+        img.apply_orientation(img_orient);
+
+        // D. 后续处理...
         let processed_img = if let Some((w, h)) = size {
-            img.thumbnail(w, h)
+            img.resize_to_fill(w, h, image::imageops::FilterType::Nearest)
+            // img.thumbnail(w, h)
         } else {
             img
         };
 
-        // 4. 将处理后的图片转换为 RGBA8 格式
-        // 注意：这里的宽高必须取处理后(processed_img)的尺寸
         let rgba = processed_img.to_rgba8();
-        let pixel_size = [rgba.width() as usize, rgba.height() as usize];
-
         Ok(ColorImage::from_rgba_unmultiplied(
-            pixel_size,
+            [rgba.width() as usize, rgba.height() as usize],
             rgba.as_raw(),
         ))
     }

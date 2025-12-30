@@ -5,6 +5,7 @@ mod utils;
 mod ui;
 mod image_loader;
 mod navigator;
+mod constants;
 
 fn main() -> eframe::Result<()> {
     app::run()

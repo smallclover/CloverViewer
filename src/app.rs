@@ -102,55 +102,63 @@ impl MyApp {
     /// 处理异步加载结果 (数据层)
     /// 核心：处理加载结果
     fn process_load_results(&mut self, ctx: &Context) {
-        while let Ok(msg) = self.loader.rx.try_recv() {
-            match msg.result {
-                LoadResult::Ok(tex) => {
-                    if msg.is_thumbnail {
-                        // 缩略图逻辑：仅存入缓存，供底部预览栏使用
-                        self.thumb_cache.put(msg.path.clone(), tex.clone());
-                        // 2. 如果这张缩略图正是用户当前要看的图，且原图还没出来
-                        // 那么立即将其设为 current_texture 占位
-                        if Some(&msg.path) == self.nav.current().as_ref() {
-                            if self.current_texture.is_none() {
-                                self.current_texture = Some(tex);
+        let mut processed_count = 0;
+        let mut should_trigger_preloads = false;
+        let mut received_any = false;
+
+        // 1. 限制每帧处理消息的数量（例如最多 5 条），防止大批量加载时 UI 线程卡死
+        while processed_count < 5 {
+            match self.loader.rx.try_recv() {
+                Ok(msg) => {
+                    received_any = true;
+                    match msg.result {
+                        LoadResult::Ok(tex) => {
+                            if msg.is_thumbnail {
+                                self.thumb_cache.put(msg.path.clone(), tex.clone());
+                                if Some(&msg.path) == self.nav.current().as_ref() {
+                                    if self.current_texture.is_none() {
+                                        self.current_texture = Some(tex);
+                                    }
+                                }
+                            } else {
+                                self.texture_cache.put(msg.path.clone(), tex.clone());
+                                if Some(msg.path) == self.nav.current() {
+                                    // 缩放计算逻辑 (计算开销极小，可以保留)
+                                    let tex_size = tex.size_vec2();
+                                    let available = ctx.available_rect().size();
+                                    let scale_v = available.y / tex_size.y;
+                                    let scale_h = (available.x - 120.0) / tex_size.x;
+                                    self.zoom = scale_v.min(scale_h).min(1.0);
+
+                                    self.current_texture = Some(tex);
+                                    self.loader.is_loading = false;
+
+                                    // 标记需要预加载，不在循环内立即执行
+                                    should_trigger_preloads = true;
+                                }
                             }
                         }
-                        ctx.request_repaint();
-                    }else{
-                        // 原图逻辑：执行缓存更新与缩放计算
-                        self.texture_cache.put(msg.path.clone(), tex.clone());
-                        if Some(msg.path) == self.nav.current() {
-                            // --- 核心逻辑：计算自适应缩放 ---
-                            let tex_size = tex.size_vec2();
-                            // 获取当前窗口除菜单栏外的可用空间
-                            let available = ctx.available_rect().size();
-
-                            // 方案：
-                            // 1. 竖向顶满所需的缩放：available.y / tex_height
-                            // 2. 横向留白所需的缩放：(available.x - 120.0) / tex_width (120是两侧留白总和)
-                            let scale_v = available.y / tex_size.y;
-                            let scale_h = (available.x - 120.0) / tex_size.x;
-
-                            // 取两者中较小的一个，确保图片完整显示且满足你的留白需求
-                            // 同时使用 .min(1.0) 防止小图片被强制放大导致模糊
-                            self.zoom = scale_v.min(scale_h).min(1.0);
-
-                            self.current_texture = Some(tex);
-                            self.loader.is_loading = false;
-                            // 原图加载完成后，触发周边图片的缩略图预加载
-                            self.trigger_preloads(ctx);
+                        LoadResult::Err(e) => {
+                            if msg.is_priority {
+                                self.loader.is_loading = false;
+                                self.error = Some(e);
+                            }
                         }
                     }
-
+                    processed_count += 1;
                 }
-                LoadResult::Err(e) => {
-                    // 只有在加载主图（高优先级）失败时才抛出错误提示
-                    if msg.is_priority {
-                        self.loader.is_loading = false;
-                        self.error = Some(e);
-                    }
-                }
+                Err(_) => break, // 队列空了
             }
+        }
+
+        // 2. 统一触发副作用
+        if should_trigger_preloads {
+            self.trigger_preloads(ctx);
+        }
+
+        // 3. 只要有数据变动，请求一次重绘即可
+        if received_any {
+            ctx.request_repaint();
         }
     }
 
@@ -334,7 +342,7 @@ impl eframe::App for MyApp {
             render_about_window(ctx, &mut self.show_about);
         }
 
-        // 👇 全局状态，不属于任何 panel
+        // 全局状态
         if self.current_texture.is_none() && self.loader.is_loading {
             global_loading(ctx);
         }
