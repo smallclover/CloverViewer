@@ -27,7 +27,7 @@ pub fn run() -> eframe::Result<()> {
     let start_path = std::env::args().nth(1).map(PathBuf::from);
 
     eframe::run_native(
-        "Light Image Viewer",
+        "CloverViewer",
         options,
         Box::new(|cc| {
             // // 关键：安装图片加载器，这样 egui::Image 才能理解各种格式
