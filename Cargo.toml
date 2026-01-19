@@ -3,6 +3,18 @@ name = "CloverViewer"
 version = "0.0.1"
 edition = "2024"
 
+[package.metadata.packager]
+before-packaging-command = "cargo build --release"
+identifier = "com.smallclover.cloverViewer"
+icons = ["assets/clover_viewer.ico"]
+[[package.metadata.packager.binaries]]
+path = "CloverViewer"
+main = true
+
+[build-dependencies]
+winres = "0.1"
+
+
 [dependencies]
 # LRU 缓存，用于限制内存中的图片数量
 lru = "0.16.2"

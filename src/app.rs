@@ -17,12 +17,15 @@ use crate::{
     },
     utils::is_image
 };
+use crate::utils::load_icon;
 
 pub fn run() -> eframe::Result<()> {
-    let options = eframe::NativeOptions {
+    let mut options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([1024.0, 768.0]),
         ..Default::default()
     };
+
+    options.viewport = options.viewport.with_icon(load_icon());
 
     let start_path = std::env::args().nth(1).map(PathBuf::from);
 

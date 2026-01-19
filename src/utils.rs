@@ -20,3 +20,17 @@ pub fn collect_images(dir: &Path) -> Vec<PathBuf> {
     }
     v
 }
+
+pub fn load_icon()-> egui::IconData {
+    let img = image::open("assets/clover_viewer_png.png")
+        .expect("无法读取图标")
+        .into_rgba8();
+
+    let (w, h) = img.dimensions();
+
+    egui::IconData {
+        rgba: img.into_raw(),
+        width: w,
+        height: h,
+    }
+}
