@@ -253,39 +253,73 @@ impl MyApp {
 
         // 情况 1：只要当前有纹理（无论是原图还是缩略图），就先画出来
         if let Some(tex) = self.current_texture.clone() {
-            self.render_image_viewer(ui, &tex, rect);
+            self.render_image_viewer(ui, &tex);
 
             // 如果正在加载（说明现在显示的是缩略图，高清图还在路上），在右上角画个小菊花
             if self.loader.is_loading {
                 corner_loading(ui);
             }
         }
-        // 情况 3：加载失败
+        // 情况 2：加载失败
         else if let Some(err) = &self.error {
-            ui.centered_and_justified(|ui| ui.colored_label(egui::Color32::RED, err));
+            ui.centered_and_justified(|ui| {
+                ui.vertical(|ui| {
+                    ui.colored_label(egui::Color32::RED, format!("加载失败\n{}", err));
+                });
+            });
+        }else if self.loader.is_loading {
+            // 3. 如果正在加载且没图没报错，这里留白
+            // 这样背后的文字就不会出来了，全局菊花会覆盖在这个空白区域上
         }
         // 情况 4：空状态
         else {
             ui.centered_and_justified(|ui| ui.label("拖拽或打开图片"));
         }
+
+        // --- 2. 渲染导航箭头（无论成功与否，只要列表不为空就显示） ---
+        // 只要导航器里有图片列表，我们就应该允许翻页
+        if self.nav.current().is_some() {
+            if let Some(nav_action) = draw_arrows(ui, rect) {
+                match nav_action {
+                    Nav::Prev => { self.nav.prev(); }
+                    Nav::Next => { self.nav.next(); }
+                };
+                self.load_current(ui.ctx().clone());
+            }
+        }
     }
 
     fn render_image_viewer(&mut self,
                            ui: &mut egui::Ui,
-                           tex: &egui::TextureHandle,
-                           rect: egui::Rect){
+                           tex: &egui::TextureHandle){
+        //--- 手动计算居中逻辑 ---
+        let size = tex.size_vec2() * self.zoom;
+        // 获取当前 ScrollArea 内部可用的视口大小
+        let available_size = ui.available_size();
+
+        // 1. 判断当前图片是否大于显示区域（只要有一边大，就可以拖拽）
+        let is_draggable = size.x > available_size.x || size.y > available_size.y;
+
+        // 2. 如果可以拖拽，且鼠标正在此区域内，改变指针
+        if is_draggable {
+            // 2. 先在 input 闭包中仅获取状态，不执行修改操作
+            let is_pressing = ui.input(|i| i.pointer.button_down(egui::PointerButton::Primary));
+            // 3. 在闭包外部，根据状态设置图标
+            if ui.rect_contains_pointer(ui.max_rect()) {
+                // 逻辑：按下时显示四向移动箭头，仅悬浮时显示十字
+                let icon = if is_pressing {
+                    egui::CursorIcon::Move      // Windows 经典的四向移动箭头
+                } else {
+                    egui::CursorIcon::Crosshair // 十字准星
+                };
+                ui.ctx().set_cursor_icon(icon);
+            }
+        }
 
         ScrollArea::both()
             .scroll_source(egui::scroll_area::ScrollSource::DRAG)
             .auto_shrink([false; 2])
             .show(ui, |ui| {
-
-                // --- 手动计算居中逻辑 ---
-                let size = tex.size_vec2() * self.zoom;
-
-                // 获取当前 ScrollArea 内部可用的视口大小
-                let available_size = ui.available_size();
-
                 // 计算边距：如果图片比窗口小，则计算一半的差值作为偏移；否则偏移为 0
                 let x_offset = (available_size.x - size.x).max(0.0) * 0.5;
                 let y_offset = (available_size.y - size.y).max(0.0) * 0.5;
@@ -302,15 +336,6 @@ impl MyApp {
                     });
                 });
             });
-
-        if let Some(nav) = draw_arrows(ui, rect) {
-            match nav {
-                Nav::Prev => { self.nav.prev(); }
-                Nav::Next => { self.nav.next(); }
-            };
-            // 统一调用加载方法
-            self.load_current(ui.ctx().clone());
-        }
     }
 }
 

@@ -10,7 +10,6 @@ icons = ["assets/images/clover_viewer.ico"]
 
 # 关键配置：将 lib 里的 dll 映射到安装后的根目录
 resources = [
-    { src = "lib/avif.dll", dst = "avif.dll" },
     { src = "lib/dav1d.dll", dst = "dav1d.dll" }
 ]
 
