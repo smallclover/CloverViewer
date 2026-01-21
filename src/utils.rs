@@ -1,5 +1,9 @@
+
 use std::path::{Path, PathBuf};
+
 use crate::constants;
+use crate::ui::resources::APP_ICON_PNG;
+
 /// 统一的判断逻辑
 pub fn is_image(path: &std::path::Path) -> bool {
     path.extension()
@@ -22,10 +26,10 @@ pub fn collect_images(dir: &Path) -> Vec<PathBuf> {
 }
 
 pub fn load_icon()-> egui::IconData {
-    let img = image::open("assets/clover_viewer_png.png")
-        .expect("无法读取图标")
-        .into_rgba8();
 
+    let img = image::load_from_memory(APP_ICON_PNG)
+        .expect("无法读取内嵌图标")
+        .into_rgba8();
     let (w, h) = img.dimensions();
 
     egui::IconData {

@@ -17,6 +17,7 @@ use crate::{
     },
     utils::is_image
 };
+use crate::ui::resources::FONT_MSYHL;
 use crate::utils::load_icon;
 
 pub fn run() -> eframe::Result<()> {
@@ -60,7 +61,7 @@ impl MyApp {
         let mut fonts = FontDefinitions::default();
         fonts.font_data.insert(
             "my_font".to_owned(),
-            Arc::new( egui::FontData::from_static(include_bytes!("../assets/msyhl.ttf"))),
+            Arc::new( egui::FontData::from_static(FONT_MSYHL)),
         );
         fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(
             0, "my_font".to_owned()
