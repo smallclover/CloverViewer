@@ -306,13 +306,7 @@ impl MyApp {
             let is_pressing = ui.input(|i| i.pointer.button_down(egui::PointerButton::Primary));
             // 3. 在闭包外部，根据状态设置图标
             if ui.rect_contains_pointer(ui.max_rect()) {
-                // 逻辑：按下时显示四向移动箭头，仅悬浮时显示十字
-                let icon = if is_pressing {
-                    egui::CursorIcon::Move      // Windows 经典的四向移动箭头
-                } else {
-                    egui::CursorIcon::Crosshair // 十字准星
-                };
-                ui.ctx().set_cursor_icon(icon);
+                ui.ctx().set_cursor_icon(egui::CursorIcon::Move );
             }
         }
 
