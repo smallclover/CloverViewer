@@ -302,8 +302,6 @@ impl MyApp {
 
         // 2. 如果可以拖拽，且鼠标正在此区域内，改变指针
         if is_draggable {
-            // 2. 先在 input 闭包中仅获取状态，不执行修改操作
-            let is_pressing = ui.input(|i| i.pointer.button_down(egui::PointerButton::Primary));
             // 3. 在闭包外部，根据状态设置图标
             if ui.rect_contains_pointer(ui.max_rect()) {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::Move );
