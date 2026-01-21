@@ -1,5 +1,5 @@
 <p align="center">
-<img src="desc/CloverViewer.png" width="300">
+<img src="assets/images/clover_viewer.png" width="300">
 </p>
 
 <p align="center">
