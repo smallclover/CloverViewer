@@ -25,10 +25,7 @@ impl Navigator {
             let mut v = collect_images(dir);
             v.sort();
             self.index = v.iter().position(|p| p == path).unwrap_or(0);
-            // println!("index {:?}", self.index);
-            // println!("pic: {:?} in {:?}", v[0], dir);
             self.list = v;
-            // println!("List: {:?}", self.list);
         }
     }
 

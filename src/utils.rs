@@ -2,10 +2,10 @@
 use std::path::{Path, PathBuf};
 
 use crate::constants;
-use crate::ui::resources::APP_ICON_PNG;
+use crate::ui::resources::APP_IMG;
 
 /// 统一的判断逻辑
-pub fn is_image(path: &std::path::Path) -> bool {
+pub fn is_image(path: &Path) -> bool {
     path.extension()
         .and_then(|s| s.to_str())
         .map(|s| constants::SUPPORTED_IMAGE_EXTENSIONS.contains(&s.to_lowercase().as_str()))
@@ -26,8 +26,7 @@ pub fn collect_images(dir: &Path) -> Vec<PathBuf> {
 }
 
 pub fn load_icon()-> egui::IconData {
-
-    let img = image::load_from_memory(APP_ICON_PNG)
+    let img = image::load_from_memory(APP_IMG)
         .expect("无法读取内嵌图标")
         .into_rgba8();
     let (w, h) = img.dimensions();

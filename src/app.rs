@@ -1,8 +1,15 @@
-use std::num::NonZeroUsize;
 use eframe::egui;
-use egui::{CentralPanel, Context, FontDefinitions, FontFamily, Image, ScrollArea, TextureHandle};
-use std::path::PathBuf;
-use std::sync::Arc;
+use egui::{
+    CentralPanel, Context, FontDefinitions,
+    FontFamily, Image, ScrollArea, TextureHandle,
+    ViewportBuilder,FontData
+};
+use std::{
+    num::NonZeroUsize,
+    path::PathBuf,
+    sync::Arc,
+    collections::HashSet,
+};
 use lru::LruCache;
 use crate::{
     image_loader::{ImageLoader, LoadResult},
@@ -13,19 +20,18 @@ use crate::{
         menu::draw_menu,
         menu::render_about_window,
         preview::draw_preview_bar,
-        loading::{corner_loading, global_loading}
+        loading::{corner_loading, global_loading},
+        resources::APP_FONT
     },
-    utils::is_image
+    utils::{is_image, load_icon}
 };
-use crate::ui::resources::FONT_MSYHL;
-use crate::utils::load_icon;
 
 pub fn run() -> eframe::Result<()> {
     let mut options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1024.0, 768.0]),
+        viewport: ViewportBuilder::default().with_inner_size([1024.0, 768.0]),
         ..Default::default()
     };
-
+    // 加载图标
     options.viewport = options.viewport.with_icon(load_icon());
 
     let start_path = std::env::args().nth(1).map(PathBuf::from);
@@ -34,8 +40,6 @@ pub fn run() -> eframe::Result<()> {
         "CloverViewer",
         options,
         Box::new(|cc| {
-            // // 关键：安装图片加载器，这样 egui::Image 才能理解各种格式
-            // egui_extras::install_image_loaders(&cc.egui_ctx);
             Ok(Box::new(MyApp::new(cc, start_path)))
         }),
     )
@@ -50,9 +54,10 @@ pub struct MyApp {
     texture_cache: LruCache<PathBuf, TextureHandle>,      // 原图缓存
     thumb_cache: LruCache<PathBuf, TextureHandle>,      // 缩略图缓存
     current_texture: Option<TextureHandle>,
-    error: Option<String>, // 新增：用于存储当前图片的错误
+    error: Option<String>, // 用于存储当前图片的错误
     zoom: f32,
     show_about: bool,// 关于菜单 状态
+    failed_thumbs: HashSet<PathBuf>, // 记录加载失败的预览图路径
 }
 
 impl MyApp {
@@ -61,7 +66,7 @@ impl MyApp {
         let mut fonts = FontDefinitions::default();
         fonts.font_data.insert(
             "my_font".to_owned(),
-            Arc::new( egui::FontData::from_static(FONT_MSYHL)),
+            Arc::new(FontData::from_static(APP_FONT)),
         );
         fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(
             0, "my_font".to_owned()
@@ -80,6 +85,7 @@ impl MyApp {
             error: None,
             zoom: 1.0,
             show_about: false, // 默认不显示
+            failed_thumbs: HashSet::new(),
         };
 
         if let Some(path) = start_path {
@@ -143,9 +149,13 @@ impl MyApp {
                             }
                         }
                         LoadResult::Err(e) => {
+                            // 1：无论是不是原图，只要报错，就记录到黑名单
+                            self.failed_thumbs.insert(msg.path.clone());
                             if msg.is_priority {
                                 self.loader.is_loading = false;
                                 self.error = Some(e);
+                                //2：主图报错也要触发预加载，否则预览栏永远是空的
+                                // should_trigger_preloads = true;
                             }
                         }
                     }
@@ -167,7 +177,7 @@ impl MyApp {
     }
 
     /// 预加载逻辑：不阻塞主流程
-    fn trigger_preloads(&mut self, ctx: &egui::Context) {
+    fn trigger_preloads(&mut self, ctx: &Context) {
         // 获取预览窗口的所有路径
         let to_load = self.nav.get_preview_window();
         // 只有缓存里没有，才发起低优先级加载
@@ -182,26 +192,33 @@ impl MyApp {
     }
 
     /// 核心导航逻辑：加载高清原图
-    fn load_current(&mut self, ctx: egui::Context) {
+    fn load_current(&mut self, ctx: Context) {
         self.error = None; // 切换图时重置错误状态
 
         if let Some(path) = self.nav.current() {
+            // --- 无论如何，先让预览栏动起来 ---
+            self.trigger_preloads(&ctx);
             // 1. 尝试从原图缓存 (texture_cache) 获取
             if let Some(tex) = self.texture_cache.get(&path) {
                 self.current_texture = Some(tex.clone());
                 self.loader.is_loading = false;
-                // 命中原图后，也触发一次预加载（为了更新预览栏邻居的缩略图）
-                self.trigger_preloads(&ctx);
             } else {
-                // 2. 【优化体验】原图没中，先检查缩略图缓存中是否已有该图
-                // 如果预览栏已经加载了这张图的缩略图，我们先把它显示出来占位
-                if let Some(thumb) = self.thumb_cache.get(&path) {
-                    self.current_texture = Some(thumb.clone());
-                } else {
+                if self.failed_thumbs.contains(&path) {
+                    self.error = Some("文件损坏或格式不支持".to_string());
                     self.current_texture = None;
+                    self.loader.is_loading = false;
+                }else{
+                    // 2. 原图没中，先检查缩略图缓存中是否已有该图
+                    // // 如果预览栏已经加载了这张图的缩略图，我们先把它显示出来占位
+                    // if let Some(thumb) = self.thumb_cache.get(&path) {
+                    //     self.current_texture = Some(thumb.clone());
+                    // } else {
+                    //     self.current_texture = None;
+                    // }
+                    self.current_texture = self.thumb_cache.get(&path).cloned();
+                    // 3. 发起高优先级异步加载 (size 为 None 表示加载原图)
+                    self.loader.load_async(ctx, path, true, None);
                 }
-                // 3. 发起高优先级异步加载 (size 为 None 表示加载原图)
-                self.loader.load_async(ctx, path, true, None);
             }
         }
     }
@@ -261,12 +278,17 @@ impl MyApp {
             }
         }
         // 情况 2：加载失败
-        else if let Some(err) = &self.error {
-            ui.centered_and_justified(|ui| {
-                ui.vertical(|ui| {
-                    ui.colored_label(egui::Color32::RED, format!("加载失败\n{}", err));
+        else if let Some(_) = &self.error {
+            // 即使主图报错，这里的渲染也要确保不阻塞后面的 UI
+            ui.scope_builder(egui::UiBuilder::new().max_rect(rect),|ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(ui.available_height() * 0.4); // 稍微向下偏移，视觉更舒服
+                    ui.label(egui::RichText::new("文件损坏或格式不支持")
+                        .color(egui::Color32::RED)
+                        .size(14.0));
                 });
             });
+
         }else if self.loader.is_loading {
             // 3. 如果正在加载且没图没报错，这里留白
             // 这样背后的文字就不会出来了，全局菊花会覆盖在这个空白区域上
@@ -291,7 +313,7 @@ impl MyApp {
 
     fn render_image_viewer(&mut self,
                            ui: &mut egui::Ui,
-                           tex: &egui::TextureHandle){
+                           tex: &TextureHandle){
         //--- 手动计算居中逻辑 ---
         let size = tex.size_vec2() * self.zoom;
         // 获取当前 ScrollArea 内部可用的视口大小
@@ -350,6 +372,7 @@ impl eframe::App for MyApp {
                 ctx,
                 &previews,
                 &mut self.thumb_cache,
+                &self.failed_thumbs,
                 self.nav.get_index()
             ) {
                 self.nav.set_index(new_idx);
