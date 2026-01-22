@@ -46,14 +46,14 @@ pub fn draw_menu(ctx: &Context, show_about: &mut bool) -> Option<PathBuf> {
     picked_path
 }
 
-pub fn render_about_window(ctx: &egui::Context, show_about: &mut bool) {
+pub fn render_about_window(ctx: &Context, show_about: &mut bool) {
     if !*show_about {
         return;
     }
 
     let screen_rect = ctx.content_rect();
 
-    // 1️⃣ 背景遮罩（拦截主窗口点击 + 发声音）
+    // 背景遮罩（拦截主窗口点击 + 发声音）
     egui::Area::new(egui::Id::new("modal_dimmer"))
         .order(egui::Order::Background)
         .fixed_pos(screen_rect.min)

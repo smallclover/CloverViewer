@@ -10,11 +10,11 @@ icons = ["assets/images/clover_viewer.ico"]
 
 # 将 lib 里的 dll 映射到安装后的根目录
 resources = [
-    { src = "lib/dav1d.dll", dst = "dav1d.dll" }
+    { src = "lib/dav1d.dll", target = "dav1d.dll" }
 ]
 
 [[package.metadata.packager.binaries]]
-path = "CloverViewer"
+path = "CloverViewer.exe"
 main = true
 
 [build-dependencies]
