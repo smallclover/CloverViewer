@@ -7,6 +7,8 @@ mod ui;
 mod image_loader;
 mod navigator;
 mod constants;
+mod i18n;
+mod config;
 
 fn main() -> eframe::Result<()> {
     #[cfg(target_os = "windows")]

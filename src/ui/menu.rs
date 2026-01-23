@@ -1,22 +1,33 @@
-use egui::{Context};
+use egui::{
+    Context, TopBottomPanel, MenuBar,
+    Area,Id,Order,Sense,Window,Align2,
+    Color32
+};
 use rfd::FileDialog;
 use std::path::PathBuf;
-use crate::constants::SUPPORTED_IMAGE_EXTENSIONS;
+use crate::{
+    constants::SUPPORTED_IMAGE_EXTENSIONS,
+    i18n::{get_text, Language}
+};
 
-// 1. 让 draw_menu 返回一个结果，而不是执行回调
-pub fn draw_menu(ctx: &Context, show_about: &mut bool) -> Option<PathBuf> {
+pub fn draw_menu(
+    ctx: &Context,
+    show_about: &mut bool,
+    show_settings: &mut bool,
+    lang: Language
+) -> Option<PathBuf> {
     let mut picked_path = None;
+    let text = get_text(lang);
 
-    egui::TopBottomPanel::top("menu").show(ctx, |ui| {
-
-        ui.add_enabled_ui(!*show_about, |ui| {
-            egui::MenuBar::new().ui(ui, |ui| {
+    TopBottomPanel::top("menu").show(ctx, |ui| {
+        ui.add_enabled_ui(!*show_about && !*show_settings, |ui| {
+            MenuBar::new().ui(ui, |ui| {
                 // “文件”菜单
-                ui.menu_button("文件", |ui| {
+                ui.menu_button(text.menu_file, |ui| {
 
                     ui.set_min_width(130.0);
 
-                    if ui.button("打开文件…").clicked() {
+                    if ui.button(text.menu_open_file).clicked() {
                         if let Some(path) = FileDialog::new()
                             .add_filter("Image", SUPPORTED_IMAGE_EXTENSIONS)
                             .pick_file() {
@@ -24,16 +35,25 @@ pub fn draw_menu(ctx: &Context, show_about: &mut bool) -> Option<PathBuf> {
                         }
                         ui.close()
                     }
-                    if ui.button("打开文件夹…").clicked() {
+                    if ui.button(text.menu_open_folder).clicked() {
                         if let Some(path) = FileDialog::new()
                             .pick_folder() {
                             picked_path = Some(path);
                         }
                         ui.close()
                     }
+
+                    ui.separator();
+
+                    // 设置
+                    if ui.button(text.menu_settings).clicked() {
+                        *show_settings = true;
+                        ui.close();
+                    }
                 });
+
                 // --- 2. 追加“关于”按钮 ---
-                if ui.button("关于").clicked() {
+                if ui.button(text.menu_about).clicked() {
                     *show_about = true;
                     ui.close()
                 }
@@ -46,20 +66,21 @@ pub fn draw_menu(ctx: &Context, show_about: &mut bool) -> Option<PathBuf> {
     picked_path
 }
 
-pub fn render_about_window(ctx: &Context, show_about: &mut bool) {
+pub fn render_about_window(ctx: &Context, show_about: &mut bool, lang: Language) {
     if !*show_about {
         return;
     }
 
+    let text = get_text(lang);
     let screen_rect = ctx.content_rect();
 
     // 背景遮罩（拦截主窗口点击 + 发声音）
-    egui::Area::new(egui::Id::new("modal_dimmer"))
-        .order(egui::Order::Background)
+    Area::new(Id::new("modal_dimmer"))
+        .order(Order::Background)
         .fixed_pos(screen_rect.min)
         .show(ctx, |ui| {
             // 吃掉点击
-            let response = ui.allocate_rect(screen_rect, egui::Sense::click());
+            let response = ui.allocate_rect(screen_rect, Sense::click());
 
             // 调用各个平台的API来发声
             if response.clicked() {
@@ -71,27 +92,27 @@ pub fn render_about_window(ctx: &Context, show_about: &mut bool) {
             ui.painter().rect_filled(
                 screen_rect,
                 0.0,
-                egui::Color32::from_rgba_unmultiplied(0, 0, 0, 150),
+                Color32::from_rgba_unmultiplied(0, 0, 0, 150),
             );
         });
 
     let mut request_close = false;
     // 渲染实际的可拖动窗口
-    egui::Window::new("关于项目")
+    Window::new(text.about_title)
         .open(show_about) // 提供 [X] 关闭按钮
         .collapsible(false)
         .resizable(false)
         .default_pos(ctx.content_rect().center())
         // 设置轴心点为中心，这样窗口的“中心”会对齐到 App 的“中心”
-        .pivot(egui::Align2::CENTER_CENTER)
+        .pivot(Align2::CENTER_CENTER)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.heading("CloverViewer");
-                ui.label("Rust 图片查看器");
+                ui.label(text.about_desc);
                 ui.add_space(8.0);
-                ui.hyperlink_to("GitHub 源码地址", "https://github.com/smallclover/CloverViewer");
+                ui.hyperlink_to(text.about_github, "https://github.com/smallclover/CloverViewer");
                 ui.add_space(12.0);
-                if ui.button("我知道了").clicked() {
+                if ui.button(text.about_close).clicked() {
                     request_close = true; // 只记录意图
                 }
             });

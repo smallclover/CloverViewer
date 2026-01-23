@@ -1,4 +1,7 @@
-use egui::{Color32, Rect, Response, Ui, Vec2};
+use egui::{
+    Color32, Rect, Response, Ui, Vec2,
+    StrokeKind,Align2,FontId
+};
 
 pub enum Nav {
     Prev,
@@ -60,17 +63,17 @@ fn draw_nav_button(ui: &mut Ui, rect: Rect, icon: &str) -> Response {
         ui.painter().rect_stroke(
             rect,
             8.0,                             // 圆角 (Rounding)
-            (1.0, egui::Color32::GRAY),     // 粗细与颜色 (Stroke)
-            egui::StrokeKind::Inside         // 边框类型 (StrokeKind)
+            (1.0, Color32::GRAY),     // 粗细与颜色 (Stroke)
+            StrokeKind::Inside         // 边框类型 (StrokeKind)
         );
     }
 
     // 5. 绘制图标
     ui.painter().text(
         rect.center(),
-        egui::Align2::CENTER_CENTER,
+        Align2::CENTER_CENTER,
         icon,
-        egui::FontId::proportional(32.0),
+        FontId::proportional(32.0),
         Color32::WHITE,
     );
 

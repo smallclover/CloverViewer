@@ -1,6 +1,5 @@
-
 use std::path::{Path, PathBuf};
-
+use rayon::prelude::*;
 use crate::constants;
 use crate::ui::resources::APP_IMG;
 
@@ -13,16 +12,17 @@ pub fn is_image(path: &Path) -> bool {
 }
 
 pub fn collect_images(dir: &Path) -> Vec<PathBuf> {
-    let mut v = Vec::new();
-    if let Ok(rd) = std::fs::read_dir(dir) {
-        for e in rd.flatten() {
-            let p = e.path();
-            if is_image(&p) {
-                v.push(p);
-            }
-        }
-    }
-    v
+    // 使用 rayon 并行迭代器加速目录扫描和过滤
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+
+    entries
+        .flatten()
+        .par_bridge() // 将迭代器转换为并行迭代器
+        .map(|e| e.path())
+        .filter(|p| is_image(p))
+        .collect()
 }
 
 pub fn load_icon()-> egui::IconData {

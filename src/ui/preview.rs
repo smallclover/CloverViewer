@@ -124,7 +124,7 @@ fn paint_thumbnail_texture(ui: &mut Ui, rect: Rect, tex: &TextureHandle) {
 }
 
 /// 仅负责绘制错误占位
-fn paint_error_state(ui: &mut egui::Ui, rect: Rect) {
+fn paint_error_state(ui: &mut Ui, rect: Rect) {
     ui.painter().rect_filled(rect, CornerRadius::same(4), Color32::from_rgb(60, 20, 20));
     ui.painter().text(
         rect.center(),

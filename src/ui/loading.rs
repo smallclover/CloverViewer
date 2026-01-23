@@ -1,14 +1,22 @@
-pub fn global_loading(ctx: &egui::Context) {
-    egui::Area::new(egui::Id::new("global_loading"))
-        .order(egui::Order::Foreground)
-        .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+use crate::i18n::{get_text, Language};
+
+use egui::{
+    Context,Area,Id,Order,Align2,Color32,
+    Vec2,Spinner,RichText,UiBuilder,Rect,Ui
+};
+
+pub fn global_loading(ctx: &Context, lang: Language) {
+    let text = get_text(lang);
+    Area::new(Id::new("global_loading"))
+        .order(Order::Foreground)
+        .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
         .interactable(false)
         .show(ctx, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add(
-                    egui::Spinner::new()
+                    Spinner::new()
                         .size(32.0)
-                        .color(egui::Color32::from_gray(150)),
+                        .color(Color32::from_gray(150)),
                 );
                 ui.add_space(12.0);
 
@@ -17,8 +25,8 @@ pub fn global_loading(ctx: &egui::Context) {
                     (((time * 2.0).sin() + 1.0) / 2.0 * 155.0 + 100.0) as u8;
 
                 ui.label(
-                    egui::RichText::new("正在解析像素...")
-                        .color(egui::Color32::from_rgba_unmultiplied(
+                    RichText::new(text.loading_parsing)
+                        .color(Color32::from_rgba_unmultiplied(
                             200, 200, 200, alpha,
                         ))
                         .strong(),
@@ -27,7 +35,7 @@ pub fn global_loading(ctx: &egui::Context) {
         });
 }
 
-pub fn corner_loading(ui: &mut egui::Ui) {
+pub fn corner_loading(ui: &mut Ui) {
     let rect = ui.max_rect();
 
     let size = egui::vec2(24.0, 24.0);
@@ -36,17 +44,16 @@ pub fn corner_loading(ui: &mut egui::Ui) {
         rect.top() + 8.0,
     );
 
-    let spinner_rect = egui::Rect::from_min_size(pos, size);
+    let spinner_rect = Rect::from_min_size(pos, size);
 
     ui.scope_builder(
-        egui::UiBuilder::new().max_rect(spinner_rect),
+        UiBuilder::new().max_rect(spinner_rect),
         |ui| {
             ui.add(
-                egui::Spinner::new()
+                Spinner::new()
                     .size(20.0)
-                    .color(egui::Color32::from_gray(160)),
+                    .color(Color32::from_gray(160)),
             );
         },
     );
 }
-

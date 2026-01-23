@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Seek, SeekFrom};
 use egui::{ColorImage, Context, TextureHandle};
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -50,7 +50,7 @@ impl ImageLoader {
         }
 
         rayon::spawn(move || {
-            // // 如果是低优先级的缩略图，可以稍微让出 CPU
+            // 如果是低优先级的缩略图，可以稍微让出 CPU
             if !is_priority {
                 thread::yield_now();
             }
@@ -96,22 +96,24 @@ impl ImageLoader {
     }
 
     fn decode_image(path: &PathBuf, size: Option<(u32, u32)>) -> Result<ColorImage, String> {
-        // A. 读取 EXIF 方向 (修复后的逻辑)
-        let orientation_value = (|| {
-            let file = File::open(path).ok()?;
-            let mut reader = BufReader::new(file);
-            // 这里获取 exif 对象
-            let exif = Reader::new().read_from_container(&mut reader).ok()?;
-            // 在同一个作用域内获取 field，然后立即转换成 u32 (Copy 类型)
-            // 这样就不再依赖 exif 的引用生命周期了
-            exif.get_field(Tag::Orientation, In::PRIMARY)?
-                .value
-                .get_uint(0)
-        })().unwrap_or(1); // 失败则默认 1
+        let file = File::open(path).map_err(|e| e.to_string())?;
+        let mut reader = BufReader::new(file);
+
+        // A. 读取 EXIF 方向 (优化：复用 reader)
+        let orientation_value = {
+            let val = (|| {
+                let exif = Reader::new().read_from_container(&mut reader).ok()?;
+                exif.get_field(Tag::Orientation, In::PRIMARY)?
+                    .value
+                    .get_uint(0)
+            })();
+            // 无论成功与否，重置文件指针到开头
+            let _ = reader.seek(SeekFrom::Start(0));
+            val.unwrap_or(1)
+        };
 
         // B. 解码图片
-        let mut img = ImageReader::open(path)
-            .map_err(|e| e.to_string())?
+        let mut img = ImageReader::new(reader)
             .with_guessed_format()
             .map_err(|e| e.to_string())?
             .decode()

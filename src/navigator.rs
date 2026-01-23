@@ -19,8 +19,6 @@ impl Navigator {
     }
 
     pub fn f_image(&mut self, path: &Path) {
-        // println!("Scanning {}", path.display());
-
         if let Some(dir) = path.parent() {
             let mut v = collect_images(dir);
             v.sort();
@@ -31,7 +29,6 @@ impl Navigator {
 
     pub fn f_folder(&mut self, path: &Path) {
         let mut v = collect_images(path);
-
         v.sort();
         self.index = 0;
         self.list = v;
