@@ -283,10 +283,7 @@ impl eframe::App for MyApp {
             has_nav: self.nav.current().is_some(),
         };
 
-        // 检查是否处于模态窗口状态
-        let is_modal_open = matches!(self.ui_mode, UiMode::About | UiMode::Settings);
-
-        match draw_viewer(ctx, viewer_state, is_modal_open, self.config.language) {
+        match draw_viewer(ctx, viewer_state, self.config.language) {
             ViewerAction::Prev => {
                 self.prev_image(ctx.clone());
             }
@@ -300,7 +297,7 @@ impl eframe::App for MyApp {
         }
 
         // 5. 预览窗口
-        if !is_modal_open && self.nav.current().is_some() {
+        if self.nav.current().is_some() {
             let previews = self.nav.get_preview_window();
             if let Some(new_idx) = draw_preview_bar(
                 ctx,

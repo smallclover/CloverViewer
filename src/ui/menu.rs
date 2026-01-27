@@ -15,11 +15,6 @@ pub fn draw_menu(
     let text = get_text(lang);
 
     TopBottomPanel::top("menu").show(ctx, |ui| {
-        // Only enable menu if in Normal mode (or ContextMenu, though usually menu is disabled then too)
-        // Actually, if a modal is open (About/Settings), we usually disable the menu.
-        let enabled = matches!(ui_mode, UiMode::Normal | UiMode::ContextMenu(_));
-
-        ui.add_enabled_ui(enabled, |ui| {
             MenuBar::new().ui(ui, |ui| {
                 // “文件”菜单
                 ui.menu_button(text.menu_file, |ui| {
@@ -47,7 +42,6 @@ pub fn draw_menu(
                     // 设置
                     if ui.button(text.menu_settings).clicked() {
                         *ui_mode = UiMode::Settings;
-                        ui.close();
                     }
                 });
 
@@ -57,8 +51,6 @@ pub fn draw_menu(
                 }
 
             });
-
-        });
     });
 
     picked_path

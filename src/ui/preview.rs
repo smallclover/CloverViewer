@@ -5,7 +5,7 @@ use std::{
 use egui::{
     Color32, CornerRadius, Rect,
     TextureHandle, Vec2, Context,
-    Area,Order,Frame,Stroke,StrokeKind,
+    Area,Frame,Stroke,StrokeKind,
     Ui,Align2,FontId,UiBuilder,Spinner,
     Mesh,Sense
 };
@@ -36,7 +36,7 @@ pub fn draw_preview_bar(
 
     Area::new(egui::Id::new("preview_bar"))
         .fixed_pos(pos)
-        .order(Order::Foreground)
+        // .order(Order::Foreground)
         .show(ctx, |ui| {
             Frame::NONE
                 .fill(Color32::from_rgba_unmultiplied(30, 30, 30, 200))
