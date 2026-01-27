@@ -3,7 +3,7 @@ use egui::{
     Context, FontDefinitions,
     FontFamily, TextureHandle,
     ViewportBuilder,FontData,
-    Key, Pos2
+    Key
 };
 use std::{
     num::NonZeroUsize,
@@ -21,13 +21,14 @@ use crate::{
         loading::global_loading,
         resources::APP_FONT,
         viewer::{draw_viewer, ViewerState, ViewerAction},
-        settings::render_settings_window
+        settings::render_settings_window,
+        about::render_about_window,
+        right_click_menu::render_context_menu,
+        ui_mode::UiMode
     },
     utils::{is_image, load_icon},
     config::{load_config, save_config, Config}
 };
-use crate::ui::about::render_about_window;
-use crate::ui::right_click_menu::render_context_menu;
 
 pub fn run() -> eframe::Result<()> {
     let mut options = eframe::NativeOptions {
@@ -48,6 +49,7 @@ pub fn run() -> eframe::Result<()> {
     )
 }
 
+
 pub struct MyApp {
     loader: ImageLoader,
     nav: Navigator,
@@ -59,11 +61,9 @@ pub struct MyApp {
     current_texture: Option<TextureHandle>,
     error: Option<String>, // 用于存储当前图片的错误
     zoom: f32,
-    show_about: bool,// 关于菜单 状态
-    show_settings: bool, // 设置菜单状态
+    ui_mode: UiMode, // UI 状态机
     failed_thumbs: HashSet<PathBuf>, // 记录加载失败的预览图路径
     config: Config, // 配置
-    context_menu_pos: Option<Pos2>, // 右键菜单位置
 }
 
 impl MyApp {
@@ -93,11 +93,9 @@ impl MyApp {
             current_texture: None,
             error: None,
             zoom: 1.0,
-            show_about: false, // 默认不显示
-            show_settings: false,
+            ui_mode: UiMode::Normal,
             failed_thumbs: HashSet::new(),
             config,
-            context_menu_pos: None,
         };
 
         if let Some(path) = start_path {
@@ -273,7 +271,7 @@ impl eframe::App for MyApp {
         // 2. 处理全局输入 (控制层：键盘、拖拽、滚轮)
         self.handler_inputs(ctx);
         // 3. 渲染菜单栏 (UI层：顶部)
-        if let Some(path) = draw_menu(ctx, &mut self.show_about, &mut self.show_settings, self.config.language) {
+        if let Some(path) = draw_menu(ctx, &mut self.ui_mode, self.config.language) {
             self.open_new_context(ctx.clone(), path);
         }
         // 4. 渲染主画布
@@ -285,7 +283,10 @@ impl eframe::App for MyApp {
             has_nav: self.nav.current().is_some(),
         };
 
-        match draw_viewer(ctx, viewer_state, self.show_about || self.show_settings, self.config.language) {
+        // 检查是否处于模态窗口状态
+        let is_modal_open = matches!(self.ui_mode, UiMode::About | UiMode::Settings);
+
+        match draw_viewer(ctx, viewer_state, is_modal_open, self.config.language) {
             ViewerAction::Prev => {
                 self.prev_image(ctx.clone());
             }
@@ -293,13 +294,13 @@ impl eframe::App for MyApp {
                 self.next_image(ctx.clone());
             }
             ViewerAction::ContextMenu(pos) => {
-                self.context_menu_pos = Some(pos);
+                self.ui_mode = UiMode::ContextMenu(pos);
             }
             ViewerAction::None => {}
         }
 
         // 5. 预览窗口
-        if !self.show_about && !self.show_settings && self.nav.current().is_some() {
+        if !is_modal_open && self.nav.current().is_some() {
             let previews = self.nav.get_preview_window();
             if let Some(new_idx) = draw_preview_bar(
                 ctx,
@@ -314,23 +315,41 @@ impl eframe::App for MyApp {
         }
 
         // 6. 渲染弹窗 (独立层)
-        if self.show_about {
-            // 这里调用弹窗逻辑
-            render_about_window(ctx, &mut self.show_about, self.config.language);
-        }
-
-        // 7. 渲染设置窗口
-        if self.show_settings {
-            let old_lang = self.config.language;
-            render_settings_window(ctx, &mut self.show_settings, &mut self.config.language);
-            // 如果语言改变了，或者窗口关闭了，保存配置
-            if old_lang != self.config.language || !self.show_settings {
-                save_config(&self.config);
+        match self.ui_mode {
+            UiMode::About => {
+                let mut open = true;
+                render_about_window(ctx, &mut open, self.config.language);
+                if !open {
+                    self.ui_mode = UiMode::Normal;
+                }
             }
-        }
+            UiMode::Settings => {
+                let mut open = true;
+                let old_lang = self.config.language;
+                render_settings_window(ctx, &mut open, &mut self.config.language);
 
-        // 8. 渲染右键菜单
-        render_context_menu(ctx, &mut self.context_menu_pos, self.config.language);
+                if old_lang != self.config.language {
+                    save_config(&self.config);
+                }
+
+                if !open {
+                    save_config(&self.config);
+                    self.ui_mode = UiMode::Normal;
+                }
+            }
+            UiMode::ContextMenu(pos) => {
+                let mut pos_opt = Some(pos);
+                render_context_menu(ctx, &mut pos_opt, self.config.language);
+                if let Some(new_pos) = pos_opt {
+                    // 如果位置变了（通常不会），更新它
+                    self.ui_mode = UiMode::ContextMenu(new_pos);
+                } else {
+                    // 菜单关闭
+                    self.ui_mode = UiMode::Normal;
+                }
+            }
+            UiMode::Normal => {}
+        }
 
         // 全局状态
         if self.current_texture.is_none() && self.loader.is_loading {
