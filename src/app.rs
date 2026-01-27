@@ -16,7 +16,7 @@ use crate::{
     image_loader::{ImageLoader, LoadResult},
     navigator::Navigator,
     ui::{
-        menu::{draw_menu, render_about_window, render_context_menu},
+        menu::draw_menu,
         preview::draw_preview_bar,
         loading::global_loading,
         resources::APP_FONT,
@@ -26,6 +26,8 @@ use crate::{
     utils::{is_image, load_icon},
     config::{load_config, save_config, Config}
 };
+use crate::ui::about::render_about_window;
+use crate::ui::right_click_menu::render_context_menu;
 
 pub fn run() -> eframe::Result<()> {
     let mut options = eframe::NativeOptions {

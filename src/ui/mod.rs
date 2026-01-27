@@ -5,3 +5,6 @@ pub mod loading;
 pub mod resources;
 pub mod viewer;
 pub mod settings;
+pub mod about;
+pub mod modal;
+pub mod right_click_menu;
