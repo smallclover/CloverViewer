@@ -1,18 +1,12 @@
 use eframe::egui;
 use egui::{
     CentralPanel, Color32, Context, CursorIcon, Frame,
-    Image, RichText, ScrollArea, TextureHandle, Ui, UiBuilder, Pos2, Rect
+    Image, RichText, ScrollArea, TextureHandle, Ui, UiBuilder, Rect
 };
 use crate::ui::arrows::{draw_arrows, Nav};
 use crate::ui::loading::corner_loading;
 use crate::i18n::{get_text, Language};
-
-pub enum ViewerAction {
-    Prev,
-    Next,
-    None,
-    ContextMenu(Pos2), // 右键菜单请求，携带点击位置
-}
+use crate::ui::ui_mode::UiMode;
 
 pub struct ViewerState<'a> {
     pub texture: Option<&'a TextureHandle>,
@@ -25,9 +19,10 @@ pub struct ViewerState<'a> {
 pub fn draw_viewer(
     ctx: &Context,
     state: ViewerState,
+    ui_mode: &mut UiMode,
     lang: Language,
-) -> ViewerAction {
-    let mut action = ViewerAction::None;
+) -> Option<Nav> {
+    let mut nav_action = None;
     let text = get_text(lang);
 
     // 创建深色背景
@@ -68,7 +63,7 @@ pub fn draw_viewer(
                         }
 
                         if allow_context_menu {
-                            action = ViewerAction::ContextMenu(pos);
+                            *ui_mode = UiMode::ContextMenu(pos);
                         }
                     }
                 }
@@ -94,19 +89,14 @@ pub fn draw_viewer(
 
         // --- 4. 渲染导航箭头（最后渲染，确保在最上层） ---
         if state.has_nav {
-            if let Some(nav_action) = draw_arrows(ui, rect) {
+            if let Some(action) = draw_arrows(ui, rect) {
                 // 只有在没有其他动作时才响应箭头
-                if matches!(action, ViewerAction::None) {
-                    action = match nav_action {
-                        Nav::Prev => ViewerAction::Prev,
-                        Nav::Next => ViewerAction::Next,
-                    };
-                }
+                nav_action = Some(action);
             }
         }
     });
 
-    action
+    nav_action
 }
 
 /// 渲染图片查看器

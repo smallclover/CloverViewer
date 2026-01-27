@@ -17,14 +17,15 @@ use crate::{
     navigator::Navigator,
     ui::{
         menu::draw_menu,
-        preview::draw_preview_bar,
+        preview::show_preview_window,
         loading::global_loading,
         resources::APP_FONT,
-        viewer::{draw_viewer, ViewerState, ViewerAction},
+        viewer::{draw_viewer, ViewerState},
         settings::render_settings_window,
         about::render_about_window,
         right_click_menu::render_context_menu,
-        ui_mode::UiMode
+        ui_mode::UiMode,
+        arrows::Nav
     },
     utils::{is_image, load_icon},
     config::{load_config, save_config, Config}
@@ -262,6 +263,17 @@ impl MyApp {
             self.load_current(ctx);
         }
     }
+
+    fn show_preview(&mut self, ctx: &Context) {
+        if show_preview_window(
+            ctx,
+            &mut self.nav,
+            &mut self.thumb_cache,
+            &self.failed_thumbs
+        ) {
+            self.load_current(ctx.clone());
+        }
+    }
 }
 
 impl eframe::App for MyApp {
@@ -283,33 +295,15 @@ impl eframe::App for MyApp {
             has_nav: self.nav.current().is_some(),
         };
 
-        match draw_viewer(ctx, viewer_state, self.config.language) {
-            ViewerAction::Prev => {
-                self.prev_image(ctx.clone());
+        if let Some(action) = draw_viewer(ctx, viewer_state, &mut self.ui_mode, self.config.language) {
+            match action {
+                Nav::Prev => self.prev_image(ctx.clone()),
+                Nav::Next => self.next_image(ctx.clone()),
             }
-            ViewerAction::Next => {
-                self.next_image(ctx.clone());
-            }
-            ViewerAction::ContextMenu(pos) => {
-                self.ui_mode = UiMode::ContextMenu(pos);
-            }
-            ViewerAction::None => {}
         }
 
         // 5. 预览窗口
-        if self.nav.current().is_some() {
-            let previews = self.nav.get_preview_window();
-            if let Some(new_idx) = draw_preview_bar(
-                ctx,
-                &previews,
-                &mut self.thumb_cache,
-                &self.failed_thumbs,
-                self.nav.get_index()
-            ) {
-                self.nav.set_index(new_idx);
-                self.load_current(ctx.clone());
-            }
-        }
+        self.show_preview(ctx);
 
         // 6. 渲染弹窗 (独立层)
         match self.ui_mode {
