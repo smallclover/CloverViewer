@@ -5,10 +5,7 @@ use egui::{
 };
 use rfd::FileDialog;
 use std::path::PathBuf;
-use crate::{
-    constants::SUPPORTED_IMAGE_EXTENSIONS,
-    i18n::{get_text, Language}
-};
+use crate::{constants::SUPPORTED_IMAGE_EXTENSIONS, dev_info, i18n::{get_text, Language}};
 
 pub fn draw_menu(
     ctx: &Context,
@@ -89,7 +86,7 @@ pub fn render_context_menu(
                 // 分配整个屏幕的空间
                 let screen_rect = ctx.input(|i| i.content_rect());
                 let response = ui.allocate_rect(screen_rect, Sense::click());
-                if response.clicked() {
+                if response.clicked_by(egui::PointerButton::Primary) {
                     close_menu = true;
                 }
             });
@@ -102,11 +99,11 @@ pub fn render_context_menu(
                 Frame::menu(ui.style()).show(ui, |ui| {
                     ui.set_min_width(120.0);
                     if ui.button(text.context_copy_image).clicked() {
-                        tracing::info!("Copy Image clicked");
+                        dev_info!("Copy Image clicked");
                         close_menu = true;
                     }
                     if ui.button(text.context_copy_path).clicked() {
-                        tracing::info!("Copy Image Path clicked");
+                        dev_info!("Copy Image Path clicked");
                         close_menu = true;
                     }
                 });
