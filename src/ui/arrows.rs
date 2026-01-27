@@ -7,21 +7,39 @@ pub enum Nav {
     Prev,
     Next,
 }
-
+/// 绘制左右箭头按钮
 pub fn draw_arrows(ui: &mut Ui, rect: Rect) -> Option<Nav> {
     let mut clicked = None;
 
     // 计算按钮的大小：和预览栏缩略图接近，例如 40x80 的长条或 60x60 的圆角矩形
     let btn_size = Vec2::new(48.0, 80.0);
     let margin = 20.0; // 距离边缘的距离
+    let hover_zone_width = 100.0; // 固定感应区域宽度
 
     // 绘制左按钮
     let left_rect = Rect::from_center_size(
         rect.left_center() + Vec2::new(margin + btn_size.x / 2.0, 0.0),
         btn_size,
     );
-    if draw_nav_button(ui, left_rect, "⏴").clicked() {
-        clicked = Some(Nav::Prev);
+    // 只有鼠标悬停在左侧区域时才显示左按钮
+    // 定义左侧感应区域，固定宽度
+    let left_hover_rect = Rect::from_min_max(
+        rect.min,
+        rect.min + egui::vec2(hover_zone_width, rect.height()),
+    );
+
+    // 调试：绘制左侧感应区域
+    ui.painter().rect_filled(
+        left_hover_rect,
+        0.0,
+        // Color32::from_rgba_unmultiplied(255, 0, 0, 50), // 半透明红色
+        Color32::default()
+    );
+
+    if ui.rect_contains_pointer(left_hover_rect) || ui.rect_contains_pointer(left_rect) {
+        if draw_nav_button(ui, left_rect, "⏴").clicked() {
+            clicked = Some(Nav::Prev);
+        }
     }
 
     // 绘制右按钮
@@ -29,8 +47,24 @@ pub fn draw_arrows(ui: &mut Ui, rect: Rect) -> Option<Nav> {
         rect.right_center() - Vec2::new(margin + btn_size.x / 2.0, 0.0),
         btn_size,
     );
-    if draw_nav_button(ui, right_rect, "⏵").clicked() {
-        clicked = Some(Nav::Next);
+    // 只有鼠标悬停在右侧区域时才显示右按钮
+    let right_hover_rect = Rect::from_min_max(
+        rect.max - egui::vec2(hover_zone_width, rect.height()),
+        rect.max,
+    );
+
+    // 调试：绘制右侧感应区域
+    ui.painter().rect_filled(
+        right_hover_rect,
+        0.0,
+        // Color32::from_rgba_unmultiplied(0, 0, 255, 50), // 半透明蓝色
+        Color32::default()
+    );
+
+    if ui.rect_contains_pointer(right_hover_rect) || ui.rect_contains_pointer(right_rect) {
+        if draw_nav_button(ui, right_rect, "⏵").clicked() {
+            clicked = Some(Nav::Next);
+        }
     }
 
     clicked

@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 use crate::i18n::Language;
-use std::fs;
-use std::path::PathBuf;
+use std::{
+    fs,
+    path::PathBuf,
+    env,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Config {
@@ -17,7 +20,7 @@ impl Default for Config {
 }
 
 fn get_config_path() -> PathBuf {
-    let mut path = std::env::current_exe().unwrap_or_default();
+    let mut path = env::current_exe().unwrap_or_default();
     path.set_file_name("config.json");
     path
 }

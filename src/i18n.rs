@@ -31,6 +31,10 @@ pub struct TextBundle {
     pub menu_settings: &'static str,
     pub menu_about: &'static str,
 
+    // Context Menu
+    pub context_copy_image: &'static str,
+    pub context_copy_path: &'static str,
+
     // Settings
     pub settings_title: &'static str,
     pub settings_language: &'static str,
@@ -56,6 +60,8 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     menu_open_folder: "打开文件夹…",
     menu_settings: "设置",
     menu_about: "关于",
+    context_copy_image: "复制图片",
+    context_copy_path: "复制图片路径",
     settings_title: "设置",
     settings_language: "语言",
     settings_close: "关闭",
@@ -74,6 +80,8 @@ pub const EN_TEXT: TextBundle = TextBundle {
     menu_open_folder: "Open Folder...",
     menu_settings: "Settings",
     menu_about: "About",
+    context_copy_image: "Copy Image",
+    context_copy_path: "Copy Image Path",
     settings_title: "Settings",
     settings_language: "Language",
     settings_close: "Close",
@@ -92,6 +100,8 @@ pub const JA_TEXT: TextBundle = TextBundle {
     menu_open_folder: "フォルダを開く...",
     menu_settings: "設定",
     menu_about: "について",
+    context_copy_image: "画像をコピー",
+    context_copy_path: "画像パスをコピー",
     settings_title: "設定",
     settings_language: "言語",
     settings_close: "閉じる",

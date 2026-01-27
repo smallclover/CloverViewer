@@ -3,7 +3,7 @@ use egui::{
     Context, FontDefinitions,
     FontFamily, TextureHandle,
     ViewportBuilder,FontData,
-    Key
+    Key, Pos2
 };
 use std::{
     num::NonZeroUsize,
@@ -16,8 +16,7 @@ use crate::{
     image_loader::{ImageLoader, LoadResult},
     navigator::Navigator,
     ui::{
-        menu::draw_menu,
-        menu::render_about_window,
+        menu::{draw_menu, render_about_window, render_context_menu},
         preview::draw_preview_bar,
         loading::global_loading,
         resources::APP_FONT,
@@ -62,6 +61,7 @@ pub struct MyApp {
     show_settings: bool, // 设置菜单状态
     failed_thumbs: HashSet<PathBuf>, // 记录加载失败的预览图路径
     config: Config, // 配置
+    context_menu_pos: Option<Pos2>, // 右键菜单位置
 }
 
 impl MyApp {
@@ -95,6 +95,7 @@ impl MyApp {
             show_settings: false,
             failed_thumbs: HashSet::new(),
             config,
+            context_menu_pos: None,
         };
 
         if let Some(path) = start_path {
@@ -227,14 +228,10 @@ impl MyApp {
     fn handler_inputs(&mut self, ctx: &Context) {
         ctx.input(|i| {
             if i.key_pressed(Key::ArrowLeft) {
-                if self.nav.prev().is_some() {
-                    self.load_current(ctx.clone());
-                }
+                self.prev_image(ctx.clone());
             }
             if i.key_pressed(Key::ArrowRight) {
-                if self.nav.next().is_some() {
-                    self.load_current(ctx.clone());
-                }
+                self.next_image(ctx.clone());
             }
         });
 
@@ -249,6 +246,20 @@ impl MyApp {
         let scroll_delta = ctx.input(|i| i.smooth_scroll_delta.y);
         if scroll_delta != 0.0 {
             self.zoom = (self.zoom + scroll_delta * 0.001).clamp(0.1, 10.0);
+        }
+    }
+
+    // 封装上一张图片的逻辑
+    fn prev_image(&mut self, ctx: Context) {
+        if self.nav.prev().is_some() {
+            self.load_current(ctx);
+        }
+    }
+
+    // 封装下一张图片的逻辑
+    fn next_image(&mut self, ctx: Context) {
+        if self.nav.next().is_some() {
+            self.load_current(ctx);
         }
     }
 }
@@ -274,12 +285,13 @@ impl eframe::App for MyApp {
 
         match draw_viewer(ctx, viewer_state, self.show_about || self.show_settings, self.config.language) {
             ViewerAction::Prev => {
-                self.nav.prev();
-                self.load_current(ctx.clone());
+                self.prev_image(ctx.clone());
             }
             ViewerAction::Next => {
-                self.nav.next();
-                self.load_current(ctx.clone());
+                self.next_image(ctx.clone());
+            }
+            ViewerAction::ContextMenu(pos) => {
+                self.context_menu_pos = Some(pos);
             }
             ViewerAction::None => {}
         }
@@ -314,6 +326,9 @@ impl eframe::App for MyApp {
                 save_config(&self.config);
             }
         }
+
+        // 8. 渲染右键菜单
+        render_context_menu(ctx, &mut self.context_menu_pos, self.config.language);
 
         // 全局状态
         if self.current_texture.is_none() && self.loader.is_loading {
