@@ -42,6 +42,7 @@ pub struct TextBundle {
     pub settings_advanced: &'static str,   // New tab
     pub settings_language: &'static str,
     pub settings_close: &'static str,
+    pub settings_apply: &'static str,
 
     // About
     pub about_title: &'static str,
@@ -71,6 +72,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     settings_advanced: "高级",
     settings_language: "语言",
     settings_close: "关闭",
+    settings_apply: "应用",
     about_title: "关于项目",
     about_desc: "Rust 图片查看器",
     about_github: "GitHub 源码地址",
@@ -94,6 +96,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
     settings_advanced: "Advanced",
     settings_language: "Language",
     settings_close: "Close",
+    settings_apply: "Apply",
     about_title: "About",
     about_desc: "Rust Image Viewer",
     about_github: "GitHub Repository",
@@ -117,6 +120,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
     settings_advanced: "詳細",
     settings_language: "言語",
     settings_close: "閉じる",
+    settings_apply: "設定",
     about_title: "プロジェクトについて",
     about_desc: "Rust 画像ビューア",
     about_github: "GitHub ソースコード",

@@ -1,11 +1,12 @@
 use egui::{Align2, Area, Color32, Context, Id, Order, RichText, Sense, Ui, LayerId};
-
+/// 弹窗基类
 pub struct ModalFrame;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ModalAction {
     None,
     Close,
+    Apply,
 }
 
 impl ModalFrame {
@@ -63,7 +64,8 @@ impl ModalFrame {
                 if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                     esc_pressed = true;
                 }
-                add_contents(ui)
+                action_from_content = add_contents(ui);
+                action_from_content
             });
 
         // 3. 安全地提取返回值
@@ -75,6 +77,10 @@ impl ModalFrame {
 
         // 4. 统一同步状态
         if !window_open || action_from_content == ModalAction::Close || esc_pressed {
+            *open = false;
+        }
+
+        if action_from_content == ModalAction::Apply {
             *open = false;
         }
     }

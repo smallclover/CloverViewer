@@ -10,7 +10,7 @@ use egui::{
     Mesh,Sense
 };
 use lru::LruCache;
-use crate::navigator::Navigator;
+use crate::core::navigator::Navigator;
 
 enum ThumbnailState<'a> {
     Loaded(&'a TextureHandle),//已经加载

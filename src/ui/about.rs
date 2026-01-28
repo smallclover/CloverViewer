@@ -1,7 +1,7 @@
 use egui::Context;
 use crate::i18n::{get_text, Language};
 use crate::ui::modal::{ModalAction, ModalFrame};
-
+///关于窗口
 pub fn render_about_window(ctx: &Context, open: &mut bool, lang: Language) {
     let text = get_text(lang);
 

@@ -6,7 +6,7 @@ use std::{
     env,
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Config {
     pub language: Language,
 }

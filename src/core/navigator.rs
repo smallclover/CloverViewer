@@ -57,7 +57,7 @@ impl Navigator {
     pub fn current(&self) -> Option<PathBuf> {
         self.list.get(self.index).cloned()
     }
-    
+
     /// 获取当前索引及其前后的 5 个路径和索引
     pub fn get_preview_window(&self) -> Vec<(usize, PathBuf)> {
         if self.list.is_empty() {

@@ -4,8 +4,7 @@
 mod app;
 mod utils;
 mod ui;
-mod image_loader;
-mod navigator;
+mod core;
 mod constants;
 mod i18n;
 mod config;

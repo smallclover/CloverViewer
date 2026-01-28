@@ -1,9 +1,10 @@
 use eframe::emath::Pos2;
+use crate::config::Config;
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum UiMode {
     Normal,
     About,
-    Settings,
+    Settings(Config),
     ContextMenu(Pos2),
 }

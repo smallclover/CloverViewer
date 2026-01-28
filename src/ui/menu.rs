@@ -1,57 +1,58 @@
-use egui::{
-    Context, TopBottomPanel, MenuBar,
+use crate::{
+    config::Config,
+    i18n::{get_text, Language},
+    ui::ui_mode::UiMode,
 };
-use rfd::FileDialog;
-use std::path::PathBuf;
-use crate::{constants::SUPPORTED_IMAGE_EXTENSIONS, i18n::{get_text, Language}};
-use crate::ui::ui_mode::UiMode;
+use egui::{Context, MenuBar, TopBottomPanel};
 
+/// 绘制主菜单栏
+///
+/// ## 返回
+///
+/// 返回一个元组 `(bool, bool)`，分别表示：
+/// 1. 是否点击了“打开文件”
+/// 2. 是否点击了“打开文件夹”
 pub fn draw_menu(
     ctx: &Context,
     ui_mode: &mut UiMode,
-    lang: Language
-) -> Option<PathBuf> {
-    let mut picked_path = None;
+    lang: Language,
+    config: &Config,
+) -> (bool, bool) {
     let text = get_text(lang);
 
+    let mut open_file_dialog = false;
+    let mut open_folder_dialog = false;
+
     TopBottomPanel::top("menu").show(ctx, |ui| {
-            MenuBar::new().ui(ui, |ui| {
-                // “文件”菜单
-                ui.menu_button(text.menu_file, |ui| {
+        MenuBar::new().ui(ui, |ui| {
+            // “文件”菜单
+            ui.menu_button(text.menu_file, |ui| {
+                ui.set_min_width(130.0);
 
-                    ui.set_min_width(130.0);
-
-                    if ui.button(text.menu_open_file).clicked() {
-                        if let Some(path) = FileDialog::new()
-                            .add_filter("Image", SUPPORTED_IMAGE_EXTENSIONS)
-                            .pick_file() {
-                            picked_path = Some(path);
-                        }
-                        ui.close()
-                    }
-                    if ui.button(text.menu_open_folder).clicked() {
-                        if let Some(path) = FileDialog::new()
-                            .pick_folder() {
-                            picked_path = Some(path);
-                        }
-                        ui.close()
-                    }
-
-                    ui.separator();
-
-                    // 设置
-                    if ui.button(text.menu_settings).clicked() {
-                        *ui_mode = UiMode::Settings;
-                    }
-                });
-
-                // --- 2. 追加“关于”按钮 ---
-                if ui.button(text.menu_about).clicked() {
-                    *ui_mode = UiMode::About;
+                if ui.button(text.menu_open_file).clicked() {
+                    open_file_dialog = true;
+                    ui.close();
+                }
+                if ui.button(text.menu_open_folder).clicked() {
+                    open_folder_dialog = true;
+                    ui.close();
                 }
 
+                ui.separator();
+
+                // 设置
+                if ui.button(text.menu_settings).clicked() {
+                    *ui_mode = UiMode::Settings(config.clone());
+                    ui.close();
+                }
             });
+
+            // --- 2. 追加“关于”按钮 ---
+            if ui.button(text.menu_about).clicked() {
+                *ui_mode = UiMode::About;
+            }
+        });
     });
 
-    picked_path
+    (open_file_dialog, open_folder_dialog)
 }
