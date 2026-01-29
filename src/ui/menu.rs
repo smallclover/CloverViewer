@@ -1,6 +1,5 @@
 use crate::{
     config::Config,
-    i18n::{get_text, Language},
     ui::ui_mode::UiMode,
 };
 use egui::{Context, MenuBar, TopBottomPanel};

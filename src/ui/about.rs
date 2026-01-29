@@ -1,5 +1,5 @@
 use egui::Context;
-use crate::i18n::{get_text, Language, TextBundle};
+use crate::i18n::{TextBundle};
 use crate::ui::modal::{ModalAction, ModalFrame};
 ///关于窗口
 pub fn render_about_window(ctx: &Context, open: &mut bool, text: &TextBundle) {
