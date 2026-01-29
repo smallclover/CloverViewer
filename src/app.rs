@@ -23,9 +23,11 @@ use crate::{
         settings::render_settings_window,
         ui_mode::UiMode,
         viewer::{draw_viewer, ViewerState},
-        toast::{ToastManager, ToastSystem}
+        toast::{ToastManager, ToastSystem},
+        modal::ModalAction
     },
     utils::load_icon,
+    i18n::{TextBundle, get_text}
 };
 
 pub fn run() -> eframe::Result<()> {
@@ -49,6 +51,7 @@ pub struct MyApp {
     core: ViewerCore,
     ui_mode: UiMode, // UI 状态机
     config: Config,  // 配置
+    texts: &'static TextBundle, //全局文本
     path_sender: Sender<PathBuf>,
     path_receiver: Receiver<PathBuf>,
     toast_system: ToastSystem,
@@ -72,7 +75,8 @@ impl MyApp {
 
         // 加载配置
         let config = load_config();
-
+        // 初始化时根据语言获取文本引用
+        let texts = get_text(config.language);
         let toast_system = ToastSystem::new();
         let toast_manager = toast_system.manager();
 
@@ -82,6 +86,7 @@ impl MyApp {
             core: ViewerCore::new(),
             ui_mode: UiMode::Normal,
             config,
+            texts,
             path_sender,
             path_receiver,
             toast_system,
@@ -192,17 +197,19 @@ impl MyApp {
                 let mut action = render_settings_window(
                     ctx,
                     &mut open,
-                    self.config.language,
+                    self.texts, // 直接传入缓存的 texts
                     &mut temp_config.language,
                 );
 
-                if action == crate::ui::modal::ModalAction::Apply {
+                if action == ModalAction::Apply {
                     self.config = temp_config.clone();
+                    // --- 切换语言时更新缓存引用 ---
+                    self.texts = get_text(self.config.language);
                     save_config(&self.config);
-                    action = crate::ui::modal::ModalAction::Close;
+                    action = ModalAction::Close;
                 }
 
-                if !open || action == crate::ui::modal::ModalAction::Close {
+                if !open || action == ModalAction::Close {
                     new_ui_mode = Some(UiMode::Normal);
                 }
             }
@@ -210,7 +217,7 @@ impl MyApp {
                 let mut pos_opt = Some(*pos);
                 render_context_menu(
                     ctx, &mut pos_opt,
-                    self.config.language,
+                    self.texts,
                     &self.core.nav,
                     self.core.current_texture.as_ref(),
                     self.core.current_raw_pixels.clone(),

@@ -1,22 +1,23 @@
 use std::sync::Arc;
 use eframe::emath::Pos2;
 use egui::{Area, Color32, Context, Frame, Id, Order, Sense};
-use crate::core::navigator::Navigator;
-use crate::dev_info;
-use crate::i18n::{get_text, Language, TextBundle};
-use crate::ui::toast::ToastManager;
+use crate::{
+    core::navigator::Navigator,
+    i18n::TextBundle,
+    ui::toast::ToastManager
+};
 
 pub fn render_context_menu(
     ctx: &Context,
     pos: &mut Option<Pos2>,
-    lang: Language,
+    text: &TextBundle,
     nav: &Navigator,
     current_texture: Option<&egui::TextureHandle>,
     raw_pixels: Option<Arc<Vec<Color32>>>, // 传入保存的原始数据
     toast_manager: &ToastManager
 ) {
     if let Some(position) = pos {
-        let text = get_text(lang);
+
         let mut close_menu = false;
 
         // 1. 绘制一个全屏的透明遮罩层，用于捕获点击并关闭菜单
@@ -46,7 +47,6 @@ pub fn render_context_menu(
                 Frame::menu(ui.style()).show(ui, |ui| {
                     ui.set_min_width(120.0);
                     if ui.button(text.context_menu_copy).clicked() {
-                        dev_info!("Copy Image clicked");
                         if let (Some(tex), Some(pixels)) = (current_texture, raw_pixels) {
                             let [w, h] = tex.size();
                             copy_image_to_clipboard_async(pixels, w, h, toast_manager, text);
@@ -54,7 +54,6 @@ pub fn render_context_menu(
                         close_menu = true;
                     }
                     if ui.button(text.context_menu_copy_path).clicked() {
-                        dev_info!("Copy Image Path clicked");
                         // ... 剪贴板逻辑 ...
                         if let Some(path) = nav.current() {
                             let mut clipboard = arboard::Clipboard::new().unwrap();
@@ -82,7 +81,7 @@ pub fn copy_image_to_clipboard_async(
     text: &TextBundle,
 ) {
     // 1. 立即给一个反馈，防止用户觉得卡顿
-    toast_manager.info("正在处理复制...");
+    toast_manager.info(text.coping_message);
 
     let toast_clone = toast_manager.clone();
     let copied_message = text.copied_message;

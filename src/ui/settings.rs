@@ -1,5 +1,5 @@
 use egui::{Align, ComboBox, Context, Layout, Id, Ui, ScrollArea};
-use crate::i18n::{get_text, Language, TextBundle};
+use crate::i18n::{Language, TextBundle};
 use crate::ui::modal::{ModalAction, ModalFrame};
 
 #[derive(PartialEq, Clone, Copy)]
@@ -12,10 +12,10 @@ enum SettingsTab {
 pub fn render_settings_window(
     ctx: &Context,
     open: &mut bool,
-    render_lang: Language,
+    text: &TextBundle, // 直接接收文本包引用
     lang_setting: &mut Language,
 ) -> ModalAction {
-    let text = get_text(render_lang);
+
     let tab_id = Id::new("settings_tab_state");
     let mut current_tab = ctx.data(|d| d.get_temp(tab_id)).unwrap_or(SettingsTab::General);
     let mut action = ModalAction::None;
