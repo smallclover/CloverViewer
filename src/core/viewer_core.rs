@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
-use egui::{Context, TextureHandle};
+use std::sync::Arc;
+use egui::{Color32, Context, TextureHandle};
 use lru::LruCache;
 use crate::core::image_loader::{ImageLoader, LoadResult};
 use crate::core::navigator::Navigator;
@@ -13,6 +14,8 @@ pub struct ViewerCore {
     pub texture_cache: LruCache<PathBuf, TextureHandle>,
     pub thumb_cache: LruCache<PathBuf, TextureHandle>,
     pub current_texture: Option<TextureHandle>,
+    /// 保存当前高清图的原始像素，用于极速复制
+    pub current_raw_pixels: Option<Arc<Vec<Color32>>>,
     pub error: Option<String>,
     pub zoom: f32,
     pub failed_thumbs: HashSet<PathBuf>,
@@ -26,6 +29,7 @@ impl ViewerCore {
             texture_cache: LruCache::new(NonZeroUsize::new(10).unwrap()),
             thumb_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
             current_texture: None,
+            current_raw_pixels: None,
             error: None,
             zoom: 1.0,
             failed_thumbs: HashSet::new(),
@@ -45,30 +49,34 @@ impl ViewerCore {
         let mut processed_count = 0;
         let mut should_trigger_preloads = false;
         let mut received_any = false;
-
-        while processed_count < 5 {
+        //开启6个线程
+        while processed_count <= 6 {
             match self.loader.rx.try_recv() {
                 Ok(msg) => {
                     received_any = true;
                     match msg.result {
-                        LoadResult::Ok(tex) => {
+                        LoadResult::Ok(success) => {
+                            // 如果有缩略图加载缩略图，没有加载原图
                             if msg.is_thumbnail {
-                                self.thumb_cache.put(msg.path.clone(), tex.clone());
-                                if Some(&msg.path) == self.nav.current().as_ref() {
+                                self.thumb_cache.put(msg.path.clone(), success.texture.clone());
+                                if Some(msg.path) == self.nav.current() {
                                     if self.current_texture.is_none() {
-                                        self.current_texture = Some(tex);
+                                        self.current_texture = Some(success.texture);
                                     }
                                 }
                             } else {
-                                self.texture_cache.put(msg.path.clone(), tex.clone());
+                                // 存储用于复制的高清原始像素
+                                self.current_raw_pixels = Some(success.raw_pixels);
+                                // 存储纹理
+                                self.texture_cache.put(msg.path.clone(), success.texture.clone());
                                 if Some(msg.path) == self.nav.current() {
-                                    let tex_size = tex.size_vec2();
+                                    let tex_size = success.texture.size_vec2();
                                     let available = ctx.available_rect().size();
                                     let scale_v = available.y / tex_size.y;
                                     let scale_h = (available.x - 120.0) / tex_size.x;
                                     self.zoom = scale_v.min(scale_h).min(1.0);
 
-                                    self.current_texture = Some(tex);
+                                    self.current_texture = Some(success.texture);
                                     self.loader.is_loading = false;
                                     should_trigger_preloads = true;
                                 }

@@ -1,3 +1,13 @@
+use eframe::egui;
+use egui::{Context, FontData, FontDefinitions, FontFamily, Key, ViewportBuilder};
+use rfd::FileDialog;
+use std::{
+    path::PathBuf,
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Arc,
+    },
+};
 use crate::{
     config::{load_config, save_config, Config},
     constants::SUPPORTED_IMAGE_EXTENSIONS,
@@ -9,22 +19,13 @@ use crate::{
         menu::draw_menu,
         preview::show_preview_window,
         resources::APP_FONT,
-        right_click_menu::render_context_menu,
+        context_menu::render_context_menu,
         settings::render_settings_window,
         ui_mode::UiMode,
         viewer::{draw_viewer, ViewerState},
+        toast::{ToastManager, ToastSystem}
     },
     utils::load_icon,
-};
-use eframe::egui;
-use egui::{Context, FontData, FontDefinitions, FontFamily, Key, ViewportBuilder};
-use rfd::FileDialog;
-use std::{
-    path::PathBuf,
-    sync::{
-        mpsc::{self, Receiver, Sender},
-        Arc,
-    },
 };
 
 pub fn run() -> eframe::Result<()> {
@@ -50,6 +51,8 @@ pub struct MyApp {
     config: Config,  // 配置
     path_sender: Sender<PathBuf>,
     path_receiver: Receiver<PathBuf>,
+    toast_system: ToastSystem,
+    toast_manager: ToastManager, // 传递给其他 UI 组件使用
 }
 
 impl MyApp {
@@ -70,6 +73,9 @@ impl MyApp {
         // 加载配置
         let config = load_config();
 
+        let toast_system = ToastSystem::new();
+        let toast_manager = toast_system.manager();
+
         let (path_sender, path_receiver) = mpsc::channel();
 
         let mut app = Self {
@@ -78,6 +84,8 @@ impl MyApp {
             config,
             path_sender,
             path_receiver,
+            toast_system,
+            toast_manager,
         };
 
         if let Some(path) = start_path {
@@ -200,7 +208,14 @@ impl MyApp {
             }
             UiMode::ContextMenu(pos) => {
                 let mut pos_opt = Some(*pos);
-                render_context_menu(ctx, &mut pos_opt, self.config.language);
+                render_context_menu(
+                    ctx, &mut pos_opt,
+                    self.config.language,
+                    &self.core.nav,
+                    self.core.current_texture.as_ref(),
+                    self.core.current_raw_pixels.clone(),
+                    &self.toast_manager
+                );
                 if pos_opt.is_none() {
                     new_ui_mode = Some(UiMode::Normal);
                 }
@@ -232,9 +247,13 @@ impl eframe::App for MyApp {
         self.handler_inputs(ctx);
 
         // 3. 视图层：渲染各个区域
+        // self.ui_toasts(ctx);
         self.ui_top_panel(ctx);
         self.ui_central_panel(ctx);
         self.ui_preview_panel(ctx);
         self.ui_overlays(ctx);
+
+        // 4. 渲染 Toast (放在最后，确保在最顶层)
+        self.toast_system.update(ctx);
     }
 }

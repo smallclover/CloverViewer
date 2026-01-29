@@ -3,10 +3,15 @@ use egui::{
     CentralPanel, Color32, Context, CursorIcon, Frame,
     Image, RichText, ScrollArea, TextureHandle, Ui, UiBuilder, Rect
 };
-use crate::ui::arrows::{draw_arrows, Nav};
-use crate::ui::loading::corner_loading;
-use crate::i18n::{get_text, Language};
-use crate::ui::ui_mode::UiMode;
+use crate::{
+    ui::{
+        arrows::{draw_arrows, Nav},
+        loading::corner_loading,
+        ui_mode::UiMode
+    },
+    i18n::{get_text, Language}
+};
+
 
 pub struct ViewerState<'a> {
     pub texture: Option<&'a TextureHandle>,
@@ -105,6 +110,7 @@ fn render_image_viewer(
     tex: &TextureHandle,
     zoom: f32
 ) {
+    // 计算是否能够拖动，然后变换鼠标样式
     let size = tex.size_vec2() * zoom;
     let available_size = ui.available_size();
     let is_draggable = size.x > available_size.x || size.y > available_size.y;

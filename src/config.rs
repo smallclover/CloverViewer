@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
-use crate::i18n::Language;
 use std::{
     fs,
     path::PathBuf,
     env,
 };
+use crate::i18n::Language;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Config {

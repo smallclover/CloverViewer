@@ -2,22 +2,28 @@ use std::fs::File;
 use std::io::{BufReader, Seek, SeekFrom};
 use egui::{ColorImage, Context, TextureHandle};
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
 use image::ImageReader;
 use exif::{In, Reader, Tag};
 use image::metadata::Orientation;
 
+pub struct LoadSuccess {
+    pub texture: TextureHandle,
+    pub raw_pixels: Arc<Vec<egui::Color32>>, // 新增：原始像素快照
+}
+
 pub enum LoadResult {
-    Ok(TextureHandle),
+    Ok(LoadSuccess),
     Err(String),
 }
 
 pub struct LoadMessage {
     pub path: PathBuf,
     pub result: LoadResult,
-    pub is_priority: bool,
-    pub is_thumbnail: bool, // 标记这是缩略图
+    pub is_priority: bool, // 加载优先级
+    pub is_thumbnail: bool, // 缩略图
 }
 
 
@@ -57,14 +63,21 @@ impl ImageLoader {
 
             let result = match Self::decode_image(&path_clone, size) {
                 Ok(color_image) => {
+                    // 1. 在主线程创建纹理之前，先保留像素引用
+                    let raw_pixels = Arc::new(color_image.pixels.clone());
                     let name = if is_thumbnail {
                         format!("thumb_{}", path_clone.display())
                     }else{
                         path_clone.file_name().unwrap_or_default().to_string_lossy().into()
                     };
-
+                    // 2. 创建纹理
                     let tex = ctx.load_texture(name, color_image, Default::default());
-                    LoadResult::Ok(tex)
+
+                    // 3. 返回组合结构
+                    LoadResult::Ok(LoadSuccess {
+                        texture: tex,
+                        raw_pixels,
+                    })
                 }
                 Err(e) => LoadResult::Err(e),
             };

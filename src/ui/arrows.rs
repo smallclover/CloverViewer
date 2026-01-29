@@ -96,9 +96,9 @@ fn draw_nav_button(ui: &mut Ui, rect: Rect, icon: &str) -> Response {
     if response.hovered() {
         ui.painter().rect_stroke(
             rect,
-            8.0,                             // 圆角 (Rounding)
+            8.0,                 // 圆角 (Rounding)
             (1.0, Color32::GRAY),     // 粗细与颜色 (Stroke)
-            StrokeKind::Inside         // 边框类型 (StrokeKind)
+            StrokeKind::Inside               // 边框类型 (StrokeKind)
         );
     }
 

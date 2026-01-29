@@ -7,5 +7,7 @@ pub mod viewer;
 pub mod settings;
 pub mod about;
 pub mod modal;
-pub mod right_click_menu;
+pub mod context_menu;
 pub mod ui_mode;
+
+pub mod toast;

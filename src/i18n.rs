@@ -32,8 +32,8 @@ pub struct TextBundle {
     pub menu_about: &'static str,
 
     // Context Menu
-    pub context_copy_image: &'static str,
-    pub context_copy_path: &'static str,
+    pub context_menu_copy: &'static str,
+    pub context_menu_copy_path: &'static str,
 
     // Settings
     pub settings_title: &'static str,
@@ -56,6 +56,11 @@ pub struct TextBundle {
 
     // Loading
     pub loading_parsing: &'static str,
+
+    // Toast
+    pub copied_message: &'static str,
+    pub copy_failed_message: &'static str,
+    pub coping_message: &'static str,
 }
 
 pub const ZH_TEXT: TextBundle = TextBundle {
@@ -64,8 +69,8 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     menu_open_folder: "打开文件夹…",
     menu_settings: "设置",
     menu_about: "关于",
-    context_copy_image: "复制图片",
-    context_copy_path: "复制图片路径",
+    context_menu_copy: "复制",
+    context_menu_copy_path: "复制文件路径",
     settings_title: "设置",
     settings_general: "常规",
     settings_appearance: "外观",
@@ -80,6 +85,9 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     viewer_error: "文件损坏或格式不支持",
     viewer_drag_hint: "拖拽或打开图片",
     loading_parsing: "正在解析像素...",
+    copied_message: "已复制",
+    copy_failed_message: "复制失败",
+    coping_message:"正在复制中..."
 };
 
 pub const EN_TEXT: TextBundle = TextBundle {
@@ -88,8 +96,8 @@ pub const EN_TEXT: TextBundle = TextBundle {
     menu_open_folder: "Open Folder...",
     menu_settings: "Settings",
     menu_about: "About",
-    context_copy_image: "Copy Image",
-    context_copy_path: "Copy Image Path",
+    context_menu_copy: "Copy",
+    context_menu_copy_path: "Copy File Path",
     settings_title: "Settings",
     settings_general: "General",
     settings_appearance: "Appearance",
@@ -104,6 +112,9 @@ pub const EN_TEXT: TextBundle = TextBundle {
     viewer_error: "File damaged or format not supported",
     viewer_drag_hint: "Drag or open image",
     loading_parsing: "Parsing pixels...",
+    copied_message: "Copied",
+    copy_failed_message: "Copy failed",
+    coping_message: "Coping...",
 };
 
 pub const JA_TEXT: TextBundle = TextBundle {
@@ -112,8 +123,8 @@ pub const JA_TEXT: TextBundle = TextBundle {
     menu_open_folder: "フォルダを開く...",
     menu_settings: "設定",
     menu_about: "について",
-    context_copy_image: "画像をコピー",
-    context_copy_path: "画像パスをコピー",
+    context_menu_copy: "コピー",
+    context_menu_copy_path: "ファイルパスコピー",
     settings_title: "設定",
     settings_general: "一般",
     settings_appearance: "外観",
@@ -128,6 +139,9 @@ pub const JA_TEXT: TextBundle = TextBundle {
     viewer_error: "ファイルが破損しているか、形式がサポートされていません",
     viewer_drag_hint: "画像をドラッグまたは開く",
     loading_parsing: "ピクセルを解析中...",
+    copied_message: "コピーしました",
+    copy_failed_message: "コピーに失敗しました",
+    coping_message: "コピー中...",
 };
 
 pub fn get_text(lang: Language) -> &'static TextBundle {
