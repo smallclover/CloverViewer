@@ -129,7 +129,7 @@ impl MyApp {
 
     fn ui_top_panel(&mut self, ctx: &Context) {
         let (open_file, open_folder) =
-            draw_menu(ctx, &mut self.ui_mode, self.config.language, &self.config);
+            draw_menu(ctx, &mut self.ui_mode, self.texts, &self.config);
 
         if open_file {
             let sender = self.path_sender.clone();
@@ -187,7 +187,7 @@ impl MyApp {
         match &mut self.ui_mode {
             UiMode::About => {
                 let mut open = true;
-                render_about_window(ctx, &mut open, self.config.language);
+                render_about_window(ctx, &mut open, self.texts);
                 if !open {
                     new_ui_mode = Some(UiMode::Normal);
                 }

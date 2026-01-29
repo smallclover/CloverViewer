@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use eframe::emath::Pos2;
-use egui::{Area, Color32, Context, Frame, Id, Order, Sense};
+use egui::{Area, Color32, Context, Frame, Id, Order, Sense, TextureHandle};
 use crate::{
     core::navigator::Navigator,
     i18n::TextBundle,
@@ -12,7 +12,7 @@ pub fn render_context_menu(
     pos: &mut Option<Pos2>,
     text: &TextBundle,
     nav: &Navigator,
-    current_texture: Option<&egui::TextureHandle>,
+    current_texture: Option<&TextureHandle>,
     raw_pixels: Option<Arc<Vec<Color32>>>, // 传入保存的原始数据
     toast_manager: &ToastManager
 ) {
@@ -22,13 +22,11 @@ pub fn render_context_menu(
 
         // 1. 绘制一个全屏的透明遮罩层，用于捕获点击并关闭菜单
         // 它的 Order 必须比菜单低，但比主界面高
-        // 菜单通常在 Foreground，我们可以把遮罩放在 Middle 或者 Foreground-1
-        // 但 egui 的 Order 比较简单。
-        // 我们可以先画遮罩，再画菜单。因为它们都是 Area，后画的在上面（如果 Order 相同）。
+        // 菜单通常在 Foreground，我们将遮罩放在 Middle
 
         // 使用一个覆盖全屏的 Area
         Area::new(Id::new("context_menu_mask"))
-            .order(Order::Foreground) // 和菜单同一层级，但先画，所以在下面
+            .order(Order::Middle) // 遮罩层使用 Middle，确保在菜单(Foreground)之下
             .fixed_pos(Pos2::ZERO)
             .show(ctx, |ui| {
                 // 分配整个屏幕的空间
@@ -41,28 +39,29 @@ pub fn render_context_menu(
 
         // 2. 绘制实际的菜单
         Area::new(Id::new("context_menu"))
-            .order(Order::Foreground) // 也是 Foreground，后画，所以在遮罩上面
+            .order(Order::Foreground) // 菜单在 Foreground，确保在遮罩上面
             .fixed_pos(*position)
             .show(ctx, |ui| {
                 Frame::menu(ui.style()).show(ui, |ui| {
-                    ui.set_min_width(120.0);
-                    if ui.button(text.context_menu_copy).clicked() {
-                        if let (Some(tex), Some(pixels)) = (current_texture, raw_pixels) {
-                            let [w, h] = tex.size();
-                            copy_image_to_clipboard_async(pixels, w, h, toast_manager, text);
+                    ui.set_width(120.0);
+                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                        if ui.button(text.context_menu_copy).clicked() {
+                            if let (Some(tex), Some(pixels)) = (current_texture, raw_pixels) {
+                                let [w, h] = tex.size();
+                                copy_image_to_clipboard_async(pixels, w, h, toast_manager, text);
+                            }
+                            close_menu = true;
                         }
-                        close_menu = true;
-                    }
-                    if ui.button(text.context_menu_copy_path).clicked() {
-                        // ... 剪贴板逻辑 ...
-                        if let Some(path) = nav.current() {
-                            let mut clipboard = arboard::Clipboard::new().unwrap();
-                            let _ = clipboard.set_text(path.to_string_lossy().to_string());
+                        if ui.button(text.context_menu_copy_path).clicked() {
+                            // ... 剪贴板逻辑 ...
+                            if let Some(path) = nav.current() {
+                                let mut clipboard = arboard::Clipboard::new().unwrap();
+                                let _ = clipboard.set_text(path.to_string_lossy().to_string());
+                            }
+                            toast_manager.success(text.copied_message);
+                            close_menu = true;
                         }
-                        toast_manager.success(text.copied_message);
-
-                        close_menu = true;
-                    }
+                    });
                 });
             });
 

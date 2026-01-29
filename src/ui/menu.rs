@@ -4,6 +4,7 @@ use crate::{
     ui::ui_mode::UiMode,
 };
 use egui::{Context, MenuBar, TopBottomPanel};
+use crate::i18n::TextBundle;
 
 /// 绘制主菜单栏
 ///
@@ -15,10 +16,9 @@ use egui::{Context, MenuBar, TopBottomPanel};
 pub fn draw_menu(
     ctx: &Context,
     ui_mode: &mut UiMode,
-    lang: Language,
+    text: &TextBundle,
     config: &Config,
 ) -> (bool, bool) {
-    let text = get_text(lang);
 
     let mut open_file_dialog = false;
     let mut open_folder_dialog = false;

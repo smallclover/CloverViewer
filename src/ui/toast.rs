@@ -35,7 +35,7 @@ pub struct ToastSystem {
 }
 // 定义一些固定尺寸常数
 const TOAST_WIDTH: f32 = 100.0;
-const TOAST_MIN_HEIGHT: f32 = 25.0;
+const TOAST_MIN_HEIGHT: f32 = 20.0;
 
 impl ToastSystem {
 
@@ -122,7 +122,7 @@ impl ToastSystem {
                         .fill(bg_with_alpha)
                         .corner_radius(8.0)
                         .stroke((1.0, border_color))
-                        .inner_margin(egui::Margin::symmetric(15, 12))
+                        .inner_margin(egui::Margin::symmetric(15, 8))
                         .show(ui, |ui| {
                             ui.set_width(TOAST_WIDTH);
                             ui.set_min_height(TOAST_MIN_HEIGHT);
@@ -143,7 +143,7 @@ impl ToastSystem {
 
                                 // 如果有进度条，它会被放置在垂直布局的最底部
                                 if state.config.show_progress {
-                                    ui.add_space(10.0);
+                                    ui.add_space(6.0);
                                     let progress = (remaining / state.config.duration).clamp(0.0, 1.0);
                                     let height = 2.0;
                                     let width = ui.available_width();
@@ -154,8 +154,6 @@ impl ToastSystem {
                                     let mut progress_rect = rect;
                                     progress_rect.set_width(width * progress);
                                     ui.painter().rect_filled(progress_rect, 1.0, icon_color_with_alpha);
-                                } else {
-                                    ui.add_space(12.0);
                                 }
                             });
                         });
