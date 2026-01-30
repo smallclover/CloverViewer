@@ -1,11 +1,13 @@
 use egui::{Color32, Context, Id, RichText, Align2};
 use std::sync::mpsc::{Receiver, Sender, channel};
+
 /// 通知气泡
 #[derive(Clone, Copy, PartialEq)]
 pub enum ToastLevel {
     Info,
     Success,
     Error,
+    Loading
 }
 
 pub struct ToastConfig {
@@ -76,25 +78,32 @@ impl ToastSystem {
         if let Some(state) = &mut self.state {
             let now = ctx.input(|i| i.time);
             let elapsed = (now - state.start_time) as f32;
+
+            // 如果是 Loading 状态，不执行自动消失逻辑
+            let is_loading = state.config.level == ToastLevel::Loading;
             let remaining = state.config.duration - elapsed;
 
-            if remaining <= 0.0 {
+            if !is_loading && remaining <= 0.0 {
                 self.state = None;
                 return;
             }
 
-            // 动画常数
-            let fade_in_time = 0.2;
-            let fade_out_time = 0.4;
-
-            // 计算透明度 (Alpha)
-            let alpha = if elapsed < fade_in_time {
-                (elapsed / fade_in_time).min(1.0)
-            } else if remaining < fade_out_time {
-                (remaining / fade_out_time).min(1.0)
-            } else {
-                1.0
+            let alpha = if is_loading {
+                (elapsed/0.2).min(1.0)
+            }else{
+                // 动画常数
+                let fade_in_time = 0.2;
+                let fade_out_time = 0.4;
+                // 计算透明度 (Alpha)
+                if elapsed < fade_in_time {
+                    (elapsed / fade_in_time).min(1.0)
+                } else if remaining < fade_out_time {
+                    (remaining / fade_out_time).min(1.0)
+                } else {
+                    1.0
+                }
             };
+
             // --- 单层 Area + Pivot 居中 ---
             egui::Area::new(Id::new("global_toast"))
                 .anchor(Align2::CENTER_TOP, [0.0, 60.0]) // 锚点在屏幕顶部中心
@@ -108,6 +117,7 @@ impl ToastSystem {
                         ToastLevel::Info => (Color32::from_rgb(45, 45, 50), "ℹ", Color32::from_rgb(100, 150, 255)),
                         ToastLevel::Success => (Color32::from_rgb(40, 50, 40), "✔", Color32::from_rgb(100, 255, 150)),
                         ToastLevel::Error => (Color32::from_rgb(50, 40, 40), "✖", Color32::from_rgb(255, 100, 100)),
+                        ToastLevel::Loading => (Color32::from_rgb(45, 45, 50), "", Color32::TRANSPARENT), // Loading 不使用文字图标
                     };
 
                     // 应用透明度
@@ -130,7 +140,16 @@ impl ToastSystem {
                             ui.vertical(|ui| {
                                 ui.horizontal(|ui| {
                                     ui.add_space(2.0);
+                                    if is_loading{
+                                        ui.add(
+                                            egui::Spinner::new()
+                                                .size(18.0)
+                                                .color(Color32::from_gray(180).gamma_multiply(alpha)),
+                                        );
+                                    }else{
                                     ui.label(RichText::new(icon).color(icon_color_with_alpha).size(18.0).strong());
+                                    }
+
                                     ui.add_space(8.0);
 
                                     // 允许文字换行，确保不会撑爆容器宽度
@@ -197,5 +216,14 @@ impl ToastManager {
 
     pub fn info(&self, message: impl Into<String>) {
         self.show(message, ToastLevel::Info, 2.5, true);
+    }
+
+    pub fn loading(&self, message: impl Into<String>) {
+        let _ = self.sender.send(ToastCommand::Show(ToastConfig {
+            message: message.into(),
+            level: ToastLevel::Loading,
+            duration: 999.0, // Loading 状态下这个值会被渲染逻辑忽略
+            show_progress: false,
+        }));
     }
 }

@@ -235,7 +235,7 @@ impl MyApp {
         }
 
         if self.core.current_texture.is_none() && self.core.loader.is_loading {
-            global_loading(ctx, self.config.language);
+            global_loading(ctx, self.texts.loading_parsing.to_string());
         }
     }
 }
@@ -254,7 +254,6 @@ impl eframe::App for MyApp {
         self.handler_inputs(ctx);
 
         // 3. 视图层：渲染各个区域
-        // self.ui_toasts(ctx);
         self.ui_top_panel(ctx);
         self.ui_central_panel(ctx);
         self.ui_preview_panel(ctx);

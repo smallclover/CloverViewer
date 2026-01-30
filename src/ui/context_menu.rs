@@ -80,7 +80,7 @@ pub fn copy_image_to_clipboard_async(
     text: &TextBundle,
 ) {
     // 1. 立即给一个反馈，防止用户觉得卡顿
-    toast_manager.info(text.coping_message);
+    toast_manager.loading(text.coping_message);
 
     let toast_clone = toast_manager.clone();
     let copied_message = text.copied_message;

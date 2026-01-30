@@ -6,7 +6,6 @@ use egui::{
 use crate::{
     ui::{
         arrows::{draw_arrows, Nav},
-        loading::corner_loading,
         ui_mode::UiMode
     },
     i18n::{get_text, Language}
@@ -39,7 +38,7 @@ pub fn draw_viewer(
         // --- 1. 渲染图片内容 ---
         if let Some(tex) = state.texture {
             // 渲染图片，不返回交互响应
-            render_image_viewer(ui, tex, state.zoom);
+            render_image_viewer(ui, tex, state.zoom, state.is_loading);
 
             // --- 2. 全局右键检测 ---
             // 不使用 interact 捕获，而是直接检查输入状态
@@ -74,9 +73,6 @@ pub fn draw_viewer(
                 }
             }
 
-            if state.is_loading {
-                corner_loading(ui);
-            }
         }
         // --- 3. 处理其他状态（加载、失败、空状态） ---
         else if let Some(_) = state.error {
@@ -108,7 +104,8 @@ pub fn draw_viewer(
 fn render_image_viewer(
     ui: &mut Ui,
     tex: &TextureHandle,
-    zoom: f32
+    zoom: f32,
+    is_loading_high_res: bool
 ) {
     // 计算是否能够拖动，然后变换鼠标样式
     let size = tex.size_vec2() * zoom;
@@ -120,6 +117,12 @@ fn render_image_viewer(
             ui.ctx().set_cursor_icon(CursorIcon::Move);
         }
     }
+    // 平滑动画：计算加载遮罩的透明度
+    let fade_alpha = ui.ctx().animate_bool_with_time(
+        egui::Id::new(tex.id()).with("loading_fade"),
+        is_loading_high_res,
+        0.25
+    );
 
     ScrollArea::both()
         .scroll_source(egui::scroll_area::ScrollSource::DRAG)
@@ -132,8 +135,32 @@ fn render_image_viewer(
                 ui.add_space(x_offset);
                 ui.vertical(|ui| {
                     ui.add_space(y_offset);
+                    // 1. 绘制图片
+                    let img_rect = ui.allocate_exact_size(size, egui::Sense::hover()).0;
                     let img_widget = Image::from_texture(tex).fit_to_exact_size(size);
-                    ui.add(img_widget);
+                    ui.put(img_rect, img_widget);
+
+                    // 2. 绘制加载遮罩 (当正在加载大图时)
+                    if fade_alpha > 0.0 {
+                        let painter = ui.painter_at(img_rect);
+
+                        // 遮罩层：让缩略图变暗，突出正在处理感
+                        painter.rect_filled(
+                            img_rect,
+                            0.0,
+                            Color32::BLACK.gamma_multiply(fade_alpha * 0.4)
+                        );
+
+                        // 在图片中心绘制一个精致的 Spinner
+                        let spinner_size = 32.0;
+                        let spinner_rect = Rect::from_center_size(
+                            img_rect.center(),
+                            egui::vec2(spinner_size, spinner_size)
+                        );
+
+                        // 使用你现有的 Spinner 样式，但在图片中心显示
+                        ui.put(spinner_rect, egui::Spinner::new().size(spinner_size).color(Color32::WHITE.gamma_multiply(fade_alpha)));
+                    }
                 });
             });
         });
