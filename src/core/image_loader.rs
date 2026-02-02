@@ -1,17 +1,17 @@
-use std::fs::File;
-use std::io::{BufReader, Seek, SeekFrom};
+use std::io::{Cursor};
 use egui::{ColorImage, Context, TextureHandle};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::thread;
-use image::ImageReader;
+use image::{DynamicImage};
 use exif::{In, Reader, Tag};
 use image::metadata::Orientation;
+use rayon::{ThreadPool, ThreadPoolBuilder};
+use zune_jpeg::JpegDecoder;
 
 pub struct LoadSuccess {
     pub texture: TextureHandle,
-    pub raw_pixels: Arc<Vec<egui::Color32>>, // 新增：原始像素快照
+    pub raw_pixels: Arc<Vec<egui::Color32>>, // 原始像素快照
 }
 
 pub enum LoadResult {
@@ -31,15 +31,36 @@ pub struct ImageLoader {
     tx: Sender<LoadMessage>,
     pub rx: Receiver<LoadMessage>,
     pub is_loading: bool,
+    // 双线程池：主图池和缩略图池
+    main_pool: ThreadPool,
+    thumb_pool: ThreadPool,
 }
 
 impl ImageLoader {
     pub fn new() -> Self {
         let (tx, rx) = channel();
+
+        // 主池：专注当前大图，给 1-2 个线程保证绝对响应
+        let main_pool = ThreadPoolBuilder::new()
+            .num_threads(2)
+            .thread_name(|i| format!("img-main-{}", i))
+            .build()
+            .expect("Failed to create main thread pool");
+
+        // 缩略图池：利用剩余核心进行后台预加载
+        let thumb_threads = (num_cpus::get() - 2).max(2);
+        let thumb_pool = ThreadPoolBuilder::new()
+            .num_threads(thumb_threads)
+            .thread_name(|i| format!("img-thumb-{}", i))
+            .build()
+            .expect("Failed to create thumb thread pool");
+
         Self {
             tx,
             rx,
             is_loading: false,
+            main_pool,
+            thumb_pool,
         }
     }
 
@@ -50,16 +71,18 @@ impl ImageLoader {
         let path_clone = path.clone();
         let is_thumbnail = size.is_some();
 
-        // 如果是当前正在看的图，我们标记为加载中
+        // 只有高优先级任务会触发全局加载状态锁定
         if is_priority {
             self.is_loading = true;
         }
 
-        rayon::spawn(move || {
-            // 如果是低优先级的缩略图，可以稍微让出 CPU
-            if !is_priority {
-                thread::yield_now();
-            }
+        let target_pool = if is_priority {
+            &self.main_pool
+        } else {
+            &self.thumb_pool
+        };
+
+        target_pool.spawn(move || {
 
             let result = match Self::decode_image(&path_clone, size) {
                 Ok(color_image) => {
@@ -89,7 +112,6 @@ impl ImageLoader {
                 is_thumbnail,
             });
             ctx.request_repaint(); // 唤醒 UI 渲染
-
         });
     }
 
@@ -109,41 +131,56 @@ impl ImageLoader {
     }
 
     fn decode_image(path: &PathBuf, size: Option<(u32, u32)>) -> Result<ColorImage, String> {
-        let file = File::open(path).map_err(|e| e.to_string())?;
-        let mut reader = BufReader::new(file);
+        let data = std::fs::read(path).map_err(|e| e.to_string())?;
 
-        // A. 读取 EXIF 方向 (优化：复用 reader)
         let orientation_value = {
             let val = (|| {
-                let exif = Reader::new().read_from_container(&mut reader).ok()?;
+                let exif = Reader::new()
+                    .read_from_container(&mut std::io::Cursor::new(&data))
+                    .ok()?;
+
                 exif.get_field(Tag::Orientation, In::PRIMARY)?
                     .value
                     .get_uint(0)
             })();
-            // 无论成功与否，重置文件指针到开头
-            let _ = reader.seek(SeekFrom::Start(0));
             val.unwrap_or(1)
         };
 
-        // B. 解码图片
-        let mut img = ImageReader::new(reader)
-            .with_guessed_format()
-            .map_err(|e| e.to_string())?
-            .decode()
-            .map_err(|e| e.to_string())?;
+        let is_jpeg = data.len() > 2 && data[0] == 0xFF && data[1] == 0xD8;
 
-        // C. 应用旋转
+        let mut img = if is_jpeg {
+            // --- JPEG 高速通道 ---
+            let mut decoder = JpegDecoder::new(Cursor::new(&data));
+            // 解码为 RGB (zune-jpeg 在 RGB 模式下极快)
+            let pixels = decoder.decode().map_err(|e| e.to_string())?;
+            let info = decoder.info().ok_or("Failed to get JPEG info")?;
+
+            // 将 raw 像素封装进 image crate 的 buffer，以便后续使用 apply_orientation
+            let rgb_buf = image::ImageBuffer::<image::Rgb<u8>, _>::from_raw(
+                info.width as u32,
+                info.height as u32,
+                pixels
+            ).ok_or("Failed to create image buffer")?;
+
+            DynamicImage::ImageRgb8(rgb_buf)
+        } else {
+            // --- 通用通道 (PNG, WebP, etc.) ---
+            image::load_from_memory(&data).map_err(|e| e.to_string())?
+        };
+
+        // 4. 应用旋转
         let img_orient = Self::map_exif_to_orientation(orientation_value);
         img.apply_orientation(img_orient);
 
-        // D. 后续处理...
+        // 5. 后续处理 (缩略图/缩放)
         let processed_img = if let Some((w, h)) = size {
-            img.resize_to_fill(w, h, image::imageops::FilterType::Nearest)
-            // img.thumbnail(w, h)
+            // 注意：如果是生成预览图，thumbnail 算法通常比 resize_to_fill 快得多
+            img.thumbnail(w, h)
         } else {
             img
         };
 
+        // 6. 转换为 egui 格式
         let rgba = processed_img.to_rgba8();
         Ok(ColorImage::from_rgba_unmultiplied(
             [rgba.width() as usize, rgba.height() as usize],
