@@ -9,12 +9,19 @@ use crate::i18n::Language;
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Config {
     pub language: Language,
+    #[serde(default = "default_zoom_sensitivity")]
+    pub zoom_sensitivity: f32,
+}
+
+fn default_zoom_sensitivity() -> f32 {
+    1.0
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             language: Language::default(),
+            zoom_sensitivity: default_zoom_sensitivity(),
         }
     }
 }

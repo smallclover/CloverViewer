@@ -7,8 +7,8 @@ mod ui;
 mod core;
 mod constants;
 mod i18n;
-mod config;
 mod devlogs;
+mod model;
 
 #[cfg(debug_assertions)]
 fn init_log() {

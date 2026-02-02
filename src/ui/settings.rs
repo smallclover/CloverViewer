@@ -1,6 +1,7 @@
 use egui::{Align, ComboBox, Context, Layout, Id, Ui, ScrollArea};
 use crate::i18n::{Language, TextBundle};
 use crate::ui::modal::{ModalAction, ModalFrame};
+use crate::model::config::Config;
 
 #[derive(PartialEq, Clone, Copy)]
 enum SettingsTab {
@@ -13,7 +14,7 @@ pub fn render_settings_window(
     ctx: &Context,
     open: &mut bool,
     text: &TextBundle, // 直接接收文本包引用
-    lang_setting: &mut Language,
+    config: &mut Config,
 ) -> ModalAction {
 
     let tab_id = Id::new("settings_tab_state");
@@ -41,7 +42,7 @@ pub fn render_settings_window(
                             ui.add_space(8.0);
 
                             ScrollArea::vertical().show(ui, |ui| {
-                                render_content_body(ui, current_tab, lang_setting, &text);
+                                render_content_body(ui, current_tab, config, &text);
                             });
                         });
                     },
@@ -98,7 +99,7 @@ fn render_content_header(ui: &mut Ui, current_tab: SettingsTab, text: &TextBundl
 }
 
 /// 渲染具体的设置表单项
-fn render_content_body(ui: &mut Ui, current_tab: SettingsTab, lang_setting: &mut Language, text: &TextBundle) {
+fn render_content_body(ui: &mut Ui, current_tab: SettingsTab, config: &mut Config, text: &TextBundle) {
     ui.vertical(|ui| {
         ui.set_min_width(ui.available_width());
 
@@ -109,7 +110,7 @@ fn render_content_body(ui: &mut Ui, current_tab: SettingsTab, lang_setting: &mut
 
                 ui.horizontal(|ui| {
                     ui.label(format!("{}:", text.settings_language));
-                    let mut selected = *lang_setting;
+                    let mut selected = config.language;
                     ComboBox::from_id_salt("lang_selector")
                         .selected_text(selected.as_str())
                         .show_ui(ui, |ui| {
@@ -117,7 +118,7 @@ fn render_content_body(ui: &mut Ui, current_tab: SettingsTab, lang_setting: &mut
                             ui.selectable_value(&mut selected, Language::En, Language::En.as_str());
                             ui.selectable_value(&mut selected, Language::Ja, Language::Ja.as_str());
                         });
-                    if selected != *lang_setting { *lang_setting = selected; }
+                    if selected != config.language { config.language = selected; }
                 });
             }
             SettingsTab::Appearance => {

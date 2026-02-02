@@ -9,7 +9,7 @@ use std::{
     },
 };
 use crate::{
-    config::{load_config, save_config, Config},
+    model::config::{load_config, save_config, Config},
     constants::SUPPORTED_IMAGE_EXTENSIONS,
     core::viewer_core::ViewerCore,
     ui::{
@@ -195,7 +195,7 @@ impl MyApp {
                     ctx,
                     &mut open,
                     self.texts,
-                    &mut temp_config.language,
+                    temp_config,
                 );
 
                 if action == ModalAction::Apply {

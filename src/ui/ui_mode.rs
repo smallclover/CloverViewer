@@ -1,7 +1,7 @@
-use eframe::emath::Pos2;
-use crate::config::Config;
+use egui::Pos2;
+use crate::model::config::Config;
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, PartialEq)]
 pub enum UiMode {
     Normal,
     About,
