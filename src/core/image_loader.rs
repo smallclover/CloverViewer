@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use image::{DynamicImage};
 use exif::{In, Reader, Tag};
+use image::imageops::FilterType;
 use image::metadata::Orientation;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use zune_jpeg::JpegDecoder;
@@ -175,7 +176,8 @@ impl ImageLoader {
         // 5. 后续处理 (缩略图/缩放)
         let processed_img = if let Some((w, h)) = size {
             // 注意：如果是生成预览图，thumbnail 算法通常比 resize_to_fill 快得多
-            img.thumbnail(w, h)
+            //img.thumbnail(w, h)
+            img.resize_to_fill(w, h, FilterType::Nearest)
         } else {
             img
         };
