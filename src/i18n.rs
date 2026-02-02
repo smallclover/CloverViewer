@@ -34,6 +34,7 @@ pub struct TextBundle {
     // Context Menu
     pub context_menu_copy: &'static str,
     pub context_menu_copy_path: &'static str,
+    pub context_menu_properties: &'static str,
 
     // Settings
     pub settings_title: &'static str,
@@ -71,6 +72,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     menu_about: "关于",
     context_menu_copy: "复制",
     context_menu_copy_path: "复制文件路径",
+    context_menu_properties: "属性",
     settings_title: "设置",
     settings_general: "常规",
     settings_appearance: "外观",
@@ -98,6 +100,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
     menu_about: "About",
     context_menu_copy: "Copy",
     context_menu_copy_path: "Copy File Path",
+    context_menu_properties: "Properties",
     settings_title: "Settings",
     settings_general: "General",
     settings_appearance: "Appearance",
@@ -125,6 +128,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
     menu_about: "について",
     context_menu_copy: "コピー",
     context_menu_copy_path: "ファイルパスコピー",
+    context_menu_properties: "プロパティ",
     settings_title: "設定",
     settings_general: "一般",
     settings_appearance: "外観",

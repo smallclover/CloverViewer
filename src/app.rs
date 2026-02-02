@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui::{Context, FontData, FontDefinitions, FontFamily, Key, ViewportBuilder};
+use egui::{Color32, Context, FontData, FontDefinitions, FontFamily, Key, TextureHandle, ViewportBuilder};
 use rfd::FileDialog;
 use std::{
     path::PathBuf,
@@ -19,12 +19,13 @@ use crate::{
         menu::draw_menu,
         preview::show_preview_window,
         resources::APP_FONT,
-        context_menu::render_context_menu,
+        context_menu::{render_context_menu, ContextMenuAction},
         settings::render_settings_window,
         ui_mode::UiMode,
         viewer::{draw_viewer, ViewerState},
         toast::{ToastManager, ToastSystem},
-        modal::ModalAction
+        modal::ModalAction,
+        properties_panel::{render_properties_panel, ImageProperties},
     },
     utils::load_icon,
     i18n::{TextBundle, get_text}
@@ -35,7 +36,6 @@ pub fn run() -> eframe::Result<()> {
         viewport: ViewportBuilder::default().with_inner_size([1024.0, 768.0]),
         ..Default::default()
     };
-    // 加载图标
     options.viewport = options.viewport.with_icon(load_icon());
 
     let start_path = std::env::args().nth(1).map(PathBuf::from);
@@ -49,18 +49,19 @@ pub fn run() -> eframe::Result<()> {
 
 pub struct MyApp {
     core: ViewerCore,
-    ui_mode: UiMode, // UI 状态机
-    config: Config,  // 配置
-    texts: &'static TextBundle, //全局文本
+    ui_mode: UiMode,
+    config: Config,
+    texts: &'static TextBundle,
     path_sender: Sender<PathBuf>,
     path_receiver: Receiver<PathBuf>,
     toast_system: ToastSystem,
-    toast_manager: ToastManager, // 传递给其他 UI 组件使用
+    toast_manager: ToastManager,
+    show_properties_panel: bool,
+    image_properties: Option<ImageProperties>,
 }
 
 impl MyApp {
     pub fn new(cc: &eframe::CreationContext<'_>, start_path: Option<PathBuf>) -> Self {
-        // --- 1. 字体配置 ---
         let mut fonts = FontDefinitions::default();
         fonts.font_data.insert(
             "my_font".to_owned(),
@@ -73,9 +74,7 @@ impl MyApp {
             .insert(0, "my_font".to_owned());
         cc.egui_ctx.set_fonts(fonts);
 
-        // 加载配置
         let config = load_config();
-        // 初始化时根据语言获取文本引用
         let texts = get_text(config.language);
         let toast_system = ToastSystem::new();
         let toast_manager = toast_system.manager();
@@ -91,6 +90,8 @@ impl MyApp {
             path_receiver,
             toast_system,
             toast_manager,
+            show_properties_panel: false,
+            image_properties: None,
         };
 
         if let Some(path) = start_path {
@@ -100,9 +101,7 @@ impl MyApp {
         app
     }
 
-    /// 输入处理
     fn handler_inputs(&mut self, ctx: &Context) {
-        // 处理键盘输入
         ctx.input(|i| {
             if i.key_pressed(Key::ArrowLeft) {
                 self.core.prev_image(ctx.clone());
@@ -112,7 +111,6 @@ impl MyApp {
             }
         });
 
-        // 拖拽
         if let Some(path) = ctx.input(|i| {
             i.raw
                 .dropped_files
@@ -122,7 +120,6 @@ impl MyApp {
             self.core.handle_dropped_file(ctx.clone(), path);
         }
 
-        // 放大缩小
         let scroll_delta = ctx.input(|i| i.smooth_scroll_delta.y);
         self.core.update_zoom(scroll_delta);
     }
@@ -197,13 +194,12 @@ impl MyApp {
                 let mut action = render_settings_window(
                     ctx,
                     &mut open,
-                    self.texts, // 直接传入缓存的 texts
+                    self.texts,
                     &mut temp_config.language,
                 );
 
                 if action == ModalAction::Apply {
                     self.config = temp_config.clone();
-                    // --- 切换语言时更新缓存引用 ---
                     self.texts = get_text(self.config.language);
                     save_config(&self.config);
                     action = ModalAction::Close;
@@ -215,14 +211,12 @@ impl MyApp {
             }
             UiMode::ContextMenu(pos) => {
                 let mut pos_opt = Some(*pos);
-                render_context_menu(
-                    ctx, &mut pos_opt,
-                    self.texts,
-                    &self.core.nav,
-                    self.core.current_texture.as_ref(),
-                    self.core.current_raw_pixels.clone(),
-                    &self.toast_manager
-                );
+                let action = render_context_menu(ctx, &mut pos_opt, self.texts);
+
+                if let Some(action) = action {
+                    self.handle_context_menu_action(action);
+                }
+
                 if pos_opt.is_none() {
                     new_ui_mode = Some(UiMode::Normal);
                 }
@@ -238,28 +232,100 @@ impl MyApp {
             global_loading(ctx, self.texts.loading_parsing.to_string());
         }
     }
+
+    fn handle_context_menu_action(&mut self, action: ContextMenuAction) {
+        match action {
+            ContextMenuAction::Copy => {
+                if let (Some(tex), Some(pixels)) = (
+                    self.core.current_texture.as_ref(),
+                    self.core.current_raw_pixels.clone(),
+                ) {
+                    let [w, h] = tex.size();
+                    copy_image_to_clipboard_async(
+                        pixels,
+                        w,
+                        h,
+                        &self.toast_manager,
+                        self.texts,
+                    );
+                }
+            }
+            ContextMenuAction::CopyPath => {
+                if let Some(path) = self.core.nav.current() {
+                    let mut clipboard = arboard::Clipboard::new().unwrap();
+                    let _ = clipboard.set_text(path.to_string_lossy().to_string());
+                }
+                self.toast_manager.success(self.texts.copied_message);
+            }
+            ContextMenuAction::ShowProperties => {
+                self.show_properties_panel = true;
+            }
+        }
+    }
+
+    fn update_image_properties(&mut self) {
+        if let (Some(path), Some(texture)) = (self.core.nav.current(), self.core.current_texture.as_ref()) {
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                let [width, height] = texture.size();
+                self.image_properties = Some(ImageProperties {
+                    path: path.to_path_buf(),
+                    width: width as u32,
+                    height: height as u32,
+                    size: metadata.len(),
+                });
+            }
+        }
+    }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        // 1. 数据层：处理异步加载和文件选择
         if self.core.process_load_results(ctx) {
+            self.update_image_properties();
             ctx.request_repaint();
         }
         if let Ok(path) = self.path_receiver.try_recv() {
             self.core.open_new_context(ctx.clone(), path);
         }
 
-        // 2. 控制层：处理输入
         self.handler_inputs(ctx);
 
-        // 3. 视图层：渲染各个区域
         self.ui_top_panel(ctx);
         self.ui_central_panel(ctx);
         self.ui_preview_panel(ctx);
         self.ui_overlays(ctx);
 
-        // 4. 渲染 Toast (放在最后，确保在最顶层)
+        render_properties_panel(ctx, &mut self.show_properties_panel, &self.image_properties);
+
         self.toast_system.update(ctx);
     }
+}
+
+fn copy_image_to_clipboard_async(
+    pixels_arc: Arc<Vec<Color32>>,
+    width: usize,
+    height: usize,
+    toast_manager: &ToastManager,
+    text: &TextBundle,
+) {
+    toast_manager.loading(text.coping_message);
+
+    let toast_clone = toast_manager.clone();
+    let copied_message = text.copied_message;
+    let copy_failed_message = text.copy_failed_message;
+    std::thread::spawn(move || {
+        let mut clipboard = arboard::Clipboard::new().unwrap();
+        let bytes: &[u8] = bytemuck::cast_slice(&pixels_arc);
+        let img_data = arboard::ImageData {
+            width,
+            height,
+            bytes: std::borrow::Cow::Borrowed(bytes),
+        };
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        if let Err(e) = clipboard.set_image(img_data) {
+            toast_clone.error(format!("{}: {}", copy_failed_message, e));
+        } else {
+            toast_clone.success(copied_message);
+        }
+    });
 }
