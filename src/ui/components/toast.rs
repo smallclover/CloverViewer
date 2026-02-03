@@ -4,7 +4,6 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 /// 通知气泡
 #[derive(Clone, Copy, PartialEq)]
 pub enum ToastLevel {
-    Info,
     Success,
     Error,
     Loading
@@ -20,14 +19,12 @@ pub struct ToastConfig {
 /// 发送给 Toast 系统的指令
 pub enum ToastCommand {
     Show(ToastConfig),
-    Dismiss,
 }
 
 /// 内部状态：用于管理动画和显示
 struct ToastState {
     config: ToastConfig,
     start_time: f64,
-    appearing: bool,
 }
 
 pub struct ToastSystem {
@@ -60,18 +57,12 @@ impl ToastSystem {
 
     pub fn update(&mut self, ctx: &Context) {
         // 1. 处理新指令
-        while let Ok(cmd) = self.receiver.try_recv() {
-            match cmd {
-                ToastCommand::Show(config) => {
-                    // 如果当前已有 Toast，直接替换 config 但重置时间，实现原地切换
-                    self.state = Some(ToastState {
-                        config,
-                        start_time: ctx.input(|i| i.time),
-                        appearing: true,
-                    });
-                }
-                ToastCommand::Dismiss => self.state = None,
-            }
+        while let Ok(ToastCommand::Show(config)) = self.receiver.try_recv() {
+            // 如果当前已有 Toast，直接替换 config 但重置时间，实现原地切换
+            self.state = Some(ToastState {
+                config,
+                start_time: ctx.input(|i| i.time),
+            });
         }
 
         // 2. 渲染逻辑
@@ -114,7 +105,6 @@ impl ToastSystem {
                     // 获取对应状态的颜色
                     // 图标
                     let (bg_color, icon, icon_color) = match state.config.level {
-                        ToastLevel::Info => (Color32::from_rgb(45, 45, 50), "ℹ", Color32::from_rgb(100, 150, 255)),
                         ToastLevel::Success => (Color32::from_rgb(40, 50, 40), "✔", Color32::from_rgb(100, 255, 150)),
                         ToastLevel::Error => (Color32::from_rgb(50, 40, 40), "✖", Color32::from_rgb(255, 100, 100)),
                         ToastLevel::Loading => (Color32::from_rgb(45, 45, 50), "", Color32::TRANSPARENT), // Loading 不使用文字图标
@@ -212,10 +202,6 @@ impl ToastManager {
 
     pub fn error(&self, message: impl Into<String>) {
         self.show(message, ToastLevel::Error, 4.0, false);
-    }
-
-    pub fn info(&self, message: impl Into<String>) {
-        self.show(message, ToastLevel::Info, 2.5, true);
     }
 
     pub fn loading(&self, message: impl Into<String>) {

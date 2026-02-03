@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use rayon::prelude::*;
-use crate::constants;
-use crate::ui::resources::APP_IMG;
+use crate::model::constants;
+use crate::ui::components::resources::APP_IMG;
 
 /// 统一的判断逻辑
 pub fn is_image(path: &Path) -> bool {

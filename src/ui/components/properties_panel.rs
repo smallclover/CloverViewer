@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 use egui::{Align, Context, Layout, Ui};
+use crate::core::business::BusinessData;
+use crate::model::state::ViewState;
 
 pub struct ImageProperties {
     pub path: PathBuf,
@@ -10,14 +12,13 @@ pub struct ImageProperties {
 
 pub fn render_properties_panel(
     ctx: &Context,
-    is_open: &mut bool,
-    properties: &Option<ImageProperties>,
+    state: &mut ViewState,
 ) {
-    if !*is_open {
+    if !state.show_properties_panel {
         return;
     }
 
-    let mut my_is_open = *is_open;
+    let mut my_is_open = state.show_properties_panel;
 
     egui::SidePanel::right("properties_panel")
         .resizable(true)
@@ -33,14 +34,14 @@ pub fn render_properties_panel(
             });
             ui.separator();
 
-            if let Some(props) = properties {
+            if let Some(props) = &state.image_properties {
                 render_properties_content(ui, props);
             } else {
                 ui.label("No image loaded.");
             }
         });
 
-    *is_open = my_is_open;
+    state.show_properties_panel = my_is_open;
 }
 
 fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
@@ -61,4 +62,19 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
             ui.label(format!("{} bytes", properties.size));
             ui.end_row();
         });
+}
+
+
+pub fn update_image_properties(data: &BusinessData, state: &mut ViewState) {
+    if let (Some(path), Some(texture)) = (data.current(), data.current_texture.as_ref()) {
+        if let Ok(metadata) = std::fs::metadata(&path) {
+            let [width, height] = texture.size();
+            state.image_properties = Some(ImageProperties {
+                path: path.to_path_buf(),
+                width: width as u32,
+                height: height as u32,
+                size: metadata.len(),
+            });
+        }
+    }
 }

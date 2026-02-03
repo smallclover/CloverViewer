@@ -1,7 +1,10 @@
 use eframe::emath::Pos2;
 use egui::{Area, Context, Frame, Id, Order, Sense};
-
-use crate::i18n::TextBundle;
+use crate::core::business::BusinessData;
+use crate::i18n::lang::{get_text, TextBundle};
+use crate::model::config::Config;
+use crate::model::state::ViewState;
+use crate::utils::clipboard::copy_image_to_clipboard_async;
 
 /// 右键菜单中的操作
 pub enum ContextMenuAction {
@@ -62,4 +65,40 @@ pub fn render_context_menu(
     }
 
     action
+}
+
+pub fn handle_context_menu_action(
+    action: ContextMenuAction,
+    data: &BusinessData,
+    state: &mut ViewState,
+    config: &Config,
+) {
+    let texts = get_text(config.language);
+    match action {
+        ContextMenuAction::Copy => {
+            if let (Some(tex), Some(pixels)) = (
+                data.current_texture.as_ref(),
+                data.current_raw_pixels.clone(),
+            ) {
+                let [w, h] = tex.size();
+                copy_image_to_clipboard_async(
+                    pixels,
+                    w,
+                    h,
+                    &state.toast_manager,
+                    texts,
+                );
+            }
+        }
+        ContextMenuAction::CopyPath => {
+            if let Some(path) = data.current() {
+                let mut clipboard = arboard::Clipboard::new().unwrap();
+                let _ = clipboard.set_text(path.to_string_lossy().to_string());
+            }
+            state.toast_manager.success(texts.copied_message);
+        }
+        ContextMenuAction::ShowProperties => {
+            state.show_properties_panel = true;
+        }
+    }
 }

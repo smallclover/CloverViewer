@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
     env,
 };
-use crate::i18n::Language;
+use crate::i18n::lang::Language;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Config {

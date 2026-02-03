@@ -10,7 +10,7 @@ use egui::{
     Mesh,Sense
 };
 use lru::LruCache;
-use crate::core::navigator::Navigator;
+use crate::core::business::BusinessData;
 
 enum ThumbnailState<'a> {
     Loaded(&'a TextureHandle),//已经加载
@@ -20,20 +20,19 @@ enum ThumbnailState<'a> {
 
 pub fn show_preview_window(
     ctx: &Context,
-    nav: &mut Navigator,
-    thumb_cache: &mut LruCache<PathBuf, TextureHandle>,
-    failed_thumbs: &HashSet<PathBuf>,
+    data: &mut BusinessData,
 ) -> bool {
-    if nav.current().is_some() {
-        let previews = nav.get_preview_window();
+    if data.current().is_some() {
+        let previews = data.get_preview_window();
+        let idx = data.get_index();
         if let Some(new_idx) = draw_preview_bar(
             ctx,
             &previews,
-            thumb_cache,
-            failed_thumbs,
-            nav.get_index()
+            &mut data.thumb_cache,
+            &mut data.failed_thumbs,
+            idx
         ) {
-            nav.set_index(new_idx);
+            data.set_index(new_idx);
             return true;
         }
     }

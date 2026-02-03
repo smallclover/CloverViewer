@@ -1,6 +1,6 @@
 use egui::{Align, ComboBox, Context, Layout, Id, Ui, ScrollArea};
-use crate::i18n::{Language, TextBundle};
-use crate::ui::modal::{ModalAction, ModalFrame};
+use crate::i18n::lang::{Language, TextBundle};
+use crate::ui::components::modal::{ModalAction, ModalFrame};
 use crate::model::config::Config;
 
 #[derive(PartialEq, Clone, Copy)]

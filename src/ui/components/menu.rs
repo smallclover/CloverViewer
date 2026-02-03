@@ -1,8 +1,8 @@
 use crate::{
-    ui::ui_mode::UiMode,
+    ui::components::ui_mode::UiMode,
 };
 use egui::{Context, MenuBar, TopBottomPanel};
-use crate::i18n::TextBundle;
+use crate::i18n::lang::TextBundle;
 use crate::model::config::Config;
 
 /// 绘制主菜单栏
