@@ -5,6 +5,7 @@ use std::sync::Arc;
 use egui::{Color32, Context, TextureHandle};
 use lru::LruCache;
 use crate::core::image_loader::{ImageLoader, LoadResult};
+use crate::model::image_meta::ImageProperties;
 use crate::utils::image::{is_image, collect_images};
 
 pub struct BusinessData {
@@ -14,6 +15,7 @@ pub struct BusinessData {
     pub texture_cache: LruCache<PathBuf, TextureHandle>,
     pub thumb_cache: LruCache<PathBuf, TextureHandle>,
     pub current_texture: Option<TextureHandle>,
+    pub current_properties: Option<ImageProperties>,
     /// 保存当前高清图的原始像素，用于极速复制
     pub current_raw_pixels: Option<Arc<Vec<Color32>>>,
     pub error: Option<String>,
@@ -30,6 +32,7 @@ impl BusinessData {
             texture_cache: LruCache::new(NonZeroUsize::new(10).unwrap()),
             thumb_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
             current_texture: None,
+            current_properties: None,
             current_raw_pixels: None,
             error: None,
             zoom: 1.0,
@@ -152,6 +155,7 @@ impl BusinessData {
                                     self.zoom = scale_v.min(scale_h).min(1.0);
 
                                     self.current_texture = Some(success.texture);
+                                    self.current_properties = Some(success.properties);
                                     self.loader.is_loading = false;
                                     should_trigger_preloads = true;
                                 }

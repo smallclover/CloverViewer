@@ -2,8 +2,9 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use crate::ui::components::{
     toast::{ToastManager, ToastSystem},
-    ui_mode::UiMode,properties_panel::ImageProperties
+    ui_mode::UiMode
 };
+use crate::model::image_meta::ImageProperties;
 
 pub struct ViewState {
     pub ui_mode: UiMode,

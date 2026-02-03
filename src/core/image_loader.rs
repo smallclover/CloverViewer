@@ -1,18 +1,20 @@
-use std::io::{Cursor};
+
+use std::io::Cursor;
 use egui::{ColorImage, Context, TextureHandle};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, Sender};
 use image::{DynamicImage};
-use exif::{In, Reader, Tag};
 use image::imageops::FilterType;
 use image::metadata::Orientation;
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use zune_jpeg::JpegDecoder;
+use crate::model::image_meta::ImageProperties;
 
 pub struct LoadSuccess {
     pub texture: TextureHandle,
     pub raw_pixels: Arc<Vec<egui::Color32>>, // 原始像素快照
+    pub properties: ImageProperties,
 }
 
 pub enum LoadResult {
@@ -86,7 +88,7 @@ impl ImageLoader {
         target_pool.spawn(move || {
 
             let result = match Self::decode_image(&path_clone, size) {
-                Ok(color_image) => {
+                Ok((color_image, properties)) => {
                     // 1. 在主线程创建纹理之前，先保留像素引用
                     let raw_pixels = Arc::new(color_image.pixels.clone());
                     let name = if is_thumbnail {
@@ -101,6 +103,7 @@ impl ImageLoader {
                     LoadResult::Ok(LoadSuccess {
                         texture: tex,
                         raw_pixels,
+                        properties,
                     })
                 }
                 Err(e) => LoadResult::Err(e),
@@ -131,32 +134,49 @@ impl ImageLoader {
         }
     }
 
-    fn decode_image(path: &PathBuf, size: Option<(u32, u32)>) -> Result<ColorImage, String> {
+    fn extract_exif_properties(data: &[u8], properties: &mut ImageProperties) -> u32 {
+        if let Ok(exif) = exif::Reader::new().read_from_container(&mut std::io::Cursor::new(data)) {
+            let get_val = |tag| exif.get_field(tag, exif::In::PRIMARY).map(|f| f.display_value().to_string());
+
+            properties.date = get_val(exif::Tag::DateTime).unwrap_or_default();
+            properties.make = get_val(exif::Tag::Make).unwrap_or_default();
+            properties.model = get_val(exif::Tag::Model).unwrap_or_default();
+            properties.exposure_time = get_val(exif::Tag::ExposureTime).unwrap_or_default();
+            properties.f_number = get_val(exif::Tag::FNumber).unwrap_or_default();
+            properties.iso = exif.get_field(exif::Tag::PhotographicSensitivity, exif::In::PRIMARY)
+                .and_then(|f| f.value.get_uint(0))
+                .map(|v| v as u32);
+            properties.focal_length = get_val(exif::Tag::FocalLength).unwrap_or_default();
+
+            return exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY)
+                .and_then(|field| field.value.get_uint(0))
+                .map(|v| v as u32)
+                .unwrap_or(1);
+        }
+        1
+    }
+
+
+    fn decode_image(path: &PathBuf, size: Option<(u32, u32)>) -> Result<(ColorImage, ImageProperties), String> {
         let data = std::fs::read(path).map_err(|e| e.to_string())?;
+        let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
 
-        let orientation_value = {
-            let val = (|| {
-                let exif = Reader::new()
-                    .read_from_container(&mut std::io::Cursor::new(&data))
-                    .ok()?;
-
-                exif.get_field(Tag::Orientation, In::PRIMARY)?
-                    .value
-                    .get_uint(0)
-            })();
-            val.unwrap_or(1)
+        let mut properties = ImageProperties {
+            path: path.clone(),
+            size: metadata.len(),
+            name: path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            ..Default::default()
         };
+
+        let orientation_value = Self::extract_exif_properties(&data, &mut properties);
 
         let is_jpeg = data.len() > 2 && data[0] == 0xFF && data[1] == 0xD8;
 
         let mut img = if is_jpeg {
-            // --- JPEG 高速通道 ---
             let mut decoder = JpegDecoder::new(Cursor::new(&data));
-            // 解码为 RGB (zune-jpeg 在 RGB 模式下极快)
             let pixels = decoder.decode().map_err(|e| e.to_string())?;
             let info = decoder.info().ok_or("Failed to get JPEG info")?;
 
-            // 将 raw 像素封装进 image crate 的 buffer，以便后续使用 apply_orientation
             let rgb_buf = image::ImageBuffer::<image::Rgb<u8>, _>::from_raw(
                 info.width as u32,
                 info.height as u32,
@@ -165,28 +185,29 @@ impl ImageLoader {
 
             DynamicImage::ImageRgb8(rgb_buf)
         } else {
-            // --- 通用通道 (PNG, WebP, etc.) ---
             image::load_from_memory(&data).map_err(|e| e.to_string())?
         };
 
-        // 4. 应用旋转
         let img_orient = Self::map_exif_to_orientation(orientation_value);
         img.apply_orientation(img_orient);
 
-        // 5. 后续处理 (缩略图/缩放)
+        properties.width = img.width();
+        properties.height = img.height();
+        properties.bits = Some(img.color().bits_per_pixel() as u32);
+
+
         let processed_img = if let Some((w, h)) = size {
-            // 注意：如果是生成预览图，thumbnail 算法通常比 resize_to_fill 快得多
-            //img.thumbnail(w, h)
             img.resize_to_fill(w, h, FilterType::Nearest)
         } else {
             img
         };
 
-        // 6. 转换为 egui 格式
         let rgba = processed_img.to_rgba8();
-        Ok(ColorImage::from_rgba_unmultiplied(
+        let color_image = ColorImage::from_rgba_unmultiplied(
             [rgba.width() as usize, rgba.height() as usize],
             rgba.as_raw(),
-        ))
+        );
+
+        Ok((color_image, properties))
     }
 }

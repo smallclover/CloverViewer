@@ -90,7 +90,7 @@ impl CloverApp {
         viewer::draw_top_panel(ctx, &mut self.state, &self.config);
         viewer::draw_central_panel(ctx, &mut self.data, &mut self.state, &self.config);
         viewer::draw_preview_panel(ctx, &mut self.data);
-        render_properties_panel(ctx, &mut self.state);
+        render_properties_panel(ctx, &mut self.state, &self.config);
         self.state.toast_system.update(ctx);
     }
 
