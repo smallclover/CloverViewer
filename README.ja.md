@@ -1,0 +1,75 @@
+<div align="center">
+  <img src="assets/images/clover_viewer.png" width="300" alt="CloverViewer Logo">
+  <h1>CloverViewer (クローバービューア)</h1>
+  <p>
+    Rustで書かれた軽量な画像ビューア。<br>
+    ロゴデザインは、大文字のCとLに由来しています。Cは剣のガード、Lは剣そのものを表しています。
+  </p>
+  <p>
+    <a href="README.md">中文</a> | <a href="README.en.md">English</a> | <a href="README.ja.md">日本語</a>
+  </p>
+</div>
+
+---
+
+## 📖 概要
+
+CloverViewerは、Rustで開発された画像表示ツールで、高速かつスムーズな画像閲覧体験を提供することを目指しています。
+
+## 🛠️ 開発環境のセットアップ
+
+このプロジェクトは、AVIF形式の画像をサポートするために `dav1d` ライブラリに依存しています。Windows環境でコンパイルする場合、C/C++の依存関係を管理するために `vcpkg` を使用することをお勧めします。
+
+### 1. vcpkgとdav1dのインストール
+
+Gitがインストールされていることを確認してください。
+
+```powershell
+# 1. vcpkgリポジトリをクローンします（C:\vcpkgへのインストールを推奨しますが、カスタムパスも可能です）
+git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+
+# 2. ディレクトリに移動し、ブートストラップスクリプトを実行します
+cd C:\vcpkg
+.\bootstrap-vcpkg.bat
+
+# 3. dav1dをインストールします（64ビットWindows版）
+.\vcpkg install dav1d:x64-windows
+```
+
+### 2. pkg-configのインストール
+
+Rustのビルドスクリプトがシステムライブラリを見つけられるように、`pkg-config` をインストールする必要があります。
+
+Chocolateyを使用して `pkgconfiglite` をインストールすることをお勧めします：
+
+> **ヒント**: Chocolateyがインストールされていない場合は、**管理者権限**でPowerShellを開き、以下のコマンドを実行してください：
+> ```powershell
+> Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+> ```
+
+pkg-configをインストールします：
+```powershell
+choco install pkgconfiglite
+```
+*または、手動で `pkg-config.exe` をダウンロードし、システムのPATH環境変数に追加することもできます。*
+
+### 3. 環境変数の設定
+
+ビルドツールがライブラリファイルを見つけられるように、以下の環境変数を設定する必要があります：
+
+*   **`VCPKG_ROOT`**: vcpkgのインストールディレクトリを指します（例：`C:\vcpkg`）。
+*   **`PKG_CONFIG_PATH`**: vcpkg内のpkgconfigディレクトリを指します。
+    *   一般的なパス：`C:\vcpkg\installed\x64-windows\lib\pkgconfig`
+
+### 4. プロジェクトのビルド
+
+環境設定が完了したら、プロジェクトをクリーンにして再ビルドします：
+
+```shell
+cargo clean
+cargo build
+```
+
+## 📄 ライセンス
+
+このプロジェクトは、[MITライセンス](LICENSE)の下で公開されています。

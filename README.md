@@ -5,6 +5,9 @@
     基于 Rust 编写的轻量级图片查看器。<br>
     图标设计源自大写字母 C 和 L —— C 是剑的护手，L 是剑本身。
   </p>
+  <p>
+    <a href="README.md">中文</a> | <a href="README.en.md">English</a> | <a href="README.ja.md">日本語</a>
+  </p>
 </div>
 
 ---
