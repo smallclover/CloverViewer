@@ -141,7 +141,6 @@ impl ImageLoader {
             properties.date = get_val(exif::Tag::DateTime).unwrap_or_default();
             properties.make = get_val(exif::Tag::Make).unwrap_or_default();
             properties.model = get_val(exif::Tag::Model).unwrap_or_default();
-            properties.exposure_time = get_val(exif::Tag::ExposureTime).unwrap_or_default();
             properties.f_number = get_val(exif::Tag::FNumber).unwrap_or_default();
             properties.iso = exif.get_field(exif::Tag::PhotographicSensitivity, exif::In::PRIMARY)
                 .and_then(|f| f.value.get_uint(0))

@@ -41,25 +41,25 @@ pub fn render_properties_panel(
 }
 
 /// 图片属性内容
-fn render_properties_content(ui: &mut Ui, properties: &ImageProperties, _texts: &TextBundle) {
+fn render_properties_content(ui: &mut Ui, properties: &ImageProperties, texts: &TextBundle) {
     egui::Grid::new("properties_grid")
         .num_columns(2)
         .spacing([40.0, 4.0])
         .striped(true)
         .show(ui, |ui| {
-            ui.label("名称:");
+            ui.label(format!("{}:",texts.img_name));
             ui.label(&properties.name);
             ui.end_row();
 
-            ui.label("日期:");
+            ui.label(format!("{}:",texts.img_date));
             ui.label(&properties.date);
             ui.end_row();
 
-            ui.label("大小信息:");
+            ui.label(format!("{}:",texts.img_dim));
             ui.label(format!("{}x{} {:.1} MB", properties.width, properties.height, (properties.size as f64) / (1024.0 * 1024.0)));
             ui.end_row();
 
-            ui.label("文件路径:");
+            ui.label(format!("{}:",texts.img_path));
             ui.label(properties.path.to_string_lossy().to_string());
             ui.end_row();
         });

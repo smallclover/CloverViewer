@@ -65,8 +65,10 @@ pub struct TextBundle {
 
     // 属性
     pub img_prop: &'static str,
+    pub img_name: &'static str,
+    pub img_date: &'static str,
     pub img_path:  &'static str,
-    pub img_size:  &'static str,
+    // pub img_size:  &'static str,
     pub img_dim:  &'static str,
 }
 
@@ -102,8 +104,10 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     coping_message:"正在复制中...",
     img_prop: "属性",
 
+    img_name: "名称",
+    img_date: "日期",
     img_path: "图片路径",
-    img_size: "图片大小",
+    // img_size: "图片大小",
     img_dim: "图片尺寸",
 };
 
@@ -139,8 +143,10 @@ pub const EN_TEXT: TextBundle = TextBundle {
     coping_message: "Coping...",
 
     img_prop: "Properties",
+    img_name: "Name",
+    img_date: "Datetime",
     img_path: "File Path",
-    img_size: "Size",
+    // img_size: "Size",
     img_dim: "Dimension",
 };
 
@@ -176,8 +182,10 @@ pub const JA_TEXT: TextBundle = TextBundle {
     coping_message: "コピー中...",
 
     img_prop: "プロパティーズ",
+    img_name: "ネーム",
+    img_date: "日付",
     img_path: "ファイルパス",
-    img_size: "サイズ",
+    // img_size: "サイズ",
     img_dim: "ディメンション",
 };
 
