@@ -1,15 +1,25 @@
-
-use std::io::Cursor;
 use egui::{ColorImage, Context, TextureHandle};
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::mpsc::{channel, Receiver, Sender};
-use image::{DynamicImage};
-use image::imageops::FilterType;
-use image::metadata::Orientation;
-use rayon::{ThreadPool, ThreadPoolBuilder};
+use std::{
+    io::Cursor,
+    path::PathBuf,
+    sync::{
+        Arc,
+        mpsc::{channel, Receiver, Sender}
+    },
+
+};
+use image::{
+    DynamicImage,
+    imageops::FilterType,
+    metadata::Orientation
+};
+use rayon::{
+    ThreadPool, ThreadPoolBuilder
+};
 use zune_jpeg::JpegDecoder;
 use crate::model::image_meta::ImageProperties;
+#[cfg(target_os = "windows")]
+use crate::utils::win_thumbnail::load_thumbnail_windows;
 
 pub struct LoadSuccess {
     pub texture: TextureHandle,
@@ -86,15 +96,53 @@ impl ImageLoader {
         };
 
         target_pool.spawn(move || {
+            let result = if is_thumbnail {
+                // 尝试使用 Windows API 加载缩略图
+                #[cfg(target_os = "windows")]
+                {
+                    match load_thumbnail_windows(&path_clone, size.unwrap()) {
+                        Ok(color_image) => {
+                             let raw_pixels = Arc::new(color_image.pixels.clone());
+                             let tex = ctx.load_texture(format!("thumb_{}", path_clone.display()), color_image, Default::default());
+                             LoadResult::Ok(LoadSuccess {
+                                texture: tex,
+                                raw_pixels,
+                                properties: ImageProperties::default(), // 缩略图不需要详细属性
+                            })
+                        },
+                        Err(_) => {
+                            // 降级到普通加载
+                            Self::load_normal(&ctx, &path_clone, size)
+                        }
+                    }
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    Self::load_normal(&ctx, &path_clone, size)
+                }
+            } else {
+                Self::load_normal(&ctx, &path_clone, size)
+            };
 
-            let result = match Self::decode_image(&path_clone, size) {
+            let _ = tx.send(LoadMessage {
+                path: path_clone,
+                result,
+                is_priority,
+                is_thumbnail,
+            });
+            ctx.request_repaint(); // 唤醒 UI 渲染
+        });
+    }
+
+    fn load_normal(ctx: &Context, path: &PathBuf, size: Option<(u32, u32)>) -> LoadResult {
+         match Self::decode_image(path, size) {
                 Ok((color_image, properties)) => {
                     // 1. 在主线程创建纹理之前，先保留像素引用
                     let raw_pixels = Arc::new(color_image.pixels.clone());
-                    let name = if is_thumbnail {
-                        format!("thumb_{}", path_clone.display())
+                    let name = if size.is_some() {
+                        format!("thumb_{}", path.display())
                     }else{
-                        path_clone.file_name().unwrap_or_default().to_string_lossy().into()
+                        path.file_name().unwrap_or_default().to_string_lossy().into()
                     };
                     // 2. 创建纹理
                     let tex = ctx.load_texture(name, color_image, Default::default());
@@ -107,16 +155,7 @@ impl ImageLoader {
                     })
                 }
                 Err(e) => LoadResult::Err(e),
-            };
-
-            let _ = tx.send(LoadMessage {
-                path: path_clone,
-                result,
-                is_priority,
-                is_thumbnail,
-            });
-            ctx.request_repaint(); // 唤醒 UI 渲染
-        });
+            }
     }
 
     // 将 EXIF 的数字映射到 image crate 的枚举
