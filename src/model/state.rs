@@ -14,6 +14,9 @@ pub struct ViewState {
     pub toast_manager: ToastManager,
     pub show_properties_panel: bool,
     pub image_properties: Option<ImageProperties>,
+    // 预览窗口
+    pub target_offset: f32,
+    pub is_animating: bool,
 }
 
 impl Default for ViewState {
@@ -30,6 +33,8 @@ impl Default for ViewState {
             toast_manager,
             show_properties_panel: false,
             image_properties: None,
+            target_offset: 0.0,
+            is_animating: false,
         }
     }
 }
