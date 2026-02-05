@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     path::PathBuf
 };
 use egui::{
@@ -9,7 +8,6 @@ use egui::{
     Ui,Align2,FontId,UiBuilder,Spinner,
     Mesh,Sense
 };
-use lru::LruCache;
 use crate::core::business::BusinessData;
 
 enum ThumbnailState<'a> {
@@ -28,8 +26,7 @@ pub fn show_preview_window(
         if let Some(new_idx) = draw_preview_bar(
             ctx,
             &previews,
-            &mut data.thumb_cache,
-            &mut data.failed_thumbs,
+            data,
             idx
         ) {
             data.set_index(new_idx);
@@ -42,8 +39,7 @@ pub fn show_preview_window(
 pub fn draw_preview_bar(
     ctx: &Context,
     previews: &[(usize, PathBuf)],
-    thumb_cache: &mut LruCache<PathBuf, TextureHandle>,// 使用缩略图缓存
-    failed_thumbs: &HashSet<PathBuf>, // 传入失败集合
+    data: &mut BusinessData,
     current_idx: usize,
 ) -> Option<usize> {
     let mut clicked_idx = None;
@@ -74,9 +70,9 @@ pub fn draw_preview_bar(
                             if response.clicked() { clicked_idx = Some(*idx); }
 
                             // B. 状态判定层：将复杂的数据判断转化为简单的状态枚举
-                            let state = if let Some(tex) = thumb_cache.get(path) {
+                            let state = if let Some(tex) = data.thumb_cache.get(path) {
                                 ThumbnailState::Loaded(tex)
-                            } else if failed_thumbs.contains(path) {
+                            } else if data.failed_thumbs.contains(path) {
                                 ThumbnailState::Failed
                             } else {
                                 ThumbnailState::Loading
