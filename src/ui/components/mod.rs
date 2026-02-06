@@ -11,3 +11,6 @@ pub mod ui_mode;
 pub mod properties_panel;
 pub mod toast;
 pub mod mouse;
+pub mod status_bar;
+pub mod grid_view;
+pub mod single_view;

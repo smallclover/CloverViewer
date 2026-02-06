@@ -6,7 +6,7 @@ use std::{
 };
 use crate::{
     model::config::{load_config, save_config, Config},
-    model::state::ViewState,
+    model::state::{ViewState, ViewMode},
     core::business::BusinessData,
 };
 use crate::ui::components::{
@@ -78,6 +78,11 @@ impl CloverApp {
             ctx.request_repaint();
         }
         if let Ok(path) = self.state.path_receiver.try_recv() {
+            if path.is_dir() {
+                self.state.view_mode = ViewMode::Grid;
+            } else {
+                self.state.view_mode = ViewMode::Single;
+            }
             self.data.open_new_context(ctx.clone(), path);
         }
     }
@@ -88,8 +93,8 @@ impl CloverApp {
 
     fn draw_ui(&mut self, ctx: &Context) {
         viewer::draw_top_panel(ctx, &mut self.state, &self.config);
+        viewer::draw_bottom_panel(ctx, &mut self.state);
         viewer::draw_central_panel(ctx, &mut self.data, &mut self.state, &self.config);
-        viewer::draw_preview_panel(ctx, &mut self.data);
         render_properties_panel(ctx, &mut self.state, &self.config);
         self.state.toast_system.update(ctx);
     }

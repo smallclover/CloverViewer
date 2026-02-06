@@ -211,6 +211,14 @@ impl BusinessData {
         }
     }
 
+    pub fn load_thumbnails(&mut self, ctx: Context, paths: Vec<PathBuf>) {
+        for path in paths {
+            if !self.thumb_cache.contains(&path) && !self.failed_thumbs.contains(&path) {
+                self.loader.load_async(ctx.clone(), path, false, Some((200, 200)));
+            }
+        }
+    }
+
     pub fn prev_image(&mut self, ctx: Context) {
         if self.prev().is_some() {
             self.load_current(ctx);

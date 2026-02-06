@@ -6,8 +6,15 @@ use crate::ui::components::{
 };
 use crate::model::image_meta::ImageProperties;
 
+#[derive(Clone, PartialEq, Debug)]
+pub enum ViewMode {
+    Single,
+    Grid,
+}
+
 pub struct ViewState {
     pub ui_mode: UiMode,
+    pub view_mode: ViewMode,
     pub path_sender: Sender<PathBuf>,
     pub path_receiver: Receiver<PathBuf>,
     pub toast_system: ToastSystem,
@@ -24,6 +31,7 @@ impl Default for ViewState {
 
         Self {
             ui_mode: UiMode::Normal,
+            view_mode: ViewMode::Single,
             path_sender,
             path_receiver,
             toast_system,
