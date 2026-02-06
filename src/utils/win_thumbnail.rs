@@ -1,7 +1,9 @@
 #[cfg(target_os = "windows")]
-use std::os::windows::ffi::OsStrExt;
-#[cfg(target_os = "windows")]
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    os::windows::ffi::OsStrExt,
+    mem,slice,iter
+};
 #[cfg(target_os = "windows")]
 use egui::ColorImage;
 #[cfg(target_os = "windows")]
@@ -17,7 +19,8 @@ use windows::{
     core::PCWSTR,
 };
 
-// Helper struct to ensure CoUninitialize is called
+// 直接调用Win的缩略图，来提高加载速度
+
 #[cfg(target_os = "windows")]
 struct CoUninitializeOnDrop;
 
@@ -32,19 +35,19 @@ impl Drop for CoUninitializeOnDrop {
 pub fn load_thumbnail_windows(path: &PathBuf, size: (u32, u32)) -> Result<ColorImage, String> {
     unsafe {
         CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok().map_err(|e| e.to_string())?;
-        let _guard = CoUninitializeOnDrop;
+        let _ = CoUninitializeOnDrop;
 
-        let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+        let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(iter::once(0)).collect();
         let shell_item: IShellItem = SHCreateItemFromParsingName(PCWSTR(wide_path.as_ptr()), None).map_err(|e| e.to_string())?;
         let image_factory: IShellItemImageFactory = shell_item.cast().map_err(|e| e.to_string())?;
 
         let size_struct = SIZE { cx: size.0 as i32, cy: size.1 as i32 };
         let hbitmap = image_factory.GetImage(size_struct, SIIGBF_RESIZETOFIT | SIIGBF_BIGGERSIZEOK).map_err(|e| e.to_string())?;
 
-        let hgdiobj: HGDIOBJ = std::mem::transmute(hbitmap);
+        let hgdiobj: HGDIOBJ = mem::transmute(hbitmap);
 
-        let mut bitmap: BITMAP = std::mem::zeroed();
-        if GetObjectW(hgdiobj, std::mem::size_of::<BITMAP>() as i32, Some(&mut bitmap as *mut _ as *mut _)) == 0 {
+        let mut bitmap: BITMAP = mem::zeroed();
+        if GetObjectW(hgdiobj, size_of::<BITMAP>() as i32, Some(&mut bitmap as *mut _ as *mut _)) == 0 {
             let _ = DeleteObject(hgdiobj);
             return Err("Failed to get bitmap object".to_string());
         }
@@ -56,12 +59,13 @@ pub fn load_thumbnail_windows(path: &PathBuf, size: (u32, u32)) -> Result<ColorI
 
         if bits_ptr.is_null() {
             let _ = DeleteObject(hgdiobj);
-             return Err("Bitmap bits are null".to_string());
+            return Err("Bitmap bits are null".to_string());
         }
 
         let mut pixels = Vec::with_capacity(width * height);
-        let bits = std::slice::from_raw_parts(bits_ptr, stride * height);
+        let bits = slice::from_raw_parts(bits_ptr, stride * height);
 
+        //Windows GDI位图(BGRA (Blue-Green-Red-Alpha))转egui RGBA
         for y in 0..height {
             for x in 0..width {
                 let offset = y * stride + x * 4;

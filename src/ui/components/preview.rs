@@ -1,10 +1,4 @@
-use egui::{
-    Color32, CornerRadius, Rect,
-    TextureHandle, Vec2, Context,
-    Area, Frame, Stroke,
-    Ui, Align2, FontId, UiBuilder,
-    Sense, Id, Image, Shadow, StrokeKind
-};
+use egui::{Color32, CornerRadius, Rect, TextureHandle, Vec2, Context, Area, Frame, Stroke, Ui, Align2, FontId, UiBuilder, Sense, Id, Image, Shadow, StrokeKind, Spinner};
 use crate::core::business::BusinessData;
 
 #[derive(Clone, Copy, Default)]
@@ -67,7 +61,7 @@ fn draw_picker(
                     let id = ui.id().with("picker_state");
                     let mut state = ui.data_mut(|d| d.get_temp::<PickerState>(id)).unwrap_or_default();
 
-                    // Initialization
+                    // 初始化状态
                     if !state.initialized {
                         state.scroll_offset = data.index as f32 * item_width;
                         state.target_offset = state.scroll_offset;
@@ -138,7 +132,7 @@ fn draw_picker(
                     let start_idx = ((state.scroll_offset - view_width / 2.0) / item_width).floor() as isize;
                     let end_idx = ((state.scroll_offset + view_width / 2.0) / item_width).ceil() as isize;
                     let start_idx = start_idx.max(0) as usize;
-                    let end_idx = (end_idx.min(data.list.len() as isize)) as usize;
+                    let end_idx = end_idx.min(data.list.len() as isize) as usize;
 
                     let mut to_load = Vec::new();
 
@@ -232,24 +226,34 @@ fn render_preview_item_custom(
             }
         }
         ThumbnailState::Failed => {
-            ui.painter().rect_filled(rect, CornerRadius::same(6), Color32::from_rgb(60, 20, 20).linear_multiply(alpha));
-            ui.painter().text(
-                rect.center(),
-                Align2::CENTER_CENTER,
-                "!",
-                FontId::proportional(20.0),
-                Color32::RED.linear_multiply(alpha),
-            );
+            paint_error_state(ui, rect);
+
         }
         ThumbnailState::Loading => {
-            ui.painter().rect_filled(rect, CornerRadius::same(6), Color32::from_gray(40).linear_multiply(alpha));
-             ui.painter().text(
-                rect.center(),
-                Align2::CENTER_CENTER,
-                "•",
-                FontId::proportional(24.0),
-                Color32::WHITE.linear_multiply(alpha),
-            );
+            paint_loading_state(ui, rect);
         }
     }
+}
+
+
+/// 仅负责绘制错误占位
+fn paint_error_state(ui: &mut Ui, rect: Rect) {
+    ui.painter().rect_filled(rect, CornerRadius::same(4), Color32::from_rgb(60, 20, 20));
+    ui.painter().text(
+        rect.center(),
+        Align2::CENTER_CENTER,
+        "🚫",
+        FontId::proportional(18.0),
+        Color32::RED,
+    );
+}
+
+/// 仅负责绘制加载占位
+fn paint_loading_state(ui: &mut Ui, rect: Rect) {
+    ui.painter().rect_filled(rect, CornerRadius::same(4), Color32::from_gray(40));
+    ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
+        ui.centered_and_justified(|ui| {
+            ui.add(Spinner::new());
+        });
+    });
 }

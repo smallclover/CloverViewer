@@ -6,17 +6,19 @@ use std::{
         Arc,
         mpsc::{channel, Receiver, Sender}
     },
-
+    fs
 };
 use image::{
     DynamicImage,
     imageops::FilterType,
-    metadata::Orientation
+    metadata::Orientation,
+    ImageBuffer,Rgb
 };
 use rayon::{
     ThreadPool, ThreadPoolBuilder
 };
 use zune_jpeg::JpegDecoder;
+use exif::Tag;
 use crate::model::image_meta::ImageProperties;
 #[cfg(target_os = "windows")]
 use crate::utils::win_thumbnail::load_thumbnail_windows;
@@ -174,19 +176,19 @@ impl ImageLoader {
     }
 
     fn extract_exif_properties(data: &[u8], properties: &mut ImageProperties) -> u32 {
-        if let Ok(exif) = exif::Reader::new().read_from_container(&mut std::io::Cursor::new(data)) {
+        if let Ok(exif) = exif::Reader::new().read_from_container(&mut Cursor::new(data)) {
             let get_val = |tag| exif.get_field(tag, exif::In::PRIMARY).map(|f| f.display_value().to_string());
 
-            properties.date = get_val(exif::Tag::DateTime).unwrap_or_default();
-            properties.make = get_val(exif::Tag::Make).unwrap_or_default();
-            properties.model = get_val(exif::Tag::Model).unwrap_or_default();
-            properties.f_number = get_val(exif::Tag::FNumber).unwrap_or_default();
-            properties.iso = exif.get_field(exif::Tag::PhotographicSensitivity, exif::In::PRIMARY)
+            properties.date = get_val(Tag::DateTime).unwrap_or_default();
+            properties.make = get_val(Tag::Make).unwrap_or_default();
+            properties.model = get_val(Tag::Model).unwrap_or_default();
+            properties.f_number = get_val(Tag::FNumber).unwrap_or_default();
+            properties.iso = exif.get_field(Tag::PhotographicSensitivity, exif::In::PRIMARY)
                 .and_then(|f| f.value.get_uint(0))
                 .map(|v| v as u32);
-            properties.focal_length = get_val(exif::Tag::FocalLength).unwrap_or_default();
+            properties.focal_length = get_val(Tag::FocalLength).unwrap_or_default();
 
-            return exif.get_field(exif::Tag::Orientation, exif::In::PRIMARY)
+            return exif.get_field(Tag::Orientation, exif::In::PRIMARY)
                 .and_then(|field| field.value.get_uint(0))
                 .map(|v| v as u32)
                 .unwrap_or(1);
@@ -196,8 +198,8 @@ impl ImageLoader {
 
 
     fn decode_image(path: &PathBuf, size: Option<(u32, u32)>) -> Result<(ColorImage, ImageProperties), String> {
-        let data = std::fs::read(path).map_err(|e| e.to_string())?;
-        let metadata = std::fs::metadata(path).map_err(|e| e.to_string())?;
+        let data = fs::read(path).map_err(|e| e.to_string())?;
+        let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
 
         let mut properties = ImageProperties {
             path: path.clone(),
@@ -215,7 +217,7 @@ impl ImageLoader {
             let pixels = decoder.decode().map_err(|e| e.to_string())?;
             let info = decoder.info().ok_or("Failed to get JPEG info")?;
 
-            let rgb_buf = image::ImageBuffer::<image::Rgb<u8>, _>::from_raw(
+            let rgb_buf = ImageBuffer::<Rgb<u8>, _>::from_raw(
                 info.width as u32,
                 info.height as u32,
                 pixels
