@@ -1,5 +1,6 @@
-use egui::{Context, TopBottomPanel, RichText};
+use egui::{Context, TopBottomPanel};
 use crate::model::state::{ViewState, ViewMode};
+use crate::ui::components::icons::{draw_icon_button, IconType};
 
 pub fn draw_status_bar(
     ctx: &Context,
@@ -9,22 +10,15 @@ pub fn draw_status_bar(
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.add_space(10.0);
 
-            let grid_icon = if state.view_mode == ViewMode::Grid {
-                RichText::new("⊞").strong()
-            } else {
-                RichText::new("⊞")
-            };
-
-            let single_icon = if state.view_mode == ViewMode::Single {
-                RichText::new("□").strong()
-            } else {
-                RichText::new("□")
-            };
-
-            if ui.button(grid_icon).clicked() {
+            // Grid View Button
+            if draw_icon_button(ui, state.view_mode == ViewMode::Grid, IconType::Grid).on_hover_text("Grid View").clicked() {
                 state.view_mode = ViewMode::Grid;
             }
-            if ui.button(single_icon).clicked() {
+
+            ui.add_space(4.0);
+
+            // Single View Button
+            if draw_icon_button(ui, state.view_mode == ViewMode::Single, IconType::Single).on_hover_text("Single View").clicked() {
                 state.view_mode = ViewMode::Single;
             }
         });
