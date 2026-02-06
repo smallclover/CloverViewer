@@ -21,6 +21,7 @@ pub struct BusinessData {
     pub error: Option<String>,
     pub zoom: f32,
     pub failed_thumbs: HashSet<PathBuf>,
+    pub loading_thumbs: HashSet<PathBuf>,
 }
 
 impl BusinessData {
@@ -30,13 +31,14 @@ impl BusinessData {
             list: Vec::new(),
             index: 0,
             texture_cache: LruCache::new(NonZeroUsize::new(10).unwrap()),
-            thumb_cache: LruCache::new(NonZeroUsize::new(100).unwrap()),
+            thumb_cache: LruCache::new(NonZeroUsize::new(1000).unwrap()),
             current_texture: None,
             current_properties: None,
             current_raw_pixels: None,
             error: None,
             zoom: 1.0,
             failed_thumbs: HashSet::new(),
+            loading_thumbs: HashSet::new(),
         }
     }
 
@@ -127,8 +129,8 @@ impl BusinessData {
         let mut processed_count = 0;
         let mut should_trigger_preloads = false;
         let mut received_any = false;
-        //开启6个线程
-        while processed_count <= 6 {
+
+        while processed_count <= 50 {
             match self.loader.rx.try_recv() {
                 Ok(msg) => {
                     received_any = true;
@@ -136,6 +138,7 @@ impl BusinessData {
                         LoadResult::Ok(success) => {
                             // 如果有缩略图加载缩略图，没有加载原图
                             if msg.is_thumbnail {
+                                self.loading_thumbs.remove(&msg.path);
                                 self.thumb_cache.put(msg.path.clone(), success.texture.clone());
                                 if Some(msg.path) == self.current() {
                                     if self.current_texture.is_none() {
@@ -162,6 +165,7 @@ impl BusinessData {
                             }
                         }
                         LoadResult::Err(e) => {
+                            self.loading_thumbs.remove(&msg.path);
                             self.failed_thumbs.insert(msg.path.clone());
                             if msg.is_priority {
                                 self.loader.is_loading = false;
@@ -211,11 +215,10 @@ impl BusinessData {
         }
     }
 
-    pub fn load_thumbnails(&mut self, ctx: Context, paths: Vec<PathBuf>) {
-        for path in paths {
-            if !self.thumb_cache.contains(&path) && !self.failed_thumbs.contains(&path) {
-                self.loader.load_async(ctx.clone(), path, false, Some((200, 200)));
-            }
+    pub fn load_thumbnail(&mut self, ctx: Context, path: PathBuf) {
+        if !self.thumb_cache.contains(&path) && !self.failed_thumbs.contains(&path) && !self.loading_thumbs.contains(&path) {
+            self.loading_thumbs.insert(path.clone());
+            self.loader.load_async(ctx, path, false, Some((200, 200)));
         }
     }
 

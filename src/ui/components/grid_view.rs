@@ -22,26 +22,33 @@ pub fn draw_grid_view(
     let columns = ((available_width - padding) / (cell_width + padding)).floor() as usize;
     let columns = columns.max(1);
 
-    // 触发加载缩略图
-    data.load_thumbnails(ctx.clone(), data.list.clone());
-
     let mut clicked_index = None;
     let mut double_clicked_index = None;
+
+    // 分离借用
+    let list = &data.list;
+    let current_index = data.index;
+    let thumb_cache = &mut data.thumb_cache;
+    let loading_thumbs = &mut data.loading_thumbs;
+    let failed_thumbs = &data.failed_thumbs;
+    let loader = &mut data.loader;
+
+    // 获取可见区域并扩大用于预加载
+    let visible_rect = ui.clip_rect();
+    let preload_rect = visible_rect.expand(500.0);
 
     ScrollArea::vertical().show(ui, |ui| {
         egui::Grid::new("image_grid")
             .spacing(egui::vec2(padding, padding))
             .min_col_width(cell_width)
             .show(ui, |ui| {
-                for (i, path) in data.list.iter().enumerate() {
+                for (i, path) in list.iter().enumerate() {
                     if i > 0 && i % columns == 0 {
                         ui.end_row();
                     }
 
-                    let tex = data.thumb_cache.get(path);
-                    let is_selected = i == data.index;
+                    let is_selected = i == current_index;
 
-                    // 统一使用相同的边框宽度，只改变颜色
                     let (stroke_color, bg_color) = if is_selected {
                         (Color32::LIGHT_BLUE, Color32::from_gray(45))
                     } else {
@@ -55,30 +62,41 @@ pub fn draw_grid_view(
                         .corner_radius(4.0);
 
                     frame.show(ui, |ui| {
-                        // 强制分配固定大小的空间
                         let (rect, response) = ui.allocate_exact_size(item_size, Sense::click());
 
-                        if let Some(t) = tex {
-                            // 计算保持比例的尺寸，居中显示
-                            let tex_size = t.size_vec2();
-                            let scale = (rect.width() / tex_size.x).min(rect.height() / tex_size.y);
-                            let target_size = tex_size * scale;
-                            let target_rect = egui::Rect::from_center_size(rect.center(), target_size);
+                        // 预加载逻辑：在预加载范围内且未加载过
+                        // 注意：visible_rect 包含在 preload_rect 中，所以可见元素也会触发这里的加载检查
+                        if preload_rect.intersects(rect) {
+                             if !thumb_cache.contains(path) && !failed_thumbs.contains(path) && !loading_thumbs.contains(path) {
+                                loading_thumbs.insert(path.clone());
+                                loader.load_async(ctx.clone(), path.clone(), false, Some((200, 200)));
+                            }
+                        }
 
-                            ui.painter().image(
-                                t.id(),
-                                target_rect,
-                                egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                                Color32::WHITE
-                            );
-                        } else {
-                            ui.painter().text(
-                                rect.center(),
-                                Align2::CENTER_CENTER,
-                                "Loading...",
-                                FontId::proportional(14.0),
-                                Color32::GRAY,
-                            );
+                        // 绘制逻辑：仅在严格可见范围内
+                        if ui.is_rect_visible(rect) {
+                            // 仅当可见时才调用 get，这会更新 LRU 缓存的顺序，保证可见元素不被淘汰
+                            if let Some(t) = thumb_cache.get(path) {
+                                let tex_size = t.size_vec2();
+                                let scale = (rect.width() / tex_size.x).min(rect.height() / tex_size.y);
+                                let target_size = tex_size * scale;
+                                let target_rect = egui::Rect::from_center_size(rect.center(), target_size);
+
+                                ui.painter().image(
+                                    t.id(),
+                                    target_rect,
+                                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                                    Color32::WHITE
+                                );
+                            } else {
+                                ui.painter().text(
+                                    rect.center(),
+                                    Align2::CENTER_CENTER,
+                                    "Loading...",
+                                    FontId::proportional(14.0),
+                                    Color32::GRAY,
+                                );
+                            }
                         }
 
                         if response.double_clicked() {
@@ -97,6 +115,5 @@ pub fn draw_grid_view(
         data.load_current(ctx.clone());
     } else if let Some(index) = clicked_index {
         data.set_index(index);
-        // 单击仅选中
     }
 }

@@ -103,6 +103,8 @@ fn draw_picker(
                     let selected_idx = (state.scroll_offset / item_width).round() as usize;
                     if selected_idx != data.index {
                         new_index = Some(selected_idx);
+                        // 更新内部状态，防止下一帧被重置
+                        state.last_index = selected_idx;
                     }
 
                     // Draw center indicator (保留但调淡，作为视觉辅助)
@@ -140,6 +142,8 @@ fn draw_picker(
                     let list = &data.list;
                     let thumb_cache = &mut data.thumb_cache;
                     let failed_thumbs = &data.failed_thumbs;
+                    let loading_thumbs = &mut data.loading_thumbs;
+                    let loader = &mut data.loader;
 
                     for i in start_idx..end_idx {
                         if let Some(path) = list.get(i) {
@@ -181,7 +185,10 @@ fn draw_picker(
 
                     // Trigger loads
                     for path in to_load {
-                         data.loader.load_async(ctx.clone(), path, false, Some((160, 120)));
+                         if !loading_thumbs.contains(&path) {
+                             loading_thumbs.insert(path.clone());
+                             loader.load_async(ctx.clone(), path, false, Some((160, 120)));
+                         }
                     }
                 });
         });

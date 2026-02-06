@@ -5,7 +5,7 @@ use egui::{
 use crate::{
     core::business::BusinessData,
     i18n::lang::TextBundle,
-    model::state::{ViewState, ViewMode},
+    model::state::{ViewState},
     ui::components::{
         arrows::{draw_arrows, Nav},
         preview::show_preview_window,
