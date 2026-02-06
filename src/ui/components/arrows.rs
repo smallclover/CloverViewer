@@ -1,6 +1,6 @@
 use egui::{
     Color32, Rect, Response, Ui, Vec2,
-    StrokeKind,Align2,FontId
+    StrokeKind,Align2,FontId, CursorIcon
 };
 
 pub enum Nav {
@@ -37,6 +37,9 @@ pub fn draw_arrows(ui: &mut Ui, rect: Rect) -> Option<Nav> {
     );
 
     if ui.rect_contains_pointer(left_hover_rect) || ui.rect_contains_pointer(left_rect) {
+        // 覆盖底层光标，强制显示默认指针
+        ui.ctx().set_cursor_icon(CursorIcon::Default);
+
         if draw_nav_button(ui, left_rect, "⏴").clicked() {
             clicked = Some(Nav::Prev);
         }
@@ -62,6 +65,9 @@ pub fn draw_arrows(ui: &mut Ui, rect: Rect) -> Option<Nav> {
     );
 
     if ui.rect_contains_pointer(right_hover_rect) || ui.rect_contains_pointer(right_rect) {
+        // 覆盖底层光标，强制显示默认指针
+        ui.ctx().set_cursor_icon(CursorIcon::Default);
+
         if draw_nav_button(ui, right_rect, "⏵").clicked() {
             clicked = Some(Nav::Next);
         }

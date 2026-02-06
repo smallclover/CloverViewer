@@ -1,4 +1,4 @@
-use egui::{Align, Context, Layout, Ui};
+use egui::{Align, Context, Layout, Ui, CursorIcon};
 use crate::core::business::BusinessData;
 use crate::i18n::lang::{get_text, TextBundle};
 use crate::model::config::Config;
@@ -6,7 +6,7 @@ use crate::model::image_meta::ImageProperties;
 use crate::ui::components::ui_mode::UiMode;
 use crate::model::state::ViewState;
 
-pub fn render_properties_panel(
+pub fn draw_properties_panel(
     ctx: &Context,
     state: &mut ViewState,
     data: &BusinessData,
@@ -24,6 +24,11 @@ pub fn render_properties_panel(
         .resizable(true)
         .default_width(250.0)
         .show(ctx, |ui| {
+            // 强制覆盖光标为默认指针
+            if ui.rect_contains_pointer(ui.max_rect()) {
+                ui.ctx().set_cursor_icon(CursorIcon::Default);
+            }
+
             ui.horizontal(|ui| {
                 ui.heading(texts.img_prop);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -72,5 +77,3 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties, texts: &
             ui.end_row();
         });
 }
-
-// 删除 update_image_properties 函数，因为不再需要同步状态

@@ -82,11 +82,14 @@ fn render_image_viewer(
     let available_size = ui.available_size();
     let is_draggable = size.x > available_size.x || size.y > available_size.y;
 
+    // 如果图片可拖拽且鼠标在区域内，设置 Move 光标
+    // 注意：这会被后续绘制的上层控件（如箭头、预览条）覆盖
     if is_draggable {
         if ui.rect_contains_pointer(ui.max_rect()) {
             ui.ctx().set_cursor_icon(CursorIcon::Move);
         }
     }
+
     let fade_alpha = ui.ctx().animate_bool_with_time(
         egui::Id::new(tex.id()).with("loading_fade"),
         is_loading_high_res,

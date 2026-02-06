@@ -1,4 +1,4 @@
-use egui::{Color32, CornerRadius, Rect, TextureHandle, Vec2, Context, Area, Frame, Stroke, Ui, Align2, FontId, UiBuilder, Sense, Id, Image, Shadow, StrokeKind, Spinner};
+use egui::{Color32, CornerRadius, Rect, TextureHandle, Vec2, Context, Area, Frame, Stroke, Ui, Align2, FontId, UiBuilder, Sense, Id, Image, Shadow, StrokeKind, Spinner, CursorIcon};
 use crate::core::business::BusinessData;
 
 #[derive(Clone, Copy, Default)]
@@ -57,6 +57,11 @@ fn draw_picker(
                         Vec2::new(view_width, view_height),
                         Sense::drag().union(Sense::click()),
                     );
+
+                    // 覆盖底层光标，强制显示默认指针
+                    if ui.rect_contains_pointer(rect) {
+                        ui.ctx().set_cursor_icon(CursorIcon::Default);
+                    }
 
                     let id = ui.id().with("picker_state");
                     let mut state = ui.data_mut(|d| d.get_temp::<PickerState>(id)).unwrap_or_default();
