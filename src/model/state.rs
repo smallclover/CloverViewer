@@ -4,7 +4,6 @@ use crate::ui::components::{
     toast::{ToastManager, ToastSystem},
     ui_mode::UiMode
 };
-use crate::model::image_meta::ImageProperties;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ViewMode {
@@ -19,8 +18,6 @@ pub struct ViewState {
     pub path_receiver: Receiver<PathBuf>,
     pub toast_system: ToastSystem,
     pub toast_manager: ToastManager,
-    pub show_properties_panel: bool,
-    pub image_properties: Option<ImageProperties>,
 }
 
 impl Default for ViewState {
@@ -36,8 +33,6 @@ impl Default for ViewState {
             path_receiver,
             toast_system,
             toast_manager,
-            show_properties_panel: false,
-            image_properties: None,
         }
     }
 }

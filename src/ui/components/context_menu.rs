@@ -4,6 +4,7 @@ use crate::core::business::BusinessData;
 use crate::i18n::lang::{get_text, TextBundle};
 use crate::model::config::Config;
 use crate::model::state::ViewState;
+use crate::ui::components::ui_mode::UiMode;
 use crate::utils::clipboard::copy_image_to_clipboard_async;
 
 /// 右键菜单中的操作
@@ -98,7 +99,7 @@ pub fn handle_context_menu_action(
             state.toast_manager.success(texts.copied_message);
         }
         ContextMenuAction::ShowProperties => {
-            state.show_properties_panel = true;
+            state.ui_mode = UiMode::Properties;
         }
     }
 }

@@ -126,6 +126,7 @@ pub fn draw_overlays(
             }
         }
         UiMode::Normal => {}
+        UiMode::Properties => {}
     }
 
     if let Some(new_mode) = new_ui_mode {

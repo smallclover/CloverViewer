@@ -3,18 +3,22 @@ use crate::core::business::BusinessData;
 use crate::i18n::lang::{get_text, TextBundle};
 use crate::model::config::Config;
 use crate::model::image_meta::ImageProperties;
+use crate::ui::components::ui_mode::UiMode;
 use crate::model::state::ViewState;
 
 pub fn render_properties_panel(
     ctx: &Context,
     state: &mut ViewState,
+    data: &BusinessData,
     config: &Config,
 ) {
-    if !state.show_properties_panel {
+    // 检查当前 UI 模式是否为 Properties
+    let mut is_open = matches!(state.ui_mode, UiMode::Properties);
+    if !is_open {
         return;
     }
+
     let texts = get_text(config.language);
-    let mut my_is_open = state.show_properties_panel;
 
     egui::SidePanel::right("properties_panel")
         .resizable(true)
@@ -24,20 +28,24 @@ pub fn render_properties_panel(
                 ui.heading(texts.img_prop);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if ui.button("X").clicked() {
-                        my_is_open = false;
+                        is_open = false;
                     }
                 });
             });
             ui.separator();
 
-            if let Some(props) = &state.image_properties {
+            // 直接从 data 中获取当前图片的属性
+            if let Some(props) = &data.current_properties {
                 render_properties_content(ui, props, texts);
             } else {
                 ui.label("No image loaded.");
             }
         });
 
-    state.show_properties_panel = my_is_open;
+    // 如果面板被关闭，切换回 Normal 模式
+    if !is_open {
+        state.ui_mode = UiMode::Normal;
+    }
 }
 
 /// 图片属性内容
@@ -65,9 +73,4 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties, texts: &
         });
 }
 
-
-pub fn update_image_properties(data: &BusinessData, state: &mut ViewState) {
-    if let Some(properties) = data.current_properties.as_ref() {
-        state.image_properties = Some(properties.clone());
-    }
-}
+// 删除 update_image_properties 函数，因为不再需要同步状态

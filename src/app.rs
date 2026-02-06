@@ -13,9 +13,7 @@ use crate::ui::components::{
     context_menu::handle_context_menu_action,
     modal::ModalAction,
     mouse::handle_input_events,
-    properties_panel::{
-        render_properties_panel, update_image_properties
-    },
+    properties_panel::render_properties_panel,
     resources::APP_FONT,
 };
 use crate::ui::viewer;
@@ -74,7 +72,6 @@ impl CloverApp {
 
     fn handle_background_tasks(&mut self, ctx: &Context) {
         if self.data.process_load_results(ctx) {
-            update_image_properties(&self.data, &mut self.state);
             ctx.request_repaint();
         }
         if let Ok(path) = self.state.path_receiver.try_recv() {
@@ -95,7 +92,7 @@ impl CloverApp {
         viewer::draw_top_panel(ctx, &mut self.state, &self.config);
         viewer::draw_bottom_panel(ctx, &mut self.state);
         viewer::draw_central_panel(ctx, &mut self.data, &mut self.state, &self.config);
-        render_properties_panel(ctx, &mut self.state, &self.config);
+        render_properties_panel(ctx, &mut self.state, &self.data, &self.config);
         self.state.toast_system.update(ctx);
     }
 

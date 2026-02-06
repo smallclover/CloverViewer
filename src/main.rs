@@ -1,7 +1,7 @@
 // 仅在非 debug 模式（即 release）下应用 windows 子系统
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::io::stdout;
+// use std::io::stdout;
 
 mod app;
 mod utils;
@@ -10,22 +10,22 @@ mod core;
 mod model;
 mod i18n;
 
-#[cfg(debug_assertions)]
-fn init_log() {
-    use tracing_subscriber;
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .with_target(false)
-        .with_writer(stdout) // 显式指定输出到 stdout
-        .init();
-}
+// #[cfg(debug_assertions)]
+// fn init_log() {
+//     use tracing_subscriber;
+//     tracing_subscriber::fmt()
+//         .with_max_level(tracing::Level::INFO)
+//         .with_target(false)
+//         .with_writer(stdout) // 显式指定输出到 stdout
+//         .init();
+// }
 
-#[cfg(not(debug_assertions))]
-fn init_log() {}
+// #[cfg(not(debug_assertions))]
+// fn init_log() {}
 
 fn main() -> eframe::Result<()> {
-    init_log();
-    dev_info!("app start");
+    // init_log();
+    // dev_info!("app start");
 
     #[cfg(target_os = "windows")]
     app::run()

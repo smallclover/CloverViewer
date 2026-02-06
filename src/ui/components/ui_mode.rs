@@ -7,4 +7,5 @@ pub enum UiMode {
     About,
     Settings(Config),
     ContextMenu(Pos2),
+    Properties,
 }

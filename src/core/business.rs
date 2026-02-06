@@ -42,10 +42,6 @@ impl BusinessData {
         }
     }
 
-    pub fn get_index(&self) -> usize {
-        self.index
-    }
-
     pub fn f_image(&mut self, path: &Path) {
         if let Some(dir) = path.parent() {
             let mut v = collect_images(dir);
@@ -212,13 +208,6 @@ impl BusinessData {
                     self.loader.load_async(ctx, path, true, None);
                 }
             }
-        }
-    }
-
-    pub fn load_thumbnail(&mut self, ctx: Context, path: PathBuf) {
-        if !self.thumb_cache.contains(&path) && !self.failed_thumbs.contains(&path) && !self.loading_thumbs.contains(&path) {
-            self.loading_thumbs.insert(path.clone());
-            self.loader.load_async(ctx, path, false, Some((200, 200)));
         }
     }
 
