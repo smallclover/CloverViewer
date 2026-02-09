@@ -22,6 +22,7 @@ pub struct BusinessData {
     pub zoom: f32,
     pub failed_thumbs: HashSet<PathBuf>,
     pub loading_thumbs: HashSet<PathBuf>,
+    pub current_directory: Option<PathBuf>,
 }
 
 impl BusinessData {
@@ -39,11 +40,13 @@ impl BusinessData {
             zoom: 1.0,
             failed_thumbs: HashSet::new(),
             loading_thumbs: HashSet::new(),
+            current_directory: None,
         }
     }
 
     pub fn f_image(&mut self, path: &Path) {
         if let Some(dir) = path.parent() {
+            self.current_directory = Some(dir.to_path_buf());
             let mut v = collect_images(dir);
             v.sort();
             self.index = v.iter().position(|p| p == path).unwrap_or(0);
@@ -52,6 +55,7 @@ impl BusinessData {
     }
 
     pub fn f_folder(&mut self, path: &Path) {
+        self.current_directory = Some(path.to_path_buf());
         let mut v = collect_images(path);
         v.sort();
         self.index = 0;
@@ -208,6 +212,9 @@ impl BusinessData {
                     self.loader.load_async(ctx, path, true, None);
                 }
             }
+        } else {
+            // No images in the list, clear texture
+            self.current_texture = None;
         }
     }
 

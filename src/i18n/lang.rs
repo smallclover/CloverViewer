@@ -54,6 +54,7 @@ pub struct TextBundle {
     // Viewer
     pub viewer_error: &'static str,
     pub viewer_drag_hint: &'static str,
+    pub viewer_no_images: &'static str,
 
     // Loading
     pub loading_parsing: &'static str,
@@ -97,7 +98,8 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     about_close: "我知道了",
 
     viewer_error: "文件损坏或格式不支持",
-    viewer_drag_hint: "拖拽或打开图片",
+    viewer_drag_hint: "拖拽或打开文件夹",
+    viewer_no_images: "该文件夹下没有图片",
     loading_parsing: "正在解析像素...",
     copied_message: "已复制",
     copy_failed_message: "复制失败",
@@ -136,7 +138,8 @@ pub const EN_TEXT: TextBundle = TextBundle {
     about_close: "Close",
 
     viewer_error: "File damaged or format not supported",
-    viewer_drag_hint: "Drag or open image",
+    viewer_drag_hint: "Drag and drop or open a folder",
+    viewer_no_images: "No images in this folder",
     loading_parsing: "Parsing pixels...",
     copied_message: "Copied",
     copy_failed_message: "Copy failed",
@@ -175,7 +178,8 @@ pub const JA_TEXT: TextBundle = TextBundle {
     about_close: "閉じる",
 
     viewer_error: "ファイルが破損しているか、形式がサポートされていません",
-    viewer_drag_hint: "画像をドラッグまたは開く",
+    viewer_drag_hint: "ドラッグ＆ドロップまたはフォルダを開く",
+    viewer_no_images: "このフォルダに画像はありません",
     loading_parsing: "ピクセルを解析中...",
     copied_message: "コピーしました",
     copy_failed_message: "コピーに失敗しました",

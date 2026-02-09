@@ -6,7 +6,11 @@ use rfd::FileDialog;
 use crate::{
     core::business::BusinessData,
     i18n::lang::get_text,
-    model::{config::Config, state::{ViewMode, ViewState}},
+    model::{
+        config::Config,
+        state::{ViewMode, ViewState},
+        constants::SUPPORTED_IMAGE_EXTENSIONS
+    },
     ui::components::{
         about::render_about_window,
         context_menu::{render_context_menu, ContextMenuAction},
@@ -18,9 +22,10 @@ use crate::{
         ui_mode::UiMode,
     },
 };
-use crate::model::constants::SUPPORTED_IMAGE_EXTENSIONS;
-use crate::ui::components::grid_view::draw_grid_view;
-use crate::ui::components::single_view::draw_single_view;
+use crate::ui::components::{
+    grid_view::draw_grid_view,
+    single_view::draw_single_view
+};
 
 pub fn draw_top_panel(
     ctx: &Context,
@@ -74,7 +79,7 @@ pub fn draw_central_panel(
                 draw_single_view(ctx, ui, data, state, texts);
             }
             ViewMode::Grid => {
-                draw_grid_view(ctx, ui, data, state);
+                draw_grid_view(ctx, ui, data, state, config);
             }
         }
     });

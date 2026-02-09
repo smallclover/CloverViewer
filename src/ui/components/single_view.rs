@@ -54,7 +54,9 @@ pub fn draw_single_view(
         });
     } else if data.loader.is_loading {
         // loading, but no texture yet
-    } else {
+    } else if data.current().is_some() && data.list.is_empty() {
+        ui.centered_and_justified(|ui| ui.label(texts.viewer_no_images));
+    } else {//打开软件的时候，没有文件夹，此时显示提示
         ui.centered_and_justified(|ui| ui.label(texts.viewer_drag_hint));
     }
 

@@ -2,7 +2,8 @@ use eframe::egui;
 use egui::{Context, ScrollArea, Ui, Color32, Frame, Stroke, Sense, Align2, FontId};
 use crate::{
     core::business::BusinessData,
-    model::state::{ViewState, ViewMode},
+    i18n::lang::get_text,
+    model::{config::Config, state::{ViewState, ViewMode}},
 };
 
 pub fn draw_grid_view(
@@ -10,7 +11,16 @@ pub fn draw_grid_view(
     ui: &mut Ui,
     data: &mut BusinessData,
     state: &mut ViewState,
+    config: &Config,
 ) {
+    if data.list.is_empty() {
+        let texts = get_text(config.language);
+        ui.centered_and_justified(|ui| {
+            ui.label(texts.viewer_no_images);
+        });
+        return;
+    }
+
     let item_size = egui::vec2(150.0, 150.0);
     let padding = 10.0;
     let frame_margin = 4.0;
