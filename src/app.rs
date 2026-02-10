@@ -15,6 +15,7 @@ use crate::ui::components::{
     mouse::handle_input_events,
     properties_panel::draw_properties_panel,
     resources::APP_FONT,
+    crop::handle_crop_mode,
 };
 use crate::ui::viewer;
 use crate::utils::image::load_icon;
@@ -85,7 +86,7 @@ impl CloverApp {
     }
 
     fn handle_input_events(&mut self, ctx: &Context) {
-        handle_input_events(ctx, &mut self.data);
+        handle_input_events(ctx, &mut self.data, &mut self.state);
     }
 
     fn draw_ui(&mut self, ctx: &Context) {
@@ -109,6 +110,8 @@ impl CloverApp {
             self.config = temp_config;
             save_config(&self.config);
         }
+
+        handle_crop_mode(ctx, &mut self.state, &mut self.data);
     }
 }
 

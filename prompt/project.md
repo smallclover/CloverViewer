@@ -43,6 +43,12 @@
 | 使用 `frame.set_visible` | 方法不存在             |
 | 使用 `image.rgba()`      | 方法不存在或者使用的是旧版本api |
 
+例子3： 下面的方法有四个参数，而不是三个，请注意
+```rust
+egui::painter
+impl Painter
+pub fn rect_stroke(&self, rect: Rect, corner_radius: impl Into<CornerRadius>, stroke: impl Into<Stroke>, stroke_kind: StrokeKind) -> ShapeIdx
+```
 ---
 
 ### 3. 当发现“方法不存在 / API 报错”时
