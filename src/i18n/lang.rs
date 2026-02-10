@@ -28,6 +28,8 @@ pub struct TextBundle {
     pub menu_file: &'static str,
     pub menu_open_file: &'static str,
     pub menu_open_folder: &'static str,
+    pub menu_edit: &'static str,
+    pub menu_screenshot: &'static str,
     pub menu_settings: &'static str,
     pub menu_about: &'static str,
 
@@ -77,6 +79,8 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     menu_file: "文件",
     menu_open_file: "打开文件…",
     menu_open_folder: "打开文件夹…",
+    menu_edit: "编辑",
+    menu_screenshot: "截图",
     menu_settings: "设置",
     menu_about: "关于",
 
@@ -117,6 +121,8 @@ pub const EN_TEXT: TextBundle = TextBundle {
     menu_file: "File",
     menu_open_file: "Open File...",
     menu_open_folder: "Open Folder...",
+    menu_edit: "Edit",
+    menu_screenshot: "Screenshot",
     menu_settings: "Settings",
     menu_about: "About",
 
@@ -157,6 +163,8 @@ pub const JA_TEXT: TextBundle = TextBundle {
     menu_file: "ファイル",
     menu_open_file: "ファイルを開く...",
     menu_open_folder: "フォルダを開く...",
+    menu_edit: "編集",
+    menu_screenshot: "スクリーンショット",
     menu_settings: "設定",
     menu_about: "について",
 
