@@ -60,8 +60,9 @@ pub fn draw_top_panel(
 pub fn draw_bottom_panel(
     ctx: &Context,
     state: &mut ViewState,
+    screenshot_active: &mut bool,
 ) {
-    draw_status_bar(ctx, state);
+    draw_status_bar(ctx, state, screenshot_active);
 }
 
 pub fn draw_central_panel(
