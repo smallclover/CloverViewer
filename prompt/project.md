@@ -118,6 +118,7 @@ let rect = ctx.viewport_rect();
 
 1. rect_stroke 有四个参数
 2. 时刻注意是否需要unwrap或者？来解包返回值
+3. xcap的很多返回类型都是XCapResult<T>,需要unwrap来解包
 
 ## 目标
 
