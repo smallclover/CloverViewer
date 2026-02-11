@@ -134,9 +134,6 @@ impl CloverApp {
                     if let (Ok(image), Ok(width)) = (monitor.capture_image(), monitor.width()) {
                         if width == 0 { continue; }
 
-                        // 计算物理到逻辑的缩放比例（仅用于 UI 显示兼容，保存时不使用）
-                        let scale_factor = image.width() as f32 / width as f32;
-
                         let color_image = ColorImage::from_rgba_unmultiplied(
                             [image.width() as usize, image.height() as usize],
                             &image,
@@ -147,7 +144,6 @@ impl CloverApp {
                             image: color_image,
                             screen_info: monitor.clone(),
                             texture: None,
-                            scale_factor,
                         });
                     } else {
                         eprintln!("[ERROR] Failed to capture monitor {}", i);
@@ -177,6 +173,10 @@ impl CloverApp {
                     .with_title("Screenshot")
                     .with_fullscreen(true)
                     .with_decorations(false)
+                    // 下面这三个注解可能有用，目前顶部偶尔存在闪烁的情况，出发条件不明
+                    // .with_resizable(false)
+                    // .with_maximized(false)
+                    // .with_drag_and_drop(false)
                     // .with_always_on_top() // 0.33 无参数
                     //点击其中一个，Windows 可能会尝试重新计算 Z 轴顺序，导致另一个短暂闪烁。
                     // 就是这个问题，导致了截图和save的时候疯狂闪烁

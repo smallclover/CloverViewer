@@ -37,7 +37,6 @@ pub struct CapturedScreen {
     pub image: ColorImage,
     pub screen_info: Monitor,
     pub texture: Option<TextureHandle>,
-    pub scale_factor: f32,
 }
 
 pub fn draw_screenshot_ui(
@@ -59,7 +58,9 @@ pub fn draw_screenshot_ui(
 
     let mut needs_repaint = false;
 
-    egui::CentralPanel::default().show(ctx, |ui| {
+    egui::CentralPanel::default()
+        .frame(egui::Frame::NONE.inner_margin(0.0)) // <--- 关键：设置内边距为 0
+        .show(ctx, |ui| {
         let image_widget = egui::Image::new(img_src).fit_to_exact_size(ui.available_size());
         ui.add(image_widget);
 
@@ -181,7 +182,7 @@ pub fn draw_screenshot_ui(
             full_rect,
             0.0,
             Stroke::new(border_width, Color32::GREEN),
-            StrokeKind::Outside // <--- 关键：向内描边，保证四边等宽且不被裁剪
+            StrokeKind::Inside // <--- 关键：向内描边，保证四边等宽且不被裁剪
         );
 
         if let Some(button_rect) = local_button_rect {
