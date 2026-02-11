@@ -114,6 +114,11 @@ let rect = ctx.viewport_rect();
 
 ---
 
+#### 避免常见的错误
+
+1. rect_stroke 有四个参数
+2. 时刻注意是否需要unwrap或者？来解包返回值
+
 ## 目标
 
 确保 AI 生成的所有相关代码：
