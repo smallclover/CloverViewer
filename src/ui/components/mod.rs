@@ -5,8 +5,6 @@ pub mod properties_panel;
 pub mod resources;
 pub mod toast;
 pub mod ui_mode;
-pub mod crop;
-
 pub mod about;
 pub mod menu;
 pub mod settings;
@@ -17,3 +15,4 @@ pub mod loading;
 pub mod arrows;
 pub mod preview;
 pub mod icons;
+pub mod screenshot;

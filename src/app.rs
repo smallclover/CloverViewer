@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
     sync::Arc,
 };
-use image::{RgbaImage, GenericImage, GenericImageView};
+use image::{RgbaImage, GenericImage};
 use crate::{
     model::config::{load_config, save_config, Config},
     model::state::{ViewState, ViewMode},
@@ -16,11 +16,10 @@ use crate::ui::components::{
     mouse::handle_input_events,
     properties_panel::draw_properties_panel,
     resources::APP_FONT,
-    crop::handle_crop_mode,
 };
 use crate::ui::viewer;
 use crate::utils::image::load_icon;
-use crate::screenshot::{ScreenshotState, CapturedScreen, draw_screenshot_ui, ScreenshotAction};
+use crate::ui::components::screenshot::{ScreenshotState, CapturedScreen, draw_screenshot_ui, ScreenshotAction};
 use xcap::Monitor;
 
 pub fn run() -> eframe::Result<()> {
@@ -118,8 +117,6 @@ impl CloverApp {
                 self.config = temp_config;
                 save_config(&self.config);
             }
-
-            handle_crop_mode(ctx, &mut self.state, &mut self.data);
         }
     }
 

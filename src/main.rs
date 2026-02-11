@@ -7,7 +7,6 @@ mod ui;
 mod core;
 mod model;
 mod i18n;
-mod screenshot;
 
 fn main() -> eframe::Result<()> {
     let instance = single_instance::SingleInstance::new("CloverViewer").unwrap();

@@ -1,8 +1,5 @@
-use egui::{ColorImage, Context, Key, Modifiers, Pos2};
-use xcap::Monitor;
+use egui::{Context, Key};
 use crate::core::business::BusinessData;
-use crate::model::state::{ViewState, MonitorTexture};
-use crate::utils::screenshot::capture_all_monitors;
 
 pub fn handle_input_events(ctx: &Context, data: &mut BusinessData) {
     ctx.input(|i| {
