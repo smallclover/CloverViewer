@@ -1,11 +1,21 @@
-use eframe::egui::{self, ColorImage, Rect, TextureHandle, Painter, Color32, Stroke, Pos2, StrokeKind};
-use xcap::Monitor;
+use eframe::egui::{self, ColorImage, Rect, TextureHandle, Color32, Stroke, Pos2, StrokeKind};
 use image::RgbaImage;
+use std::sync::Arc;
+use xcap::Monitor;
 
-// 1. selection 和 drag_start 从这里移除
+#[derive(PartialEq, Clone, Copy)]
+pub enum ScreenshotAction {
+    None,
+    Close,
+    SaveAndClose,
+}
+
 pub struct ScreenshotState {
     pub is_active: bool,
     pub captures: Vec<CapturedScreen>,
+    pub selection: Option<Rect>,
+    pub drag_start: Option<Pos2>,
+    pub save_button_pos: Option<Pos2>,
 }
 
 impl Default for ScreenshotState {
@@ -13,37 +23,42 @@ impl Default for ScreenshotState {
         Self {
             is_active: false,
             captures: vec![],
+            selection: None,
+            drag_start: None,
+            save_button_pos: None,
         }
     }
 }
 
 #[derive(Clone)]
 pub struct CapturedScreen {
+    pub raw_image: Arc<RgbaImage>,
     pub image: ColorImage,
     pub screen_info: Monitor,
     pub texture: Option<TextureHandle>,
-    // 2. 将 selection 和 drag_start 添加到这里
-    pub selection: Option<Rect>,
-    pub drag_start: Option<Pos2>,
+    pub scale_factor: f32,
 }
 
-// 3. 修改函数签名，现在只接收 screen 自身的可变引用
 pub fn draw_screenshot_ui(
     ctx: &eframe::egui::Context,
-    screen: &mut CapturedScreen,
-) -> bool {
-    let mut wants_to_close = false;
+    state: &mut ScreenshotState,
+    screen_index: usize,
+) -> ScreenshotAction {
+    let mut action = ScreenshotAction::None;
+    let screen = &mut state.captures[screen_index];
 
     let texture: &TextureHandle = screen.texture.get_or_insert_with(|| {
         ctx.load_texture(
-            format!("screenshot_{}", screen.screen_info.name().unwrap()),
+            format!("screenshot_{}", screen.screen_info.name().unwrap_or_default()),
             screen.image.clone(),
             Default::default(),
         )
     });
     let img_src = (texture.id(), texture.size_vec2());
-    egui::CentralPanel::default().show(ctx, |ui| {
 
+    let mut needs_repaint = false;
+
+    egui::CentralPanel::default().show(ctx, |ui| {
         let image_widget = egui::Image::new(img_src).fit_to_exact_size(ui.available_size());
         ui.add(image_widget);
 
@@ -51,78 +66,112 @@ pub fn draw_screenshot_ui(
         let viewport_rect = ctx.viewport_rect();
         let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
 
-        // 4. 所有对 selection 和 drag_start 的访问都改为 screen.xxx
-        ui.input(|i| {
-            if i.pointer.primary_down() {
-                screen.drag_start = i.pointer.press_origin();
-            }
-            if i.pointer.is_decidedly_dragging() && screen.drag_start.is_some() {
-                if let Some(current_pos) = i.pointer.latest_pos() {
-                    screen.selection = Some(Rect::from_two_pos(screen.drag_start.unwrap(), current_pos));
+        // --- 核心修复：使用 input 获取视口信息 (egui 0.33 正确写法) ---
+        // ctx.input(|i| i.viewport().inner_rect) 返回当前视口在屏幕上的绝对逻辑坐标
+        let viewport_inner_rect = ctx.input(|i| i.viewport().inner_rect);
+
+        let viewport_offset = if let Some(rect) = viewport_inner_rect {
+            rect.min
+        } else {
+            // 降级方案：手动计算 (仅在极少数第一帧未就绪时触发)
+            let ppp = ctx.pixels_per_point();
+            Pos2::new(
+                screen.screen_info.x().unwrap_or(0) as f32 / ppp,
+                screen.screen_info.y().unwrap_or(0) as f32 / ppp
+            )
+        };
+
+        // --- 碰撞检测与输入处理 ---
+        let mut local_button_rect = None;
+        if let Some(global_button_pos) = state.save_button_pos {
+            let local_pos = global_button_pos - viewport_offset.to_vec2();
+            local_button_rect = Some(Rect::from_min_size(local_pos, egui::vec2(50.0, 25.0)));
+        }
+
+        let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::drag());
+
+        if response.drag_started() {
+            if let Some(press_pos) = response.interact_pointer_pos() {
+                let is_clicking_button = local_button_rect.map_or(false, |r| r.contains(press_pos));
+
+                if !is_clicking_button {
+                    let global_pos = press_pos + viewport_offset.to_vec2();
+                    state.drag_start = Some(global_pos);
+                    state.save_button_pos = None;
+                    needs_repaint = true;
                 }
             }
-            if i.pointer.primary_released() {
-                screen.drag_start = None;
+        }
+
+        if response.dragged() {
+            if let (Some(drag_start_global), Some(current_pos_local)) = (state.drag_start, ui.input(|i| i.pointer.latest_pos())) {
+                let current_pos_global = current_pos_local + viewport_offset.to_vec2();
+                let rect = Rect::from_two_pos(drag_start_global, current_pos_global);
+
+                if state.selection.map_or(true, |s| s != rect) {
+                    state.selection = Some(rect);
+                }
+                needs_repaint = true;
             }
-        });
+        }
 
-        if let Some(sel) = screen.selection {
-            let top = Rect::from_min_max(viewport_rect.min, Pos2::new(viewport_rect.max.x, sel.min.y));
-            let bottom = Rect::from_min_max(Pos2::new(viewport_rect.min.x, sel.max.y), viewport_rect.max);
-            let left = Rect::from_min_max(Pos2::new(viewport_rect.min.x, sel.min.y), Pos2::new(sel.min.x, sel.max.y));
-            let right = Rect::from_min_max(Pos2::new(sel.max.x, sel.min.y), Pos2::new(viewport_rect.max.x, sel.max.y));
-
-            painter.rect_filled(top, 0.0, overlay_color);
-            painter.rect_filled(bottom, 0.0, overlay_color);
-            painter.rect_filled(left, 0.0, overlay_color);
-            painter.rect_filled(right, 0.0, overlay_color);
-
-            painter.rect_stroke(sel, 0.0, Stroke::new(2.0, Color32::from_rgb(255, 0, 0)), StrokeKind::Outside);
-
-            let button_pos = Pos2::new(sel.right() + 5.0, sel.bottom() + 5.0);
-            let button_rect = Rect::from_min_size(button_pos, egui::vec2(50.0, 25.0));
-
-            let save_button = ui.put(button_rect, egui::Button::new("Save"));
-            if save_button.clicked() {
-                let screen_image = screen.image.clone();
-                let selection = screen.selection;
-                let screen_info_name = screen.screen_info.name().unwrap();
-
-                std::thread::spawn(move || {
-                    if let Some(sel) = selection {
-                        let (x, y, w, h) = (
-                            sel.min.x as u32,
-                            sel.min.y as u32,
-                            sel.width() as u32,
-                            sel.height() as u32,
-                        );
-
-                        let sub_image = RgbaImage::from_raw(
-                            screen_image.width() as u32,
-                            screen_image.height() as u32,
-                            screen_image.pixels.iter().flat_map(|p| p.to_array()).collect(),
-                        ).unwrap();
-
-                        let cropped = image::imageops::crop_imm(&sub_image, x, y, w, h).to_image();
-
-                        if let Ok(profile) = std::env::var("USERPROFILE") {
-                            let desktop = format!("{}/Desktop", profile);
-                            let path = format!("{}/screenshot_{}.png", desktop, screen_info_name);
-                            cropped.save(path).ok();
-                        }
+        if response.drag_stopped() {
+            if state.drag_start.is_some() {
+                state.drag_start = None;
+                if let Some(sel) = state.selection {
+                    if sel.width() > 5.0 && sel.height() > 5.0 {
+                        state.save_button_pos = Some(sel.right_bottom() + egui::vec2(5.0, 5.0));
+                    } else {
+                        state.selection = None;
+                        state.save_button_pos = None;
                     }
-                });
+                    needs_repaint = true;
+                }
+            }
+        }
 
-                wants_to_close = true;
+        // --- 渲染 ---
+        if let Some(global_sel) = state.selection {
+            let local_sel = global_sel.translate(-viewport_offset.to_vec2());
+            let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
+            let clipped_local_sel = local_sel.intersect(screen_rect_local);
+
+            if clipped_local_sel.is_positive() {
+                let top = Rect::from_min_max(screen_rect_local.min, Pos2::new(screen_rect_local.max.x, clipped_local_sel.min.y));
+                let bottom = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.max.y), screen_rect_local.max);
+                let left = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.min.y), Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y));
+                let right = Rect::from_min_max(Pos2::new(clipped_local_sel.max.x, clipped_local_sel.min.y), Pos2::new(screen_rect_local.max.x, clipped_local_sel.max.y));
+
+                painter.rect_filled(top, 0.0, overlay_color);
+                painter.rect_filled(bottom, 0.0, overlay_color);
+                painter.rect_filled(left, 0.0, overlay_color);
+                painter.rect_filled(right, 0.0, overlay_color);
+
+                painter.rect_stroke(clipped_local_sel, 0.0, Stroke::new(2.0, Color32::from_rgb(255, 0, 0)), StrokeKind::Outside);
+            } else {
+                painter.rect_filled(viewport_rect, 0.0, overlay_color);
             }
         } else {
             painter.rect_filled(viewport_rect, 0.0, overlay_color);
         }
 
+        if let Some(button_rect) = local_button_rect {
+            if viewport_rect.intersects(button_rect) {
+                let save_button = ui.put(button_rect, egui::Button::new("Save"));
+                if save_button.clicked() {
+                    action = ScreenshotAction::SaveAndClose;
+                }
+            }
+        }
+
         if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-            wants_to_close = true;
+            action = ScreenshotAction::Close;
         }
     });
 
-    wants_to_close
+    if needs_repaint {
+        ctx.request_repaint();
+    }
+
+    action
 }
