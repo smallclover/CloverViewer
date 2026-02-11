@@ -91,13 +91,13 @@ impl CloverApp {
     }
 
     fn handle_input_events(&mut self, ctx: &Context) {
-        handle_input_events(ctx, &mut self.data, &mut self.state);
+        handle_input_events(ctx, &mut self.data);
     }
 
     fn draw_ui(&mut self, ctx: &Context) {
         if !self.screenshot_state.is_active {
-            viewer::draw_top_panel(ctx, &mut self.state, &self.config);
-            viewer::draw_bottom_panel(ctx, &mut self.state, &mut self.screenshot_state.is_active);
+            viewer::draw_top_panel(ctx, &mut self.state, &self.config,&mut self.screenshot_state.is_active);
+            viewer::draw_bottom_panel(ctx, &mut self.state);
             viewer::draw_central_panel(ctx, &mut self.data, &mut self.state, &self.config);
             draw_properties_panel(ctx, &mut self.state, &self.data, &self.config);
             self.state.toast_system.update(ctx);

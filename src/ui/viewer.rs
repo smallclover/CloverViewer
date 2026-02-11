@@ -31,9 +31,10 @@ pub fn draw_top_panel(
     ctx: &Context,
     state: &mut ViewState,
     config: &Config,
+    screenshot_active: &mut bool,
 ) {
     let texts = get_text(config.language);
-    let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode, texts, config);
+    let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode, texts, config, screenshot_active);
 
     if open_file {
         let sender = state.path_sender.clone();
@@ -60,9 +61,8 @@ pub fn draw_top_panel(
 pub fn draw_bottom_panel(
     ctx: &Context,
     state: &mut ViewState,
-    screenshot_active: &mut bool,
 ) {
-    draw_status_bar(ctx, state, screenshot_active);
+    draw_status_bar(ctx, state);
 }
 
 pub fn draw_central_panel(

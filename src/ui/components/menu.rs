@@ -17,6 +17,7 @@ pub fn draw_menu(
     ui_mode: &mut UiMode,
     text: &TextBundle,
     config: &Config,
+    screenshot_active: &mut bool,
 ) -> (bool, bool) {
 
     let mut open_file_dialog = false;
@@ -24,7 +25,7 @@ pub fn draw_menu(
 
     // 快捷键检测: Alt + S
     if ctx.input_mut(|i| i.consume_key(Modifiers::ALT, Key::S)) {
-        println!("截图")
+        *screenshot_active = true;
     }
 
     TopBottomPanel::top("menu").show(ctx, |ui| {
