@@ -66,6 +66,7 @@ pub fn draw_screenshot_ui(
         let painter = ui.painter();
         let viewport_rect = ctx.viewport_rect();
         let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
+        let full_rect = ui.max_rect();
 
         // --- 1. 获取物理基准信息 ---
         let screen_x = screen.screen_info.x().unwrap_or(0) as f32;
@@ -165,13 +166,23 @@ pub fn draw_screenshot_ui(
                 painter.rect_filled(left, 0.0, overlay_color);
                 painter.rect_filled(right, 0.0, overlay_color);
 
-                painter.rect_stroke(clipped_local_sel, 0.0, Stroke::new(2.0, Color32::from_rgb(255, 0, 0)), StrokeKind::Outside);
+                painter.rect_stroke(clipped_local_sel, 0.0, Stroke::new(2.0, Color32::GREEN), StrokeKind::Outside);
             } else {
                 painter.rect_filled(viewport_rect, 0.0, overlay_color);
             }
         } else {
             painter.rect_filled(viewport_rect, 0.0, overlay_color);
         }
+
+        // --- 在所有内容绘制完毕后，画绿色边框 ---
+        // 这样能保证边框浮在图片之上，且不受 Layout 影响
+        let border_width = 5.0; // 你想要的宽度
+        painter.rect_stroke(
+            full_rect,
+            0.0,
+            Stroke::new(border_width, Color32::GREEN),
+            StrokeKind::Outside // <--- 关键：向内描边，保证四边等宽且不被裁剪
+        );
 
         if let Some(button_rect) = local_button_rect {
             if viewport_rect.intersects(button_rect) {
