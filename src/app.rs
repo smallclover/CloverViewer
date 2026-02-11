@@ -177,7 +177,9 @@ impl CloverApp {
                     .with_title("Screenshot")
                     .with_fullscreen(true)
                     .with_decorations(false)
-                    .with_always_on_top() // 0.33 无参数
+                    // .with_always_on_top() // 0.33 无参数
+                    //点击其中一个，Windows 可能会尝试重新计算 Z 轴顺序，导致另一个短暂闪烁。
+                    // 就是这个问题，导致了截图和save的时候疯狂闪烁
                     .with_position(pos),
                 |ctx, class| {
                     if class == ViewportClass::Immediate {
