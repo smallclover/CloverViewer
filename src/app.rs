@@ -128,23 +128,23 @@ impl CloverApp {
             return;
         }
 
+        // --- 1. 初始化捕获 (只在开始时执行一次) ---
         if self.screenshot_state.captures.is_empty() {
             println!("[DEBUG] Capturing screens...");
             if let Ok(monitors) = Monitor::all() {
                 for (i, monitor) in monitors.iter().enumerate() {
-                     if let (Ok(image), Ok(width)) = (monitor.capture_image(), monitor.width()) {
-                        if width == 0 {
-                            println!("[DEBUG] Monitor {} has zero width, skipping.", i);
-                            continue;
-                        }
+                    // 尝试捕获图像
+                    if let (Ok(image), Ok(width)) = (monitor.capture_image(), monitor.width()) {
+                        if width == 0 { continue; }
+
+                        // 计算物理到逻辑的缩放比例（仅用于 UI 显示兼容，保存时不使用）
                         let scale_factor = image.width() as f32 / width as f32;
-                        println!("[DEBUG] Monitor {}: name={}, physical_size=({},{}), logical_size=({},{}), scale_factor={}",
-                                 i, monitor.name().unwrap_or("Unknown".parse().unwrap()), image.width(), image.height(), monitor.width().unwrap(), monitor.height().unwrap(), scale_factor);
 
                         let color_image = ColorImage::from_rgba_unmultiplied(
                             [image.width() as usize, image.height() as usize],
                             &image,
                         );
+
                         self.screenshot_state.captures.push(CapturedScreen {
                             raw_image: Arc::new(image),
                             image: color_image,
@@ -153,21 +153,26 @@ impl CloverApp {
                             scale_factor,
                         });
                     } else {
-                        println!("[DEBUG] Failed to capture image for monitor {}", i);
+                        eprintln!("[ERROR] Failed to capture monitor {}", i);
                     }
                 }
-            } else {
-                println!("[DEBUG] Could not get monitor list.");
             }
         }
 
         let mut final_action = ScreenshotAction::None;
         let mut wants_to_close_viewports = false;
 
+        // --- 2. 渲染所有视口 ---
         for i in 0..self.screenshot_state.captures.len() {
             let screen_info = self.screenshot_state.captures[i].screen_info.clone();
-            let viewport_id = ViewportId::from_hash_of(format!("screenshot_{}", screen_info.name().unwrap()));
-            let pos_in_logical_pixels = egui::pos2(screen_info.x().unwrap() as f32, screen_info.y().unwrap() as f32);
+            let viewport_id = ViewportId::from_hash_of(format!("screenshot_{}", screen_info.name().unwrap_or_default()));
+
+            // 使用 monitor 的坐标作为窗口位置。
+            // 注意：在大多数系统上，xcap 返回的是物理坐标，eframe 会自动处理窗口位置映射
+            let pos = egui::pos2(
+                screen_info.x().unwrap_or(0) as f32,
+                screen_info.y().unwrap_or(0) as f32
+            );
 
             ctx.show_viewport_immediate(
                 viewport_id,
@@ -175,10 +180,11 @@ impl CloverApp {
                     .with_title("Screenshot")
                     .with_fullscreen(true)
                     .with_decorations(false)
-                    .with_always_on_top()
-                    .with_position(pos_in_logical_pixels),
+                    .with_always_on_top() // 0.33 无参数
+                    .with_position(pos),
                 |ctx, class| {
                     if class == ViewportClass::Immediate {
+                        // 传入 index，UI 内部会处理坐标转换
                         let action = draw_screenshot_ui(ctx, &mut self.screenshot_state, i);
                         if action != ScreenshotAction::None {
                             final_action = action;
@@ -192,126 +198,107 @@ impl CloverApp {
             );
         }
 
+        // --- 3. 处理关闭与保存逻辑 ---
         if wants_to_close_viewports {
             if final_action == ScreenshotAction::SaveAndClose {
-                println!("[DEBUG] SaveAndClose action triggered.");
-                if let Some(selection) = self.screenshot_state.selection {
-                    if !selection.is_positive() {
-                        println!("[DEBUG] Selection is not positive, aborting save.");
-                        return;
-                    }
-                    println!("[DEBUG] Logical Selection: {:?}", selection);
+                println!("[DEBUG] SaveAndClose triggered.");
 
+                // 获取全局物理坐标选区
+                if let Some(selection_phys) = self.screenshot_state.selection {
+                    if !selection_phys.is_positive() {
+                        return; // 选区无效
+                    }
+
+                    println!("[DEBUG] Physical Selection: {:?}", selection_phys);
+
+                    // 准备线程所需数据
+                    // 这里只需要原始图片和该屏幕在全局空间中的物理位置矩形
                     let captures_data: Vec<_> = self.screenshot_state.captures.iter().map(|c| {
                         (
                             c.raw_image.clone(),
+                            // 构建显示器的物理矩形
                             egui::Rect::from_min_size(
-                                egui::pos2(c.screen_info.x().unwrap() as f32 / c.scale_factor, c.screen_info.y().unwrap() as f32 / c.scale_factor),
-                                egui::vec2(c.screen_info.width().unwrap() as f32 / c.scale_factor, c.screen_info.height().unwrap() as f32 / c.scale_factor),
-                            ),
-                            c.scale_factor,
+                                egui::pos2(c.screen_info.x().unwrap_or(0) as f32, c.screen_info.y().unwrap_or(0) as f32),
+                                egui::vec2(c.screen_info.width().unwrap_or(0) as f32, c.screen_info.height().unwrap_or(0) as f32),
+                            )
                         )
                     }).collect();
 
-                    let target_scale = ctx.pixels_per_point();
-                    println!("[DEBUG] Target image scale (from primary window): {}", target_scale);
-
+                    // 启动保存线程
                     std::thread::spawn(move || {
-                        println!("[THREAD] Starting image stitching process.");
-                        let final_width = (selection.width() * target_scale).round() as u32;
-                        let final_height = (selection.height() * target_scale).round() as u32;
-                        println!("[THREAD] Final image dimensions: {}x{}", final_width, final_height);
+                        println!("[THREAD] Starting stitching...");
 
-                        if final_width == 0 || final_height == 0 {
-                            eprintln!("[ERROR] Failed to save image: Final image dimensions are zero.");
-                            return;
-                        }
+                        // 1. 确定画布大小
+                        // 因为 selection_phys 已经是物理像素，直接取整即可，不需要再乘 scale
+                        let final_width = selection_phys.width().round() as u32;
+                        let final_height = selection_phys.height().round() as u32;
+
+                        if final_width == 0 || final_height == 0 { return; }
 
                         let mut final_image = RgbaImage::new(final_width, final_height);
 
-                        for (i, (raw_image, monitor_rect_logical, scale_factor)) in captures_data.iter().enumerate() {
-                            println!("[THREAD] Processing capture {}: monitor_rect_logical={:?}, scale_factor={}", i, monitor_rect_logical, scale_factor);
-                            let intersection_logical = selection.intersect(*monitor_rect_logical);
-                            println!("[THREAD]   Intersection (logical): {:?}", intersection_logical);
+                        for (i, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
+                            // 2. 计算 选区 与 当前屏幕 的交集 (物理空间)
+                            let intersection = selection_phys.intersect(*monitor_rect_phys);
 
-                            if !intersection_logical.is_positive() {
-                                println!("[THREAD]   No intersection, skipping.");
+                            if !intersection.is_positive() {
+                                continue; // 选区没有覆盖这个屏幕
+                            }
+
+                            // 3. 计算裁切区域 (相对于当前屏幕左上角)
+                            // crop_x = 交集左边 - 屏幕左边
+                            let crop_x = (intersection.min.x - monitor_rect_phys.min.x).max(0.0).round() as u32;
+                            let crop_y = (intersection.min.y - monitor_rect_phys.min.y).max(0.0).round() as u32;
+                            let crop_w = intersection.width().round() as u32;
+                            let crop_h = intersection.height().round() as u32;
+
+                            // 边界检查，防止 panic
+                            if crop_x + crop_w > raw_image.width() || crop_y + crop_h > raw_image.height() {
+                                eprintln!("[ERROR] Monitor {} crop out of bounds.", i);
                                 continue;
                             }
 
-                            let crop_x_phys = ((intersection_logical.min.x - monitor_rect_logical.min.x) * scale_factor).round() as u32;
-                            let crop_y_phys = ((intersection_logical.min.y - monitor_rect_logical.min.y) * scale_factor).round() as u32;
-                            let crop_w_phys = (intersection_logical.width() * scale_factor).round() as u32;
-                            let crop_h_phys = (intersection_logical.height() * scale_factor).round() as u32;
-                            println!("[THREAD]   Physical crop: x={}, y={}, w={}, h={}", crop_x_phys, crop_y_phys, crop_w_phys, crop_h_phys);
-
-                            if crop_x_phys.saturating_add(crop_w_phys) > raw_image.width() || crop_y_phys.saturating_add(crop_h_phys) > raw_image.height() {
-                                eprintln!("[ERROR] Failed to save image: Crop area {:?} is out of bounds for raw image size {}x{}",
-                                    (crop_x_phys, crop_y_phys, crop_w_phys, crop_h_phys), raw_image.width(), raw_image.height());
-                                continue;
-                            }
-
-                            let cropped_part_native = image::imageops::crop_imm(
+                            // 4. 执行裁切
+                            let cropped_part = image::imageops::crop_imm(
                                 &**raw_image,
-                                crop_x_phys,
-                                crop_y_phys,
-                                crop_w_phys,
-                                crop_h_phys,
+                                crop_x,
+                                crop_y,
+                                crop_w,
+                                crop_h,
                             ).to_image();
-                            println!("[THREAD]   Cropped native part successfully.");
 
-                            let paste_x_start = ((intersection_logical.min.x - selection.min.x) * target_scale).round() as u32;
-                            let paste_y_start = ((intersection_logical.min.y - selection.min.y) * target_scale).round() as u32;
-                            let paste_x_end = ((intersection_logical.max.x - selection.min.x) * target_scale).round() as u32;
-                            let paste_y_end = ((intersection_logical.max.y - selection.min.y) * target_scale).round() as u32;
+                            // 5. 计算粘贴位置 (相对于最终画布左上角)
+                            // paste_x = 交集左边 - 选区左边
+                            let paste_x = (intersection.min.x - selection_phys.min.x).max(0.0).round() as u32;
+                            let paste_y = (intersection.min.y - selection_phys.min.y).max(0.0).round() as u32;
 
-                            let target_w = paste_x_end - paste_x_start;
-                            let target_h = paste_y_end - paste_y_start;
-                            println!("[THREAD]   Paste target: w={}, h={}", target_w, target_h);
-
-                            if target_w == 0 || target_h == 0 {
-                                println!("[THREAD]   Paste target has zero dimension, skipping.");
-                                continue;
+                            // 6. 粘贴到大图
+                            // 因为全是物理像素，直接 1:1 拷贝，不需要 resize
+                            if let Err(e) = final_image.copy_from(&cropped_part, paste_x, paste_y) {
+                                eprintln!("[ERROR] Failed to copy part: {}", e);
                             }
-
-                            let part_to_paste = if cropped_part_native.width() != target_w || cropped_part_native.height() != target_h {
-                                println!("[THREAD]   Resizing part from {}x{} to {}x{}", cropped_part_native.width(), cropped_part_native.height(), target_w, target_h);
-                                image::imageops::resize(
-                                    &cropped_part_native,
-                                    target_w,
-                                    target_h,
-                                    image::imageops::FilterType::Lanczos3,
-                                )
-                            } else {
-                                println!("[THREAD]   No resize needed.");
-                                cropped_part_native
-                            };
-
-                            println!("[THREAD]   Pasting at: x={}, y={}", paste_x_start, paste_y_start);
-                            if let Err(e) = final_image.copy_from(&part_to_paste, paste_x_start, paste_y_start) {
-                                eprintln!("[ERROR] Failed to save image: Could not copy image part: {}", e);
-                            };
                         }
 
+                        // 7. 保存文件
                         if let Ok(profile) = std::env::var("USERPROFILE") {
                             let desktop = PathBuf::from(profile).join("Desktop");
-                            let path = desktop.join(format!("screenshot_{}.png", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()));
-                            println!("[THREAD] Saving final image to: {:?}", path);
+                            let timestamp = std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs();
+                            let path = desktop.join(format!("screenshot_{}.png", timestamp));
+
                             if let Err(e) = final_image.save(&path) {
-                                eprintln!("[ERROR] Failed to save image to path {:?}: {}", path, e);
+                                eprintln!("[ERROR] Save failed: {}", e);
                             } else {
-                                println!("[SUCCESS] Image saved successfully!");
+                                println!("[SUCCESS] Saved to {:?}", path);
                             }
-                        } else {
-                            eprintln!("[ERROR] Could not find USERPROFILE to determine save location.");
                         }
                     });
-                } else {
-                    println!("[DEBUG] Save action triggered, but there is no selection.");
                 }
             }
 
-            println!("[DEBUG] Resetting screenshot state.");
+            // --- 4. 重置状态 ---
             self.screenshot_state.is_active = false;
             self.screenshot_state.captures.clear();
             self.screenshot_state.selection = None;

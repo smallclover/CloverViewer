@@ -13,6 +13,7 @@ pub enum ScreenshotAction {
 pub struct ScreenshotState {
     pub is_active: bool,
     pub captures: Vec<CapturedScreen>,
+    // 全局物理坐标 (Physical Pixels)
     pub selection: Option<Rect>,
     pub drag_start: Option<Pos2>,
     pub save_button_pos: Option<Pos2>,
@@ -66,37 +67,38 @@ pub fn draw_screenshot_ui(
         let viewport_rect = ctx.viewport_rect();
         let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
 
-        // --- 核心修复：使用 input 获取视口信息 (egui 0.33 正确写法) ---
-        // ctx.input(|i| i.viewport().inner_rect) 返回当前视口在屏幕上的绝对逻辑坐标
-        let viewport_inner_rect = ctx.input(|i| i.viewport().inner_rect);
+        // --- 1. 获取物理基准信息 ---
+        let screen_x = screen.screen_info.x().unwrap_or(0) as f32;
+        let screen_y = screen.screen_info.y().unwrap_or(0) as f32;
+        // 当前屏幕的物理起点
+        let screen_offset_phys = Pos2::new(screen_x, screen_y);
+        // 当前逻辑点距
+        let ppp = ctx.pixels_per_point();
 
-        let viewport_offset = if let Some(rect) = viewport_inner_rect {
-            rect.min
-        } else {
-            // 降级方案：手动计算 (仅在极少数第一帧未就绪时触发)
-            let ppp = ctx.pixels_per_point();
-            Pos2::new(
-                screen.screen_info.x().unwrap_or(0) as f32 / ppp,
-                screen.screen_info.y().unwrap_or(0) as f32 / ppp
-            )
-        };
+        // --- 2. 输入处理：将 局部逻辑坐标 -> 全局物理坐标 ---
 
-        // --- 碰撞检测与输入处理 ---
+        // 计算按钮的局部逻辑区域
         let mut local_button_rect = None;
-        if let Some(global_button_pos) = state.save_button_pos {
-            let local_pos = global_button_pos - viewport_offset.to_vec2();
-            local_button_rect = Some(Rect::from_min_size(local_pos, egui::vec2(50.0, 25.0)));
+        if let Some(global_button_pos_phys) = state.save_button_pos {
+            // 修复：先计算物理向量差 (Pos2 - Pos2 -> Vec2)，再除以 DPI
+            let vec_phys = global_button_pos_phys - screen_offset_phys;
+            let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
+            local_button_rect = Some(Rect::from_min_size(local_pos_logical, egui::vec2(50.0, 25.0)));
         }
 
         let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::drag());
 
         if response.drag_started() {
-            if let Some(press_pos) = response.interact_pointer_pos() {
+            if let Some(press_pos) = response.interact_pointer_pos() { // press_pos 是局部逻辑坐标
                 let is_clicking_button = local_button_rect.map_or(false, |r| r.contains(press_pos));
 
                 if !is_clicking_button {
-                    let global_pos = press_pos + viewport_offset.to_vec2();
-                    state.drag_start = Some(global_pos);
+                    // 局部逻辑 -> 物理向量
+                    let local_vec_phys = press_pos.to_vec2() * ppp;
+                    // 屏幕物理起点 + 物理向量 = 全局物理坐标
+                    let global_phys = screen_offset_phys + local_vec_phys;
+
+                    state.drag_start = Some(global_phys);
                     state.save_button_pos = None;
                     needs_repaint = true;
                 }
@@ -104,9 +106,12 @@ pub fn draw_screenshot_ui(
         }
 
         if response.dragged() {
-            if let (Some(drag_start_global), Some(current_pos_local)) = (state.drag_start, ui.input(|i| i.pointer.latest_pos())) {
-                let current_pos_global = current_pos_local + viewport_offset.to_vec2();
-                let rect = Rect::from_two_pos(drag_start_global, current_pos_global);
+            if let (Some(drag_start_phys), Some(curr_pos_local)) = (state.drag_start, ui.input(|i| i.pointer.latest_pos())) {
+                // 转换当前鼠标位置为全局物理坐标
+                let local_vec_phys = curr_pos_local.to_vec2() * ppp;
+                let current_pos_phys = screen_offset_phys + local_vec_phys;
+
+                let rect = Rect::from_two_pos(drag_start_phys, current_pos_phys);
 
                 if state.selection.map_or(true, |s| s != rect) {
                     state.selection = Some(rect);
@@ -119,8 +124,11 @@ pub fn draw_screenshot_ui(
             if state.drag_start.is_some() {
                 state.drag_start = None;
                 if let Some(sel) = state.selection {
-                    if sel.width() > 5.0 && sel.height() > 5.0 {
-                        state.save_button_pos = Some(sel.right_bottom() + egui::vec2(5.0, 5.0));
+                    // 物理像素大于 10 才显示
+                    if sel.width() > 10.0 && sel.height() > 10.0 {
+                        // 按钮位置也存为物理坐标
+                        // 这里加的 (10.0, 10.0) 是物理像素偏移
+                        state.save_button_pos = Some(sel.right_bottom() + egui::vec2(10.0, 10.0));
                     } else {
                         state.selection = None;
                         state.save_button_pos = None;
@@ -130,11 +138,21 @@ pub fn draw_screenshot_ui(
             }
         }
 
-        // --- 渲染 ---
-        if let Some(global_sel) = state.selection {
-            let local_sel = global_sel.translate(-viewport_offset.to_vec2());
+        // --- 3. 渲染：将 全局物理坐标 -> 局部逻辑坐标 ---
+        if let Some(global_sel_phys) = state.selection {
+            // 修复：计算相对于本屏幕物理起点的向量 (Vec2)
+            let vec_min = global_sel_phys.min - screen_offset_phys;
+            let vec_max = global_sel_phys.max - screen_offset_phys;
+
+            // 转换为逻辑向量并加到局部原点
+            let local_logical_rect = Rect::from_min_max(
+                Pos2::ZERO + (vec_min / ppp),
+                Pos2::ZERO + (vec_max / ppp),
+            );
+
+            // 计算交集并绘制
             let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
-            let clipped_local_sel = local_sel.intersect(screen_rect_local);
+            let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
 
             if clipped_local_sel.is_positive() {
                 let top = Rect::from_min_max(screen_rect_local.min, Pos2::new(screen_rect_local.max.x, clipped_local_sel.min.y));
