@@ -1,11 +1,15 @@
 use eframe::egui;
 use egui::{Context, FontData, FontDefinitions, FontFamily, ViewportBuilder};
-use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager}; // 引入
 use std::{
     path::PathBuf,
     sync::{mpsc, Arc},
+    env
 };
-use global_hotkey::hotkey::HotKey;
+use global_hotkey::{
+    {GlobalHotKeyEvent, GlobalHotKeyManager},
+    hotkey::HotKey
+};
+use global_hotkey::hotkey::{Code, Modifiers};
 use crate::{
     core::business::BusinessData,
     model::{
@@ -13,27 +17,41 @@ use crate::{
         state::{ViewMode, ViewState},
     },
 };
-use crate::ui::components::{
-    context_menu::handle_context_menu_action,
-    modal::ModalAction,
-    mouse::handle_input_events,
-    properties_panel::draw_properties_panel,
-    resources::APP_FONT,
-    screenshot::{handle_screenshot_system, ScreenshotState},
+use crate::ui::{
+    components::{
+        context_menu::handle_context_menu_action,
+        modal::ModalAction,
+        mouse::handle_input_events,
+        properties_panel::draw_properties_panel,
+        resources::APP_FONT,
+        screenshot::{handle_screenshot_system, ScreenshotState},
+    },
+    viewer
 };
-use crate::ui::viewer;
+
 use crate::utils::image::load_icon;
-pub fn run(
-    hotkeys_manager: GlobalHotKeyManager,
-    hotkey: HotKey,
-) -> eframe::Result<()> {
+pub fn run() -> eframe::Result<()> {
+
+    // 初始化热键管理器
+    let hotkeys_manager = GlobalHotKeyManager::new().unwrap();
+
+    // 定义 Alt + S
+    let mut modifiers = Modifiers::empty();
+    modifiers.insert(Modifiers::ALT);
+    let hotkey = HotKey::new(Some(modifiers), Code::KeyS);
+
+    // 注册快捷键
+    hotkeys_manager.register(hotkey).unwrap();
+
+
     let mut options = eframe::NativeOptions {
         viewport: ViewportBuilder::default().with_inner_size([1024.0, 768.0]),
         ..Default::default()
     };
     options.viewport = options.viewport.with_icon(load_icon());
 
-    let start_path = std::env::args().nth(1).map(PathBuf::from);
+    //当应用被设置为默认程序时，传递的图片的路径
+    let start_path = env::args().nth(1).map(PathBuf::from);
 
     eframe::run_native(
         "CloverViewer",
@@ -78,7 +96,7 @@ impl CloverApp {
         GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
             if event.id == hotkey.id() {
                 let _ = tx.send(());
-                // 【关键】强制唤醒后台运行的 egui 窗口
+                // 强制唤醒后台运行的 egui 窗口
                 ctx_clone.request_repaint();
             }
         })));
