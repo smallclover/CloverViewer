@@ -1,7 +1,7 @@
 use crate::{
     ui::components::ui_mode::{UiMode},
 };
-use egui::{Context, MenuBar, TopBottomPanel, Modifiers, Key};
+use egui::{Context, MenuBar, TopBottomPanel};
 use crate::i18n::lang::TextBundle;
 use crate::model::config::Config;
 
@@ -22,11 +22,6 @@ pub fn draw_menu(
 
     let mut open_file_dialog = false;
     let mut open_folder_dialog = false;
-
-    // 快捷键检测: Alt + S
-    if ctx.input_mut(|i| i.consume_key(Modifiers::ALT, Key::S)) {
-        *screenshot_active = true;
-    }
 
     TopBottomPanel::top("menu").show(ctx, |ui| {
         MenuBar::new().ui(ui, |ui| {
@@ -57,7 +52,7 @@ pub fn draw_menu(
                 ui.set_min_width(130.0);
 
                 if ui.add(egui::Button::new(text.menu_screenshot).shortcut_text("Alt+S")).clicked() {
-                    println!("截图");
+                    *screenshot_active = true; // 点击按钮仍然可以触发
                     ui.close();
                 }
             });

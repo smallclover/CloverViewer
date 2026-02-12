@@ -1,20 +1,33 @@
-// 仅在非 debug 模式（即 release）下应用 windows 子系统
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
-mod utils;
-mod ui;
 mod core;
-mod model;
 mod i18n;
+mod model;
+mod ui;
+mod utils;
+
+use global_hotkey::hotkey::{Code, HotKey, Modifiers};
+use global_hotkey::GlobalHotKeyManager;
 
 fn main() -> eframe::Result<()> {
     let instance = single_instance::SingleInstance::new("CloverViewer").unwrap();
     if !instance.is_single() {
-        // 如果已经有一个实例在运行，则直接退出
         return Ok(());
     }
 
+    // 初始化热键管理器
+    let hotkeys_manager = GlobalHotKeyManager::new().unwrap();
+
+    // 定义 Alt + S
+    let mut modifiers = Modifiers::empty();
+    modifiers.insert(Modifiers::ALT);
+    let hotkey = HotKey::new(Some(modifiers), Code::KeyS);
+
+    // 注册快捷键
+    hotkeys_manager.register(hotkey).unwrap();
+
+    // 传递 hotkey 实例进去以便后续校验 ID
     #[cfg(target_os = "windows")]
-    app::run()
+    app::run(hotkeys_manager, hotkey)
 }
