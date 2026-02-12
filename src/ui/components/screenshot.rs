@@ -24,6 +24,7 @@ pub struct ScreenshotState {
     // Async capture state
     pub is_capturing: bool,
     pub capture_receiver: Option<Receiver<Vec<CapturedScreen>>>,
+    pub should_minimize: bool,
 }
 
 impl Default for ScreenshotState {
@@ -36,6 +37,7 @@ impl Default for ScreenshotState {
             save_button_pos: None,
             is_capturing: false,
             capture_receiver: None,
+            should_minimize: false,
         }
     }
 }
@@ -68,18 +70,29 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
         if !state.is_capturing {
             state.is_capturing = true;
 
-            // 最小化主窗口
-            ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
+            // 检查窗口是否在前台且未最小化
+            let is_focused = ctx.input(|i| i.focused);
+            let is_minimized = ctx.input(|i| i.viewport().minimized.unwrap_or(false));
+
+            state.should_minimize = is_focused && !is_minimized;
+
+            if state.should_minimize {
+                // 最小化主窗口
+                ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
+            }
 
             let (tx, rx) = channel();
             state.capture_receiver = Some(rx);
 
             // Clone context for the thread to request repaint
             let ctx_clone = ctx.clone();
+            let should_minimize = state.should_minimize;
 
             thread::spawn(move || {
-                // 稍微延迟一下，确保窗口动画完成，避免截取到正在最小化的窗口残影
-                thread::sleep(std::time::Duration::from_millis(200));
+                if should_minimize {
+                    // 稍微延迟一下，确保窗口动画完成，避免截取到正在最小化的窗口残影
+                    thread::sleep(std::time::Duration::from_millis(300));
+                }
 
                 println!("[DEBUG] Capturing screens in background...");
 
@@ -163,9 +176,11 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
                     state.capture_receiver = None;
                     state.is_active = false; // 失败退出
 
-                    // 失败时也要恢复窗口
-                    ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
-                    ctx.send_viewport_cmd(ViewportCommand::Focus);
+                    if state.should_minimize {
+                        // 失败时也要恢复窗口
+                        ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
+                        ctx.send_viewport_cmd(ViewportCommand::Focus);
+                    }
                     return;
                 }
             }
@@ -316,9 +331,11 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
         state.drag_start = None;
         state.save_button_pos = None;
 
-        // 恢复主窗口
-        ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
-        ctx.send_viewport_cmd(ViewportCommand::Focus);
+        if state.should_minimize {
+            // 恢复主窗口
+            ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd(ViewportCommand::Focus);
+        }
     }
 }
 

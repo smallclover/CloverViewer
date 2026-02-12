@@ -133,14 +133,10 @@ impl CloverApp {
         }
     }
 
-    fn handle_hotkeys(&mut self, ctx: &Context) {
+    fn handle_hotkeys(&mut self, _ctx: &Context) {
         if self.hotkey_receiver.try_recv().is_ok() {
             // 激活截图模式
             self.screenshot_state.is_active = true;
-
-            // 【可选】如果希望窗口在按下快捷键时自动弹到最前
-            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
         }
     }
 
