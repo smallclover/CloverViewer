@@ -16,3 +16,4 @@ pub mod arrows;
 pub mod preview;
 pub mod icons;
 pub mod screenshot;
+pub mod screenshot_toolbar;

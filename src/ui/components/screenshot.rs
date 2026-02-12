@@ -5,6 +5,7 @@ use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::thread;
 use std::path::PathBuf;
 use xcap::Monitor;
+use crate::ui::components::screenshot_toolbar::draw_screenshot_toolbar;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ScreenshotAction {
@@ -13,18 +14,39 @@ pub enum ScreenshotAction {
     SaveAndClose,
 }
 
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub enum ScreenshotTool {
+    Rect,
+    Circle,
+}
+
+#[derive(Clone, Debug)]
+pub struct DrawnShape {
+    pub tool: ScreenshotTool,
+    pub start: Pos2, // 全局物理坐标
+    pub end: Pos2,   // 全局物理坐标
+    pub color: Color32,
+}
+
 pub struct ScreenshotState {
     pub is_active: bool,
     pub captures: Vec<CapturedScreen>,
     // 全局物理坐标 (Physical Pixels)
     pub selection: Option<Rect>,
     pub drag_start: Option<Pos2>,
-    pub save_button_pos: Option<Pos2>,
+    pub toolbar_pos: Option<Pos2>,
 
     // Async capture state
     pub is_capturing: bool,
     pub capture_receiver: Option<Receiver<Vec<CapturedScreen>>>,
     pub should_minimize: bool,
+
+    // Toolbar state
+    pub current_tool: Option<ScreenshotTool>,
+
+    // Drawing state
+    pub shapes: Vec<DrawnShape>,
+    pub current_shape_start: Option<Pos2>, // 正在绘制的形状起始点（全局物理坐标）
 }
 
 impl Default for ScreenshotState {
@@ -34,10 +56,13 @@ impl Default for ScreenshotState {
             captures: vec![],
             selection: None,
             drag_start: None,
-            save_button_pos: None,
+            toolbar_pos: None,
             is_capturing: false,
             capture_receiver: None,
             should_minimize: false,
+            current_tool: None,
+            shapes: vec![],
+            current_shape_start: None,
         }
     }
 }
@@ -261,6 +286,9 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
                         )
                     }).collect();
 
+                    // 收集绘制的形状
+                    let shapes = state.shapes.clone();
+
                     // 启动保存线程
                     thread::spawn(move || {
                         println!("[THREAD] Starting stitching...");
@@ -305,6 +333,93 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
                             }
                         }
 
+                        // --- 绘制形状到最终图片上 ---
+                        // 简单的矩形绘制实现 (Stroke only)
+                        for shape in shapes {
+                             // 将全局物理坐标转换为相对于最终图片的坐标
+                             let start_x = shape.start.x - selection_phys.min.x;
+                             let start_y = shape.start.y - selection_phys.min.y;
+                             let end_x = shape.end.x - selection_phys.min.x;
+                             let end_y = shape.end.y - selection_phys.min.y;
+
+                             let rect = Rect::from_two_pos(Pos2::new(start_x, start_y), Pos2::new(end_x, end_y));
+
+                             // 简单的描边算法 (Bresenham's line algorithm or simple rect loop)
+                             let x0 = rect.min.x.round() as i32;
+                             let y0 = rect.min.y.round() as i32;
+                             let x1 = rect.max.x.round() as i32;
+                             let y1 = rect.max.y.round() as i32;
+
+                             let color = image::Rgba([shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a()]);
+                             let thickness = 2; // 2px stroke
+
+                             match shape.tool {
+                                 ScreenshotTool::Rect => {
+                                     // Draw top and bottom
+                                     for x in x0..=x1 {
+                                         for t in 0..thickness {
+                                             if x >= 0 && x < final_width as i32 {
+                                                 if y0 + t >= 0 && y0 + t < final_height as i32 {
+                                                     final_image.put_pixel(x as u32, (y0 + t) as u32, color);
+                                                 }
+                                                 if y1 - t >= 0 && y1 - t < final_height as i32 {
+                                                     final_image.put_pixel(x as u32, (y1 - t) as u32, color);
+                                                 }
+                                             }
+                                         }
+                                     }
+
+                                     // Draw left and right
+                                     for y in y0..=y1 {
+                                         for t in 0..thickness {
+                                             if y >= 0 && y < final_height as i32 {
+                                                 if x0 + t >= 0 && x0 + t < final_width as i32 {
+                                                     final_image.put_pixel((x0 + t) as u32, y as u32, color);
+                                                 }
+                                                 if x1 - t >= 0 && x1 - t < final_width as i32 {
+                                                     final_image.put_pixel((x1 - t) as u32, y as u32, color);
+                                                 }
+                                             }
+                                         }
+                                     }
+                                 }
+                                 ScreenshotTool::Circle => {
+                                     // 简单的椭圆绘制算法
+                                     let center_x = (x0 + x1) as f32 / 2.0;
+                                     let center_y = (y0 + y1) as f32 / 2.0;
+                                     let a = (x1 - x0).abs() as f32 / 2.0;
+                                     let b = (y1 - y0).abs() as f32 / 2.0;
+
+                                     if a > 0.0 && b > 0.0 {
+                                         for x in x0..=x1 {
+                                             for y in y0..=y1 {
+                                                 let dx = x as f32 - center_x;
+                                                 let dy = y as f32 - center_y;
+
+                                                 // 椭圆方程: (x/a)^2 + (y/b)^2 = 1
+                                                 let dist = (dx * dx) / (a * a) + (dy * dy) / (b * b);
+
+                                                 let a_in = a - thickness as f32;
+                                                 let b_in = b - thickness as f32;
+
+                                                 let dist_in = if a_in > 0.0 && b_in > 0.0 {
+                                                     (dx * dx) / (a_in * a_in) + (dy * dy) / (b_in * b_in)
+                                                 } else {
+                                                     2.0 // 肯定在外面
+                                                 };
+
+                                                 if dist <= 1.0 && dist_in >= 1.0 {
+                                                     if x >= 0 && x < final_width as i32 && y >= 0 && y < final_height as i32 {
+                                                         final_image.put_pixel(x as u32, y as u32, color);
+                                                     }
+                                                 }
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+                        }
+
                         if let Ok(profile) = std::env::var("USERPROFILE") {
                             let desktop = PathBuf::from(profile).join("Desktop");
                             let timestamp = std::time::SystemTime::now()
@@ -329,7 +444,10 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
         state.captures.clear();
         state.selection = None;
         state.drag_start = None;
-        state.save_button_pos = None;
+        state.toolbar_pos = None;
+        state.current_tool = None;
+        state.shapes.clear();
+        state.current_shape_start = None;
 
         if state.should_minimize {
             // 恢复主窗口
@@ -345,16 +463,19 @@ pub fn draw_screenshot_ui(
     screen_index: usize,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
-    let screen = &mut state.captures[screen_index];
 
-    let texture: &TextureHandle = screen.texture.get_or_insert_with(|| {
-        ctx.load_texture(
-            format!("screenshot_{}", screen.screen_info.name),
-            screen.image.clone(),
-            Default::default(),
-        )
-    });
-    let img_src = (texture.id(), texture.size_vec2());
+    // 解决借用冲突：先获取 texture 和 screen_info，然后释放 state 的借用
+    let (img_src, screen_info) = {
+        let screen = &mut state.captures[screen_index];
+        let texture = screen.texture.get_or_insert_with(|| {
+            ctx.load_texture(
+                format!("screenshot_{}", screen.screen_info.name),
+                screen.image.clone(),
+                Default::default(),
+            )
+        });
+        ((texture.id(), texture.size_vec2()), screen.screen_info.clone())
+    };
 
     let mut needs_repaint = false;
 
@@ -364,73 +485,108 @@ pub fn draw_screenshot_ui(
         let image_widget = egui::Image::new(img_src).fit_to_exact_size(ui.available_size());
         ui.add(image_widget);
 
-        let painter = ui.painter();
+        let painter = ui.painter().clone(); // Clone painter to avoid borrowing ui later
         let viewport_rect = ctx.viewport_rect();
         let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
         let full_rect = ui.max_rect();
 
         // --- 1. 获取物理基准信息 ---
-        let screen_x = screen.screen_info.x as f32;
-        let screen_y = screen.screen_info.y as f32;
+        let screen_x = screen_info.x as f32;
+        let screen_y = screen_info.y as f32;
         let screen_offset_phys = Pos2::new(screen_x, screen_y);
         let ppp = ctx.pixels_per_point();
 
         // --- 2. 输入处理：将 局部逻辑坐标 -> 全局物理坐标 ---
 
-        let mut local_button_rect = None;
-        if let Some(global_button_pos_phys) = state.save_button_pos {
-            let vec_phys = global_button_pos_phys - screen_offset_phys;
+        let mut local_toolbar_rect = None;
+        if let Some(global_toolbar_pos_phys) = state.toolbar_pos {
+            let vec_phys = global_toolbar_pos_phys - screen_offset_phys;
             let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
-            local_button_rect = Some(Rect::from_min_size(local_pos_logical, egui::vec2(50.0, 25.0)));
+
+            // 估算工具栏大小，4个按钮，每个假设 30x30，加上间距
+            let toolbar_width = 140.0;
+            let toolbar_height = 35.0;
+
+            // 调整工具栏位置，使其右对齐
+            let toolbar_min_pos = Pos2::new(local_pos_logical.x - toolbar_width, local_pos_logical.y + 10.0);
+
+            local_toolbar_rect = Some(Rect::from_min_size(toolbar_min_pos, egui::vec2(toolbar_width, toolbar_height)));
         }
 
         let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::drag());
 
-        if response.drag_started() {
-            if let Some(press_pos) = response.interact_pointer_pos() {
-                let is_clicking_button = local_button_rect.map_or(false, |r| r.contains(press_pos));
+        // --- 交互逻辑 ---
+        if let Some(press_pos) = response.interact_pointer_pos() {
+            let is_clicking_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(press_pos));
 
-                if !is_clicking_button {
-                    let local_vec_phys = press_pos.to_vec2() * ppp;
-                    let global_phys = screen_offset_phys + local_vec_phys;
+            if !is_clicking_toolbar {
+                let local_vec_phys = press_pos.to_vec2() * ppp;
+                let global_phys = screen_offset_phys + local_vec_phys;
 
-                    state.drag_start = Some(global_phys);
-                    state.save_button_pos = None;
-                    needs_repaint = true;
-                }
-            }
-        }
-
-        if response.dragged() {
-            if let (Some(drag_start_phys), Some(curr_pos_local)) = (state.drag_start, ui.input(|i| i.pointer.latest_pos())) {
-                let local_vec_phys = curr_pos_local.to_vec2() * ppp;
-                let current_pos_phys = screen_offset_phys + local_vec_phys;
-
-                let rect = Rect::from_two_pos(drag_start_phys, current_pos_phys);
-
-                if state.selection.map_or(true, |s| s != rect) {
-                    state.selection = Some(rect);
-                }
-                needs_repaint = true;
-            }
-        }
-
-        if response.drag_stopped() {
-            if state.drag_start.is_some() {
-                state.drag_start = None;
-                if let Some(sel) = state.selection {
-                    if sel.width() > 10.0 && sel.height() > 10.0 {
-                        state.save_button_pos = Some(sel.right_bottom() + egui::vec2(10.0, 10.0));
+                if response.drag_started() {
+                    if state.current_tool.is_some() {
+                        // 绘图模式
+                        if let Some(selection) = state.selection {
+                            if selection.contains(global_phys) {
+                                state.current_shape_start = Some(global_phys);
+                                needs_repaint = true;
+                            }
+                        }
                     } else {
-                        state.selection = None;
-                        state.save_button_pos = None;
+                        // 选区模式
+                        state.drag_start = Some(global_phys);
+                        state.toolbar_pos = None;
+                        needs_repaint = true;
                     }
-                    needs_repaint = true;
+                }
+
+                if response.dragged() {
+                    if let Some(_) = state.current_shape_start {
+                        // 正在绘图，只请求重绘，不修改数据，直到松开
+                        needs_repaint = true;
+                    } else if let Some(drag_start_phys) = state.drag_start {
+                        // 正在拖拽选区
+                        let rect = Rect::from_two_pos(drag_start_phys, global_phys);
+                        if state.selection.map_or(true, |s| s != rect) {
+                            state.selection = Some(rect);
+                        }
+                        needs_repaint = true;
+                    }
+                }
+
+                if response.drag_stopped() {
+                    if let Some(start_pos) = state.current_shape_start {
+                        // 完成绘图
+                        if let Some(tool) = state.current_tool {
+                            state.shapes.push(DrawnShape {
+                                tool,
+                                start: start_pos,
+                                end: global_phys,
+                                color: Color32::RED, // 默认红色
+                            });
+                        }
+                        state.current_shape_start = None;
+                        needs_repaint = true;
+                    } else if state.drag_start.is_some() {
+                        // 完成选区
+                        state.drag_start = None;
+                        if let Some(sel) = state.selection {
+                            if sel.width() > 10.0 && sel.height() > 10.0 {
+                                state.toolbar_pos = Some(sel.right_bottom());
+                            } else {
+                                state.selection = None;
+                                state.toolbar_pos = None;
+                            }
+                            needs_repaint = true;
+                        }
+                    }
                 }
             }
         }
 
         // --- 3. 渲染：将 全局物理坐标 -> 局部逻辑坐标 ---
+
+        // 3.1 渲染选区背景遮罩
         if let Some(global_sel_phys) = state.selection {
             let vec_min = global_sel_phys.min - screen_offset_phys;
             let vec_max = global_sel_phys.max - screen_offset_phys;
@@ -462,6 +618,43 @@ pub fn draw_screenshot_ui(
             painter.rect_filled(viewport_rect, 0.0, overlay_color);
         }
 
+        // 3.2 渲染已绘制的形状
+        for shape in &state.shapes {
+             // 转换坐标
+             let start_local = Pos2::ZERO + ((shape.start - screen_offset_phys) / ppp);
+             let end_local = Pos2::ZERO + ((shape.end - screen_offset_phys) / ppp);
+             let rect = Rect::from_two_pos(start_local, end_local);
+
+             // 裁剪到当前屏幕
+             if viewport_rect.intersects(rect) {
+                 match shape.tool {
+                     ScreenshotTool::Rect => {
+                         painter.rect_stroke(rect, 0.0, Stroke::new(2.0, shape.color), StrokeKind::Outside);
+                     }
+                     ScreenshotTool::Circle => {
+                         painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(2.0, shape.color)));
+                     }
+                 }
+             }
+        }
+
+        // 3.3 渲染正在绘制的形状
+        if let (Some(start_phys), Some(curr_pos_local)) = (state.current_shape_start, ui.input(|i| i.pointer.latest_pos())) {
+             let start_local = Pos2::ZERO + ((start_phys - screen_offset_phys) / ppp);
+             let rect = Rect::from_two_pos(start_local, curr_pos_local);
+
+             if let Some(tool) = state.current_tool {
+                 match tool {
+                     ScreenshotTool::Rect => {
+                         painter.rect_stroke(rect, 0.0, Stroke::new(2.0, Color32::RED), StrokeKind::Outside);
+                     }
+                     ScreenshotTool::Circle => {
+                         painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(2.0, Color32::RED)));
+                     }
+                 }
+             }
+        }
+
         let border_width = 5.0;
         painter.rect_stroke(
             full_rect,
@@ -470,11 +663,11 @@ pub fn draw_screenshot_ui(
             StrokeKind::Inside
         );
 
-        if let Some(button_rect) = local_button_rect {
-            if viewport_rect.intersects(button_rect) {
-                let save_button = ui.put(button_rect, egui::Button::new("Save"));
-                if save_button.clicked() {
-                    action = ScreenshotAction::SaveAndClose;
+        if let Some(toolbar_rect) = local_toolbar_rect {
+            if viewport_rect.intersects(toolbar_rect) {
+                let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect);
+                if toolbar_action != ScreenshotAction::None {
+                    action = toolbar_action;
                 }
             }
         }

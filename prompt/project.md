@@ -122,6 +122,7 @@ let rect = ctx.viewport_rect();
 4. with_always_on_top 没有参数
 5. close_viewport()不存在，取而代之是用send_viewport_cmd(ViewportCommand::Close)
 6. drag_released 不存在，请使用 drag_stopped
+7. ui.child_ui()已经被舍弃取而代之的是new_child(UiBuilder::new())
 
 ## 目标
 
