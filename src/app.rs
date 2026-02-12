@@ -159,13 +159,16 @@ impl CloverApp {
         for i in 0..self.screenshot_state.captures.len() {
             let screen_info = self.screenshot_state.captures[i].screen_info.clone();
             let viewport_id = ViewportId::from_hash_of(format!("screenshot_{}", screen_info.name().unwrap_or_default()));
+            // 获取物理参数
+            let phys_x = screen_info.x().unwrap_or(0) as f32;
+            let phys_y = screen_info.y().unwrap_or(0) as f32;
+            // 当前屏幕的缩放，如果不设置会导致变形
+            let self_scale = screen_info.scale_factor().unwrap().clone();
+            // 需要将物理坐标除去缩放
+            let logic_x = phys_x/self_scale;
+            let logic_y = phys_y/self_scale;
 
-            // 使用 monitor 的坐标作为窗口位置。
-            // 注意：在大多数系统上，xcap 返回的是物理坐标，eframe 会自动处理窗口位置映射
-            let pos = egui::pos2(
-                screen_info.x().unwrap_or(0) as f32,
-                screen_info.y().unwrap_or(0) as f32
-            );
+            let pos = egui::pos2(logic_x,logic_y);
 
             ctx.show_viewport_immediate(
                 viewport_id,
