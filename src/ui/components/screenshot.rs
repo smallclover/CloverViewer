@@ -503,11 +503,11 @@ pub fn draw_screenshot_ui(
             let vec_phys = global_toolbar_pos_phys - screen_offset_phys;
             let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
 
-            // 估算工具栏大小，4个按钮，每个假设 30x30，加上间距
-            let toolbar_width = 140.0;
-            let toolbar_height = 35.0;
-
-            // 调整工具栏位置，使其右对齐
+            // 精确计算的宽度：
+            // 4个按钮(128) + 4个间距(32) + 1个分隔符(1) + 2个Padding(16) = 177.0
+            let toolbar_width = 177.0;
+            let toolbar_height = 48.0;
+            // 调整工具栏位置右对齐
             let toolbar_min_pos = Pos2::new(local_pos_logical.x - toolbar_width, local_pos_logical.y + 10.0);
 
             local_toolbar_rect = Some(Rect::from_min_size(toolbar_min_pos, egui::vec2(toolbar_width, toolbar_height)));

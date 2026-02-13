@@ -1,5 +1,6 @@
 use eframe::egui::{self, Color32, Rect, Vec2, Ui, Painter, Layout, Align, Stroke, StrokeKind};
 use egui::UiBuilder;
+use crate::ui::components::icons::{draw_icon_button, IconType};
 use super::screenshot::{ScreenshotState, ScreenshotTool, ScreenshotAction};
 
 pub fn draw_screenshot_toolbar(
@@ -10,81 +11,71 @@ pub fn draw_screenshot_toolbar(
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
 
-    // 1. 样式定义
-    let rounding = 8.0; // 圆角
-    let bg_color = Color32::WHITE; // 白色背景
-    let border_color = Color32::from_gray(200); // 浅灰色边框
-    let text_color = Color32::BLACK; // 黑色文本（图标）
-    let highlight_color = Color32::from_rgb(0, 120, 215); // 选中高亮色（蓝色）
-    let item_spacing = 12.0; // 选项间距
-
-    // 2. 绘制背景
-    painter.rect_filled(toolbar_rect, rounding, bg_color);
+    // --- 1. 绘制背景 ---
+    painter.rect_filled(toolbar_rect, 8.0, Color32::WHITE);
     painter.rect_stroke(
         toolbar_rect,
-        rounding,
-        Stroke::new(1.0, border_color),
+        8.0,
+        Stroke::new(1.0, Color32::from_gray(200)),
         StrokeKind::Inside,
     );
 
-    // 3. 配置布局
-    // 使用居中对齐的水平布局
-    let mut child_ui = ui.new_child(UiBuilder::new().max_rect(toolbar_rect).layout(Layout::left_to_right(Align::Center)));
+    // --- 2. 布局 ---
+    // 关键点：toolbar_rect 是 177px。
+    // shrink(8.0) 后，content_rect 宽度变为 161px。
+    // 我们的内容 (32+8+32+8+1+8+32+8+32) 正好也是 161px。
+    // 此时无论 Align 怎么设置，内容都会正好撑满，没有空隙可偏。
 
-    // 设置间距和文本颜色
-    child_ui.style_mut().spacing.item_spacing = Vec2::new(item_spacing, 0.0);
-    child_ui.style_mut().visuals.override_text_color = Some(text_color);
+    let content_rect = toolbar_rect.shrink(8.0);
 
-    // 4. 绘制按钮
-    // 为了让按钮在工具栏中整体居中，我们可以使用 horizontal_centered 或者手动计算 padding
-    // 这里简单起见，使用 horizontal 布局，并添加一些 padding
+    ui.scope_builder(UiBuilder::new().max_rect(content_rect), |ui| {
+        ui.with_layout(
+            Layout::left_to_right(Align::Center)
+                .with_main_align(Align::Center)
+                .with_main_wrap(false),
+            |ui| {
+                // 设置统一间距 8.0
+                ui.style_mut().spacing.item_spacing = Vec2::new(8.0, 0.0);
 
-    child_ui.horizontal(|ui| {
-        // 添加左侧 padding，使内容居中（简单估算）
-        ui.add_space(10.0);
+                // Rect (32)
+                let is_rect = state.current_tool == Some(ScreenshotTool::Rect);
+                if draw_icon_button(ui, is_rect, IconType::DrawRect).clicked() {
+                    state.current_tool = Some(ScreenshotTool::Rect);
+                }
+                // -> 自动插入间距 (8)
 
-        // 矩形工具
-        let rect_btn = ui.add(egui::Button::new("⬜").frame(false));
-        if rect_btn.clicked() {
-            state.current_tool = Some(ScreenshotTool::Rect);
-        }
-        if state.current_tool == Some(ScreenshotTool::Rect) {
-            painter.rect_stroke(
-                rect_btn.rect.expand(2.0),
-                4.0,
-                Stroke::new(1.5, highlight_color),
-                StrokeKind::Outside
-            );
-        }
+                // Circle (32)
+                let is_circle = state.current_tool == Some(ScreenshotTool::Circle);
+                if draw_icon_button(ui, is_circle, IconType::DrawCircle).clicked() {
+                    state.current_tool = Some(ScreenshotTool::Circle);
+                }
+                // -> 自动插入间距 (8)
 
-        // 圆形工具
-        let circle_btn = ui.add(egui::Button::new("⭕").frame(false));
-        if circle_btn.clicked() {
-            state.current_tool = Some(ScreenshotTool::Circle);
-        }
-        if state.current_tool == Some(ScreenshotTool::Circle) {
-            painter.rect_stroke(
-                circle_btn.rect.expand(2.0),
-                4.0,
-                Stroke::new(1.5, highlight_color),
-                StrokeKind::Outside
-            );
-        }
+                // Separator (1)
+                let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(1.0, 16.0), egui::Sense::hover());
+                ui.painter().line_segment(
+                    [sep_rect.center_top(), sep_rect.center_bottom()],
+                    Stroke::new(1.0, Color32::from_gray(220))
+                );
+                // -> 自动插入间距 (8)
 
-        // 分隔线
-        ui.separator();
+                // Cancel (32)
+                if draw_icon_button(ui, false, IconType::Cancel).clicked() {
+                    state.selection = None;
+                    state.toolbar_pos = None;
+                    state.current_tool = None;
+                    state.shapes.clear();
+                    state.current_shape_start = None;
+                }
+                // -> 自动插入间距 (8)
 
-        // 取消
-        if ui.add(egui::Button::new("❌").frame(false)).clicked() {
-            state.selection = None;
-            state.toolbar_pos = None;
-            state.current_tool = None;
-        }
-
-        // 保存
-        if ui.add(egui::Button::new("💾").frame(false)).clicked() {
-            action = ScreenshotAction::SaveAndClose;
-        }
+                // Save (32)
+                if draw_icon_button(ui, false, IconType::Save).clicked() {
+                    action = ScreenshotAction::SaveAndClose;
+                }
+                // 最后一个元素后没有间距
+            },
+        );
     });
 
     action
