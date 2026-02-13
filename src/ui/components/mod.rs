@@ -17,3 +17,4 @@ pub mod preview;
 pub mod icons;
 pub mod screenshot;
 pub mod screenshot_toolbar;
+pub mod color_picker;

@@ -1,4 +1,4 @@
-use eframe::egui::{self, ColorImage, Rect, TextureHandle, Color32, Stroke, Pos2, StrokeKind, ViewportBuilder, ViewportId, ViewportClass, ViewportCommand};
+use eframe::egui::{self, ColorImage, Rect, TextureHandle, Color32, Stroke, Pos2, StrokeKind, ViewportBuilder, ViewportId, ViewportClass, ViewportCommand, Context};
 use image::{RgbaImage, GenericImage};
 use std::sync::Arc;
 use std::sync::mpsc::{channel, Receiver, TryRecvError};
@@ -11,6 +11,7 @@ use crate::ui::components::screenshot_toolbar::draw_screenshot_toolbar;
 use crate::ui::components::ui_mode::UiMode;
 use arboard::{Clipboard, ImageData};
 use std::borrow::Cow;
+use crate::ui::components::color_picker::ColorPicker;
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum ScreenshotAction {
@@ -32,9 +33,9 @@ pub struct DrawnShape {
     pub start: Pos2, // 全局物理坐标
     pub end: Pos2,   // 全局物理坐标
     pub color: Color32,
+    pub stroke_width: f32,
 }
 
-#[derive(Default)]
 pub struct ScreenshotState {
     pub captures: Vec<CapturedScreen>,
     // 全局物理坐标 (Physical Pixels)
@@ -49,10 +50,37 @@ pub struct ScreenshotState {
 
     // Toolbar state
     pub current_tool: Option<ScreenshotTool>,
+    pub active_color: Color32,
+    pub stroke_width: f32,
+    pub color_picker: ColorPicker,
+    pub color_picker_position: Option<Pos2>,
+
 
     // Drawing state
     pub shapes: Vec<DrawnShape>,
     pub current_shape_start: Option<Pos2>, // 正在绘制的形状起始点（全局物理坐标）
+}
+
+impl Default for ScreenshotState {
+    fn default() -> Self {
+        let default_color = Color32::from_rgb(255, 0, 0);
+        Self {
+            captures: Vec::new(),
+            selection: None,
+            drag_start: None,
+            toolbar_pos: None,
+            is_capturing: false,
+            capture_receiver: None,
+            should_minimize: false,
+            current_tool: None,
+            active_color: default_color,
+            stroke_width: 2.0,
+            color_picker: ColorPicker::new(default_color),
+            color_picker_position: None,
+            shapes: Vec::new(),
+            current_shape_start: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -73,7 +101,7 @@ pub struct CapturedScreen {
     pub texture: Option<TextureHandle>,
 }
 
-pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewState, config: &Config) {
+pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, config: &Config) {
     if state.ui_mode != UiMode::Screenshot {
         return;
     }
@@ -271,7 +299,7 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewSta
                     let captures_data: Vec<_> = screenshot_state_mut.captures.iter().map(|c| {
                         (
                             c.raw_image.clone(),
-                            egui::Rect::from_min_size(
+                            Rect::from_min_size(
                                 egui::pos2(c.screen_info.x as f32, c.screen_info.y as f32),
                                 egui::vec2(c.screen_info.width as f32, c.screen_info.height as f32),
                             )
@@ -337,7 +365,7 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewSta
                              let x1 = rect.max.x.round() as i32;
                              let y1 = rect.max.y.round() as i32;
                              let color = image::Rgba([shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a()]);
-                             let thickness = 2;
+                             let thickness = shape.stroke_width.round() as i32;
 
                              match shape.tool {
                                  ScreenshotTool::Rect => {
@@ -443,7 +471,7 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewSta
 }
 
 pub fn draw_screenshot_ui(
-    ctx: &eframe::egui::Context,
+    ctx: &Context,
     state: &mut ScreenshotState,
     screen_index: usize,
     config: &Config,
@@ -470,6 +498,12 @@ pub fn draw_screenshot_ui(
         .show(ctx, |ui| {
         let image_widget = egui::Image::new(img_src).fit_to_exact_size(ui.available_size());
         ui.add(image_widget);
+
+        // --- Color Picker ---
+        if state.color_picker.show(ui, state.color_picker_position) {
+            state.active_color = state.color_picker.selected_color;
+            needs_repaint = true;
+        }
 
         let painter = ui.painter().clone(); // Clone painter to avoid borrowing ui later
         let viewport_rect = ctx.viewport_rect();
@@ -548,7 +582,8 @@ pub fn draw_screenshot_ui(
                                 tool,
                                 start: start_pos,
                                 end: global_phys,
-                                color: Color32::RED, // 默认红色
+                                color: state.active_color,
+                                stroke_width: state.stroke_width,
                             });
                         }
                         state.current_shape_start = None;
@@ -615,10 +650,10 @@ pub fn draw_screenshot_ui(
              if viewport_rect.intersects(rect) {
                  match shape.tool {
                      ScreenshotTool::Rect => {
-                         painter.rect_stroke(rect, 0.0, Stroke::new(2.0, shape.color), StrokeKind::Outside);
+                         painter.rect_stroke(rect, 0.0, Stroke::new(shape.stroke_width, shape.color), StrokeKind::Outside);
                      }
                      ScreenshotTool::Circle => {
-                         painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(2.0, shape.color)));
+                         painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(shape.stroke_width, shape.color)));
                      }
                  }
              }
@@ -632,10 +667,10 @@ pub fn draw_screenshot_ui(
              if let Some(tool) = state.current_tool {
                  match tool {
                      ScreenshotTool::Rect => {
-                         painter.rect_stroke(rect, 0.0, Stroke::new(2.0, Color32::RED), StrokeKind::Outside);
+                         painter.rect_stroke(rect, 0.0, Stroke::new(state.stroke_width, state.active_color), StrokeKind::Outside);
                      }
                      ScreenshotTool::Circle => {
-                         painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(2.0, Color32::RED)));
+                         painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(state.stroke_width, state.active_color)));
                      }
                  }
              }
