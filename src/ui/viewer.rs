@@ -61,8 +61,9 @@ pub fn draw_top_panel(
 pub fn draw_bottom_panel(
     ctx: &Context,
     state: &mut ViewState,
+    config: &Config,
 ) {
-    draw_status_bar(ctx, state);
+    draw_status_bar(ctx, state,config);
 }
 
 pub fn draw_central_panel(

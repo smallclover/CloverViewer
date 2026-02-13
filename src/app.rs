@@ -152,7 +152,7 @@ impl CloverApp {
                 &self.config,
                 &mut self.screenshot_state.is_active,
             );
-            viewer::draw_bottom_panel(ctx, &mut self.state);
+            viewer::draw_bottom_panel(ctx, &mut self.state, &self.config);
             viewer::draw_central_panel(ctx, &mut self.data, &mut self.state, &self.config);
             draw_properties_panel(ctx, &mut self.state, &self.data, &self.config);
             self.state.toast_system.update(ctx);
