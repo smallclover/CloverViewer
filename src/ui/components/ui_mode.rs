@@ -8,4 +8,5 @@ pub enum UiMode {
     Settings(Config),
     ContextMenu(Pos2),
     Properties,
+    Screenshot,
 }

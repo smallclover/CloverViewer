@@ -24,7 +24,8 @@ use crate::ui::{
         mouse::handle_input_events,
         properties_panel::draw_properties_panel,
         resources::APP_FONT,
-        screenshot::{handle_screenshot_system, ScreenshotState},
+        screenshot::{handle_screenshot_system},
+        ui_mode::UiMode,
     },
     viewer
 };
@@ -71,7 +72,6 @@ pub struct CloverApp {
     data: BusinessData,
     state: ViewState,
     config: Config,
-    screenshot_state: ScreenshotState,
     hotkey_receiver: mpsc::Receiver<()>,
     _hotkeys_manager: GlobalHotKeyManager,
 }
@@ -107,7 +107,6 @@ impl CloverApp {
             data: BusinessData::new(),
             state: ViewState::default(),
             config,
-            screenshot_state: ScreenshotState::default(),
             hotkey_receiver: rx,
             _hotkeys_manager: hotkeys_manager,
         };
@@ -136,7 +135,7 @@ impl CloverApp {
     fn handle_hotkeys(&mut self, _ctx: &Context) {
         if self.hotkey_receiver.try_recv().is_ok() {
             // 激活截图模式
-            self.screenshot_state.is_active = true;
+            self.state.ui_mode = UiMode::Screenshot;
         }
     }
 
@@ -145,12 +144,11 @@ impl CloverApp {
     }
 
     fn draw_ui(&mut self, ctx: &Context) {
-        if !self.screenshot_state.is_active {
+        if self.state.ui_mode != UiMode::Screenshot {
             viewer::draw_top_panel(
                 ctx,
                 &mut self.state,
                 &self.config,
-                &mut self.screenshot_state.is_active,
             );
             viewer::draw_bottom_panel(ctx, &mut self.state, &self.config);
             viewer::draw_central_panel(ctx, &mut self.data, &mut self.state, &self.config);
@@ -160,7 +158,7 @@ impl CloverApp {
     }
 
     fn handle_ui_interactions(&mut self, ctx: &Context) {
-        if !self.screenshot_state.is_active {
+        if self.state.ui_mode != UiMode::Screenshot {
             let mut temp_config = self.config.clone();
             let (context_menu_action, modal_action) =
                 viewer::draw_overlays(ctx, &self.data, &mut self.state, &mut temp_config);
@@ -184,6 +182,6 @@ impl eframe::App for CloverApp {
         self.handle_input_events(ctx);
         self.draw_ui(ctx);
         self.handle_ui_interactions(ctx);
-        handle_screenshot_system(ctx, &mut self.screenshot_state);
+        handle_screenshot_system(ctx, &mut self.state);
     }
 }

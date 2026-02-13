@@ -2,7 +2,8 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use crate::ui::components::{
     toast::{ToastManager, ToastSystem},
-    ui_mode::UiMode
+    ui_mode::UiMode,
+    screenshot::ScreenshotState
 };
 
 #[derive(Clone, PartialEq, Debug)]
@@ -18,6 +19,7 @@ pub struct ViewState {
     pub path_receiver: Receiver<PathBuf>,
     pub toast_system: ToastSystem,
     pub toast_manager: ToastManager,
+    pub screenshot_state: ScreenshotState,
 }
 
 impl Default for ViewState {
@@ -33,6 +35,7 @@ impl Default for ViewState {
             path_receiver,
             toast_system,
             toast_manager,
+            screenshot_state: ScreenshotState::default(),
         }
     }
 }

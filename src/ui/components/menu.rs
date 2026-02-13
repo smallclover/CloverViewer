@@ -17,7 +17,6 @@ pub fn draw_menu(
     ui_mode: &mut UiMode,
     text: &TextBundle,
     config: &Config,
-    screenshot_active: &mut bool,
 ) -> (bool, bool) {
 
     let mut open_file_dialog = false;
@@ -52,7 +51,7 @@ pub fn draw_menu(
                 ui.set_min_width(130.0);
 
                 if ui.add(egui::Button::new(text.menu_screenshot).shortcut_text("Alt+S")).clicked() {
-                    *screenshot_active = true; // 点击按钮仍然可以触发
+                    *ui_mode = UiMode::Screenshot;
                     ui.close();
                 }
             });

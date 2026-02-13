@@ -31,10 +31,9 @@ pub fn draw_top_panel(
     ctx: &Context,
     state: &mut ViewState,
     config: &Config,
-    screenshot_active: &mut bool,
 ) {
     let texts = get_text(config.language);
-    let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode, texts, config, screenshot_active);
+    let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode, texts, config);
 
     if open_file {
         let sender = state.path_sender.clone();
@@ -134,6 +133,7 @@ pub fn draw_overlays(
         }
         UiMode::Normal => {}
         UiMode::Properties => {}
+        UiMode::Screenshot => {}
     }
 
     if let Some(new_mode) = new_ui_mode {

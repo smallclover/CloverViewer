@@ -5,7 +5,9 @@ use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::thread;
 use std::path::PathBuf;
 use xcap::Monitor;
+use crate::model::state::ViewState;
 use crate::ui::components::screenshot_toolbar::draw_screenshot_toolbar;
+use crate::ui::components::ui_mode::UiMode;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ScreenshotAction {
@@ -28,8 +30,8 @@ pub struct DrawnShape {
     pub color: Color32,
 }
 
+#[derive(Default)]
 pub struct ScreenshotState {
-    pub is_active: bool,
     pub captures: Vec<CapturedScreen>,
     // 全局物理坐标 (Physical Pixels)
     pub selection: Option<Rect>,
@@ -47,24 +49,6 @@ pub struct ScreenshotState {
     // Drawing state
     pub shapes: Vec<DrawnShape>,
     pub current_shape_start: Option<Pos2>, // 正在绘制的形状起始点（全局物理坐标）
-}
-
-impl Default for ScreenshotState {
-    fn default() -> Self {
-        Self {
-            is_active: false,
-            captures: vec![],
-            selection: None,
-            drag_start: None,
-            toolbar_pos: None,
-            is_capturing: false,
-            capture_receiver: None,
-            should_minimize: false,
-            current_tool: None,
-            shapes: vec![],
-            current_shape_start: None,
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -85,33 +69,35 @@ pub struct CapturedScreen {
     pub texture: Option<TextureHandle>,
 }
 
-pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ScreenshotState) {
-    if !state.is_active {
+pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewState) {
+    if state.ui_mode != UiMode::Screenshot {
         return;
     }
 
+    let screenshot_state = &mut state.screenshot_state;
+
     // --- 1. 初始化捕获 (异步并行) ---
-    if state.captures.is_empty() {
-        if !state.is_capturing {
-            state.is_capturing = true;
+    if screenshot_state.captures.is_empty() {
+        if !screenshot_state.is_capturing {
+            screenshot_state.is_capturing = true;
 
             // 检查窗口是否在前台且未最小化
             let is_focused = ctx.input(|i| i.focused);
             let is_minimized = ctx.input(|i| i.viewport().minimized.unwrap_or(false));
 
-            state.should_minimize = is_focused && !is_minimized;
+            screenshot_state.should_minimize = is_focused && !is_minimized;
 
-            if state.should_minimize {
+            if screenshot_state.should_minimize {
                 // 最小化主窗口
                 ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
             }
 
             let (tx, rx) = channel();
-            state.capture_receiver = Some(rx);
+            screenshot_state.capture_receiver = Some(rx);
 
             // Clone context for the thread to request repaint
             let ctx_clone = ctx.clone();
-            let should_minimize = state.should_minimize;
+            let should_minimize = screenshot_state.should_minimize;
 
             thread::spawn(move || {
                 if should_minimize {
@@ -182,12 +168,12 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
         }
 
         // 检查接收结果
-        if let Some(rx) = &state.capture_receiver {
+        if let Some(rx) = &screenshot_state.capture_receiver {
             match rx.try_recv() {
                 Ok(captures) => {
-                    state.captures = captures;
-                    state.is_capturing = false;
-                    state.capture_receiver = None;
+                    screenshot_state.captures = captures;
+                    screenshot_state.is_capturing = false;
+                    screenshot_state.capture_receiver = None;
                     ctx.request_repaint();
                 }
                 Err(TryRecvError::Empty) => {
@@ -197,11 +183,11 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
                     return;
                 }
                 Err(TryRecvError::Disconnected) => {
-                    state.is_capturing = false;
-                    state.capture_receiver = None;
-                    state.is_active = false; // 失败退出
+                    screenshot_state.is_capturing = false;
+                    screenshot_state.capture_receiver = None;
+                    state.ui_mode = UiMode::Normal; // 失败退出
 
-                    if state.should_minimize {
+                    if screenshot_state.should_minimize {
                         // 失败时也要恢复窗口
                         ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
                         ctx.send_viewport_cmd(ViewportCommand::Focus);
@@ -212,9 +198,9 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
         }
     }
 
-    if state.captures.is_empty() {
-        if !state.is_capturing {
-            state.is_active = false;
+    if screenshot_state.captures.is_empty() {
+        if !screenshot_state.is_capturing {
+            state.ui_mode = UiMode::Normal;
         }
         return;
     }
@@ -224,12 +210,14 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
 
     // --- 2. 渲染所有视口 ---
     // 先收集需要的信息，避免在闭包中借用 state
-    let screens_info: Vec<_> = state.captures.iter().map(|c| {
+    let screens_info: Vec<_> = screenshot_state.captures.iter().map(|c| {
         (
             c.screen_info.clone(),
             ViewportId::from_hash_of(format!("screenshot_{}", c.screen_info.name))
         )
     }).collect();
+
+    let screenshot_state_mut = &mut state.screenshot_state;
 
     for (i, (screen_info, viewport_id)) in screens_info.into_iter().enumerate() {
         // 获取物理参数
@@ -252,7 +240,7 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
                 .with_position(pos),
             |ctx, class| {
                 if class == ViewportClass::Immediate {
-                    let action = draw_screenshot_ui(ctx, state, i);
+                    let action = draw_screenshot_ui(ctx, screenshot_state_mut, i);
                     if action != ScreenshotAction::None {
                         final_action = action;
                         wants_to_close_viewports = true;
@@ -271,12 +259,12 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
             println!("[DEBUG] SaveAndClose triggered.");
 
             // 获取全局物理坐标选区
-            if let Some(selection_phys) = state.selection {
+            if let Some(selection_phys) = screenshot_state_mut.selection {
                 if selection_phys.is_positive() {
                     println!("[DEBUG] Physical Selection: {:?}", selection_phys);
 
                     // 准备线程所需数据
-                    let captures_data: Vec<_> = state.captures.iter().map(|c| {
+                    let captures_data: Vec<_> = screenshot_state_mut.captures.iter().map(|c| {
                         (
                             c.raw_image.clone(),
                             egui::Rect::from_min_size(
@@ -287,7 +275,7 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
                     }).collect();
 
                     // 收集绘制的形状
-                    let shapes = state.shapes.clone();
+                    let shapes = screenshot_state_mut.shapes.clone();
 
                     // 启动保存线程
                     thread::spawn(move || {
@@ -440,16 +428,10 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut Screens
         }
 
         // --- 4. 重置状态 ---
-        state.is_active = false;
-        state.captures.clear();
-        state.selection = None;
-        state.drag_start = None;
-        state.toolbar_pos = None;
-        state.current_tool = None;
-        state.shapes.clear();
-        state.current_shape_start = None;
+        state.ui_mode = UiMode::Normal;
+        *screenshot_state_mut = ScreenshotState::default();
 
-        if state.should_minimize {
+        if screenshot_state_mut.should_minimize {
             // 恢复主窗口
             ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
             ctx.send_viewport_cmd(ViewportCommand::Focus);
