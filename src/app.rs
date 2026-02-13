@@ -182,6 +182,6 @@ impl eframe::App for CloverApp {
         self.handle_input_events(ctx);
         self.draw_ui(ctx);
         self.handle_ui_interactions(ctx);
-        handle_screenshot_system(ctx, &mut self.state);
+        handle_screenshot_system(ctx, &mut self.state, &self.config);
     }
 }

@@ -1,20 +1,39 @@
 use eframe::epaint::StrokeKind;
 use egui::{Color32, Rect, Response, Sense, Stroke, Ui, vec2};
+use crate::i18n::lang::TextBundle;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum IconType {
-    Grid,        // 新增恢复
-    Single,      // 新增恢复
+    Grid,
+    Single,
     DrawRect,
     DrawCircle,
     Cancel,
     Save,
+    SaveToClipboard,
 }
 
-pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType) -> Response {
+impl IconType {
+    pub fn tooltip(&self, text: &TextBundle) -> &'static str {
+        match self {
+            IconType::Grid => text.status_gird,
+            IconType::Single => text.status_single,
+            IconType::DrawRect => text.tooltip_draw_rect,
+            IconType::DrawCircle => text.tooltip_draw_circle,
+            IconType::Cancel => text.tooltip_cancel,
+            IconType::Save => text.tooltip_save,
+            IconType::SaveToClipboard => text.tooltip_save_to_clipboard,
+        }
+    }
+}
+
+pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, text: &TextBundle) -> Response {
     // 1. 统一按钮大小 32x32
     let button_size = vec2(32.0, 32.0);
     let (rect, response) = ui.allocate_exact_size(button_size, Sense::click());
+
+    // 添加 Tooltip
+    response.clone().on_hover_text(icon_type.tooltip(text));
 
     let painter = ui.painter();
 
@@ -40,9 +59,7 @@ pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType) -> Res
 
     match icon_type {
         IconType::Grid => {
-            // 恢复 Grid 绘制逻辑 (4个小方块)
             let gap = 2.0;
-            // 计算小方块大小： (总宽 - 间隙) / 2
             let cell_size = (icon_rect.width() - gap) / 2.0;
 
             for i in 0..2 {
@@ -55,16 +72,11 @@ pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType) -> Res
             }
         }
         IconType::Single => {
-            // 恢复 Single 绘制逻辑 (带山峰的大矩形)
             painter.rect_stroke(icon_rect, 1.0, stroke, StrokeKind::Outside);
-            
-            // 为了让山峰在矩形内部，我们稍微向内再缩一点
             let inner = icon_rect.shrink(2.0);
-
             let p1 = inner.left_bottom() - vec2(0.0, 2.0);
             let p2 = inner.center_bottom() - vec2(0.0, inner.height() * 0.6);
             let p3 = inner.right_bottom() - vec2(0.0, 2.0);
-
             painter.line_segment([p1, p2], stroke);
             painter.line_segment([p2, p3], stroke);
         }
@@ -84,12 +96,22 @@ pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType) -> Res
             painter.line_segment([inner.right_top(), inner.left_bottom()], stroke);
         }
         IconType::Save => {
-            // 对勾样式
-            let start = icon_rect.left_center() + vec2(0.0, 1.0);
-            let mid = icon_rect.center_bottom() - vec2(1.0, 3.0);
-            let end = icon_rect.right_top() + vec2(0.0, 2.0);
-            let points = vec![start, mid, end];
-            painter.add(egui::Shape::line(points, stroke));
+            // 下载样式
+            let arrow_top = icon_rect.center() - vec2(0.0, 2.0);
+            let arrow_bottom = icon_rect.center() + vec2(0.0, 5.0);
+            painter.line_segment([arrow_top, arrow_bottom], stroke);
+            painter.line_segment([arrow_bottom, arrow_bottom - vec2(3.0, 3.0)], stroke);
+            painter.line_segment([arrow_bottom, arrow_bottom + vec2(3.0, -3.0)], stroke);
+
+            painter.line_segment([icon_rect.left_top() + vec2(0.0, 2.0), icon_rect.right_top() + vec2(0.0, 2.0)], stroke);
+        }
+        IconType::SaveToClipboard => {
+            // 剪贴板样式
+            let clip_rect = icon_rect.shrink(1.0);
+            painter.rect_stroke(clip_rect, 2.0, stroke, StrokeKind::Outside);
+            let top_rect = Rect::from_min_max(clip_rect.min - vec2(-2.0, 2.0), clip_rect.max - vec2(2.0, clip_rect.height()));
+            painter.rect_filled(top_rect, 0.0, Color32::WHITE);
+            painter.rect_stroke(top_rect, 1.0, stroke, StrokeKind::Outside);
         }
     }
 

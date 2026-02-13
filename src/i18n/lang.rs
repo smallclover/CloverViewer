@@ -77,6 +77,13 @@ pub struct TextBundle {
     // 状态栏
     pub status_gird: &'static str,
     pub status_single: &'static str,
+
+    // Tooltips
+    pub tooltip_draw_rect: &'static str,
+    pub tooltip_draw_circle: &'static str,
+    pub tooltip_cancel: &'static str,
+    pub tooltip_save: &'static str,
+    pub tooltip_save_to_clipboard: &'static str,
 }
 
 pub const ZH_TEXT: TextBundle = TextBundle {
@@ -121,6 +128,12 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     img_dim: "图片尺寸",
     status_gird: "网格视图",
     status_single: "单图视图",
+
+    tooltip_draw_rect: "矩形",
+    tooltip_draw_circle: "圆形",
+    tooltip_cancel: "取消",
+    tooltip_save: "保存到桌面",
+    tooltip_save_to_clipboard: "复制到剪贴板",
 };
 
 pub const EN_TEXT: TextBundle = TextBundle {
@@ -165,6 +178,12 @@ pub const EN_TEXT: TextBundle = TextBundle {
     img_dim: "Dimension",
     status_gird: "Grid View",
     status_single: "Single View",
+
+    tooltip_draw_rect: "Rectangle",
+    tooltip_draw_circle: "Circle",
+    tooltip_cancel: "Cancel",
+    tooltip_save: "Save to Desktop",
+    tooltip_save_to_clipboard: "Copy to Clipboard",
 };
 
 pub const JA_TEXT: TextBundle = TextBundle {
@@ -209,6 +228,12 @@ pub const JA_TEXT: TextBundle = TextBundle {
     img_dim: "ディメンション",
     status_gird: "グリッド表示",
     status_single: "単一表示",
+
+    tooltip_draw_rect: "矩形",
+    tooltip_draw_circle: "円形",
+    tooltip_cancel: "キャンセル",
+    tooltip_save: "デスクトップに保存",
+    tooltip_save_to_clipboard: "クリップボードにコピー",
 };
 
 pub fn get_text(lang: Language) -> &'static TextBundle {

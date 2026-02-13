@@ -5,15 +5,19 @@ use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::thread;
 use std::path::PathBuf;
 use xcap::Monitor;
+use crate::model::config::Config;
 use crate::model::state::ViewState;
 use crate::ui::components::screenshot_toolbar::draw_screenshot_toolbar;
 use crate::ui::components::ui_mode::UiMode;
+use arboard::{Clipboard, ImageData};
+use std::borrow::Cow;
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum ScreenshotAction {
     None,
     Close,
     SaveAndClose,
+    SaveToClipboard,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -69,7 +73,7 @@ pub struct CapturedScreen {
     pub texture: Option<TextureHandle>,
 }
 
-pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewState) {
+pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewState, config: &Config) {
     if state.ui_mode != UiMode::Screenshot {
         return;
     }
@@ -240,7 +244,7 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewSta
                 .with_position(pos),
             |ctx, class| {
                 if class == ViewportClass::Immediate {
-                    let action = draw_screenshot_ui(ctx, screenshot_state_mut, i);
+                    let action = draw_screenshot_ui(ctx, screenshot_state_mut, i, config);
                     if action != ScreenshotAction::None {
                         final_action = action;
                         wants_to_close_viewports = true;
@@ -255,8 +259,8 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewSta
 
     // --- 3. 处理关闭与保存逻辑 ---
     if wants_to_close_viewports {
-        if final_action == ScreenshotAction::SaveAndClose {
-            println!("[DEBUG] SaveAndClose triggered.");
+        if final_action == ScreenshotAction::SaveAndClose || final_action == ScreenshotAction::SaveToClipboard {
+            println!("[DEBUG] Save action triggered: {:?}", final_action);
 
             // 获取全局物理坐标选区
             if let Some(selection_phys) = screenshot_state_mut.selection {
@@ -322,28 +326,21 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewSta
                         }
 
                         // --- 绘制形状到最终图片上 ---
-                        // 简单的矩形绘制实现 (Stroke only)
                         for shape in shapes {
-                             // 将全局物理坐标转换为相对于最终图片的坐标
                              let start_x = shape.start.x - selection_phys.min.x;
                              let start_y = shape.start.y - selection_phys.min.y;
                              let end_x = shape.end.x - selection_phys.min.x;
                              let end_y = shape.end.y - selection_phys.min.y;
-
                              let rect = Rect::from_two_pos(Pos2::new(start_x, start_y), Pos2::new(end_x, end_y));
-
-                             // 简单的描边算法 (Bresenham's line algorithm or simple rect loop)
                              let x0 = rect.min.x.round() as i32;
                              let y0 = rect.min.y.round() as i32;
                              let x1 = rect.max.x.round() as i32;
                              let y1 = rect.max.y.round() as i32;
-
                              let color = image::Rgba([shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a()]);
-                             let thickness = 2; // 2px stroke
+                             let thickness = 2;
 
                              match shape.tool {
                                  ScreenshotTool::Rect => {
-                                     // Draw top and bottom
                                      for x in x0..=x1 {
                                          for t in 0..thickness {
                                              if x >= 0 && x < final_width as i32 {
@@ -356,8 +353,6 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewSta
                                              }
                                          }
                                      }
-
-                                     // Draw left and right
                                      for y in y0..=y1 {
                                          for t in 0..thickness {
                                              if y >= 0 && y < final_height as i32 {
@@ -372,30 +367,23 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewSta
                                      }
                                  }
                                  ScreenshotTool::Circle => {
-                                     // 简单的椭圆绘制算法
                                      let center_x = (x0 + x1) as f32 / 2.0;
                                      let center_y = (y0 + y1) as f32 / 2.0;
                                      let a = (x1 - x0).abs() as f32 / 2.0;
                                      let b = (y1 - y0).abs() as f32 / 2.0;
-
                                      if a > 0.0 && b > 0.0 {
                                          for x in x0..=x1 {
                                              for y in y0..=y1 {
                                                  let dx = x as f32 - center_x;
                                                  let dy = y as f32 - center_y;
-
-                                                 // 椭圆方程: (x/a)^2 + (y/b)^2 = 1
                                                  let dist = (dx * dx) / (a * a) + (dy * dy) / (b * b);
-
                                                  let a_in = a - thickness as f32;
                                                  let b_in = b - thickness as f32;
-
                                                  let dist_in = if a_in > 0.0 && b_in > 0.0 {
                                                      (dx * dx) / (a_in * a_in) + (dy * dy) / (b_in * b_in)
                                                  } else {
-                                                     2.0 // 肯定在外面
+                                                     2.0
                                                  };
-
                                                  if dist <= 1.0 && dist_in >= 1.0 {
                                                      if x >= 0 && x < final_width as i32 && y >= 0 && y < final_height as i32 {
                                                          final_image.put_pixel(x as u32, y as u32, color);
@@ -408,18 +396,33 @@ pub fn handle_screenshot_system(ctx: &eframe::egui::Context, state: &mut ViewSta
                              }
                         }
 
-                        if let Ok(profile) = std::env::var("USERPROFILE") {
-                            let desktop = PathBuf::from(profile).join("Desktop");
-                            let timestamp = std::time::SystemTime::now()
-                                .duration_since(std::time::UNIX_EPOCH)
-                                .unwrap_or_default()
-                                .as_secs();
-                            let path = desktop.join(format!("screenshot_{}.png", timestamp));
+                        if final_action == ScreenshotAction::SaveAndClose {
+                            if let Ok(profile) = std::env::var("USERPROFILE") {
+                                let desktop = PathBuf::from(profile).join("Desktop");
+                                let timestamp = std::time::SystemTime::now()
+                                    .duration_since(std::time::UNIX_EPOCH)
+                                    .unwrap_or_default()
+                                    .as_secs();
+                                let path = desktop.join(format!("screenshot_{}.png", timestamp));
 
-                            if let Err(e) = final_image.save(&path) {
-                                eprintln!("[ERROR] Save failed: {}", e);
-                            } else {
-                                println!("[SUCCESS] Saved to {:?}", path);
+                                if let Err(e) = final_image.save(&path) {
+                                    eprintln!("[ERROR] Save failed: {}", e);
+                                } else {
+                                    println!("[SUCCESS] Saved to {:?}", path);
+                                }
+                            }
+                        } else if final_action == ScreenshotAction::SaveToClipboard {
+                            if let Ok(mut clipboard) = Clipboard::new() {
+                                let image_data = ImageData {
+                                    width: final_image.width() as usize,
+                                    height: final_image.height() as usize,
+                                    bytes: Cow::from(final_image.into_raw()),
+                                };
+                                if let Err(e) = clipboard.set_image(image_data) {
+                                    eprintln!("[ERROR] Failed to copy image to clipboard: {}", e);
+                                } else {
+                                    println!("[SUCCESS] Copied image to clipboard.");
+                                }
                             }
                         }
                     });
@@ -443,6 +446,7 @@ pub fn draw_screenshot_ui(
     ctx: &eframe::egui::Context,
     state: &mut ScreenshotState,
     screen_index: usize,
+    config: &Config,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
 
@@ -486,8 +490,8 @@ pub fn draw_screenshot_ui(
             let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
 
             // 精确计算的宽度：
-            // 4个按钮(128) + 4个间距(32) + 1个分隔符(1) + 2个Padding(16) = 177.0
-            let toolbar_width = 177.0;
+            // 5个按钮(160) + 5个间距(40) + 1个分隔符(1) + 2个Padding(16) = 217.0
+            let toolbar_width = 217.0;
             let toolbar_height = 48.0;
             // 调整工具栏位置右对齐
             let toolbar_min_pos = Pos2::new(local_pos_logical.x - toolbar_width, local_pos_logical.y + 10.0);
@@ -647,7 +651,7 @@ pub fn draw_screenshot_ui(
 
         if let Some(toolbar_rect) = local_toolbar_rect {
             if viewport_rect.intersects(toolbar_rect) {
-                let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect);
+                let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect, config);
                 if toolbar_action != ScreenshotAction::None {
                     action = toolbar_action;
                 }
