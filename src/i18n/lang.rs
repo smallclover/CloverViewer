@@ -73,6 +73,10 @@ pub struct TextBundle {
     pub img_path:  &'static str,
     // pub img_size:  &'static str,
     pub img_dim:  &'static str,
+
+    // 状态栏
+    pub status_gird: &'static str,
+    pub status_single: &'static str,
 }
 
 pub const ZH_TEXT: TextBundle = TextBundle {
@@ -115,6 +119,8 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     img_path: "图片路径",
     // img_size: "图片大小",
     img_dim: "图片尺寸",
+    status_gird: "网格视图",
+    status_single: "单图视图",
 };
 
 pub const EN_TEXT: TextBundle = TextBundle {
@@ -157,6 +163,8 @@ pub const EN_TEXT: TextBundle = TextBundle {
     img_path: "File Path",
     // img_size: "Size",
     img_dim: "Dimension",
+    status_gird: "Grid View",
+    status_single: "Single View",
 };
 
 pub const JA_TEXT: TextBundle = TextBundle {
@@ -199,6 +207,8 @@ pub const JA_TEXT: TextBundle = TextBundle {
     img_path: "ファイルパス",
     // img_size: "サイズ",
     img_dim: "ディメンション",
+    status_gird: "グリッド表示",
+    status_single: "単一表示",
 };
 
 pub fn get_text(lang: Language) -> &'static TextBundle {
