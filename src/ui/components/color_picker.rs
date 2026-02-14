@@ -44,10 +44,6 @@ impl ColorPicker {
         self.is_open = false;
     }
 
-    pub fn toggle(&mut self) {
-        self.is_open = !self.is_open;
-    }
-
     pub fn show(&mut self, ui: &mut egui::Ui, anchor: Option<Rect>) -> bool {
         let mut color_changed = false;
 
@@ -100,21 +96,36 @@ impl ColorPicker {
 
                         let tip_x = anchor_rect.center().x.clamp(box_rect.left() + 10.0, box_rect.right() - 10.0);
                         let tip = Pos2::new(tip_x, rect.top());
-                        let base_y = box_rect.top();
+
+                        // [细节] 让三角形底边稍微“插入”到矩形内部1像素，确保视觉无缝
+                        let base_y = box_rect.top() + 1.0;
                         let base_left = Pos2::new(tip_x - arrow_width / 2.0, base_y);
                         let base_right = Pos2::new(tip_x + arrow_width / 2.0, base_y);
 
-                        let bg_color = if ui.visuals().dark_mode { Color32::from_gray(45) } else { Color32::from_gray(240) };
-                        let stroke_color = ui.visuals().widgets.noninteractive.bg_stroke.color;
-                        let stroke = Stroke::new(1.0, stroke_color);
+                        // 颜色设置：无边框模式下，背景色最好稍微深一点点以便区分
+                        let bg_color = if ui.visuals().dark_mode {
+                            Color32::from_gray(45)
+                        } else {
+                            Color32::from_gray(235) // 浅灰
+                        };
 
-                        painter.rect_filled(box_rect, 4.0, bg_color);
-                        painter.add(Shape::convex_polygon(vec![tip, base_right, base_left], bg_color, Stroke::NONE));
-                        painter.rect_stroke(box_rect, 4.0, stroke, StrokeKind::Inside);
-                        painter.line_segment([base_left, base_right], Stroke::new(2.0, bg_color));
-                        painter.line_segment([base_left, tip], stroke);
-                        painter.line_segment([base_right, tip], stroke);
+                        // --- 绘制形状 (无边框 = Stroke::NONE) ---
 
+                        // 1. 填充三角形
+                        painter.add(Shape::convex_polygon(
+                            vec![tip, base_right, base_left],
+                            bg_color,
+                            Stroke::NONE
+                        ));
+
+                        // 2. 填充圆角矩形 (覆盖在三角形底边之上)
+                        // 圆角 5.0
+                        painter.rect_filled(box_rect, 5.0, bg_color);
+
+                        // 3. (可选) 如果你想要一点阴影效果来增加立体感，可以在最底层画一个模糊的黑色矩形
+                        // 但为了严格遵守"无边框"，这里只做纯填充
+
+                        // --- 绘制色块 ---
                         ui.scope_builder(UiBuilder::new().max_rect(box_rect.shrink(inner_margin)), |ui| {
                             ui.horizontal(|ui| {
                                 ui.spacing_mut().item_spacing = Vec2::splat(spacing);
@@ -122,10 +133,13 @@ impl ColorPicker {
                                 for color in COLOR_OPTIONS.iter() {
                                     let (response_rect, response) = ui.allocate_exact_size(Vec2::splat(item_size), Sense::click());
 
+                                    // 选中状态
                                     if *color == self.selected_color {
                                         ui.painter().rect_stroke(response_rect.expand(2.0), 4.0, Stroke::new(2.0, Color32::WHITE), StrokeKind::Outside);
+                                        // 选中时的外圈描边
                                         ui.painter().rect_stroke(response_rect.expand(2.0), 4.0, Stroke::new(1.0, Color32::GRAY), StrokeKind::Outside);
                                     } else if *color == Color32::WHITE {
+                                        // 白色块由于没有背景边框了，需要一个内描边
                                         ui.painter().rect_stroke(response_rect, 4.0, Stroke::new(1.0, Color32::from_gray(200)), StrokeKind::Inside);
                                     }
 
@@ -134,14 +148,12 @@ impl ColorPicker {
                                     if response.clicked() {
                                         self.selected_color = *color;
                                         color_changed = true;
-                                        // [修改] 移除 self.close()，点击颜色不关闭
+                                        // 点击不关闭，保持开启
                                     }
                                 }
                             });
                         });
 
-                        // [修改] 移除了“点击外部关闭”的逻辑
-                        // 仅保留 ESC 键作为兜底关闭
                         if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                             self.close();
                         }
