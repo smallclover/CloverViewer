@@ -1,7 +1,8 @@
 use crate::{
     ui::components::ui_mode::{UiMode},
 };
-use egui::{Context, MenuBar, TopBottomPanel};
+use egui::{Context, MenuBar, TopBottomPanel, Id};
+use std::sync::Arc;
 use crate::i18n::lang::TextBundle;
 use crate::model::config::Config;
 
@@ -16,7 +17,6 @@ pub fn draw_menu(
     ctx: &Context,
     ui_mode: &mut UiMode,
     text: &TextBundle,
-    config: &Config,
 ) -> (bool, bool) {
 
     let mut open_file_dialog = false;
@@ -41,7 +41,8 @@ pub fn draw_menu(
 
                 // 设置
                 if ui.button(text.menu_settings).clicked() {
-                    *ui_mode = UiMode::Settings(config.clone());
+                    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
+                    *ui_mode = UiMode::Settings((*config).clone());
                     ui.close();
                 }
             });

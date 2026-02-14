@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui::{Context, FontData, FontDefinitions, FontFamily, ViewportBuilder};
+use egui::{Context, FontData, FontDefinitions, FontFamily, ViewportBuilder, Id};
 use std::{
     path::PathBuf,
     sync::{mpsc, Arc},
@@ -71,7 +71,7 @@ pub fn run() -> eframe::Result<()> {
 pub struct CloverApp {
     data: BusinessData,
     state: ViewState,
-    config: Config,
+    config: Arc<Config>,
     hotkey_receiver: mpsc::Receiver<()>,
     _hotkeys_manager: GlobalHotKeyManager,
 }
@@ -101,7 +101,10 @@ impl CloverApp {
             }
         })));
 
-        let config = load_config();
+        let config = Arc::new(load_config());
+
+        cc.egui_ctx
+            .data_mut(|data| data.insert_temp(Id::new("config"),Arc::clone(&config)));
 
         let mut app = Self {
             data: BusinessData::new(),
@@ -148,27 +151,26 @@ impl CloverApp {
             viewer::draw_top_panel(
                 ctx,
                 &mut self.state,
-                &self.config,
             );
-            viewer::draw_bottom_panel(ctx, &mut self.state, &self.config);
-            viewer::draw_central_panel(ctx, &mut self.data, &mut self.state, &self.config);
-            draw_properties_panel(ctx, &mut self.state, &self.data, &self.config);
+            viewer::draw_bottom_panel(ctx, &mut self.state);
+            viewer::draw_central_panel(ctx, &mut self.data, &mut self.state);
+            draw_properties_panel(ctx, &mut self.state, &self.data);
             self.state.toast_system.update(ctx);
         }
     }
 
     fn handle_ui_interactions(&mut self, ctx: &Context) {
         if self.state.ui_mode != UiMode::Screenshot {
-            let mut temp_config = self.config.clone();
+            let mut temp_config = (*self.config).clone();
             let (context_menu_action, modal_action) =
                 viewer::draw_overlays(ctx, &self.data, &mut self.state, &mut temp_config);
 
             if let Some(action) = context_menu_action {
-                handle_context_menu_action(action, &self.data, &mut self.state, &self.config);
+                handle_context_menu_action(ctx, action, &self.data, &mut self.state);
             }
 
             if let Some(ModalAction::Apply) = modal_action {
-                self.config = temp_config;
+                self.config = Arc::new(temp_config);
                 save_config(&self.config);
             }
         }
@@ -177,11 +179,13 @@ impl CloverApp {
 
 impl eframe::App for CloverApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
+        ctx.data_mut(|data| data.insert_temp(Id::NULL, Arc::clone(&self.config)));
+
         self.handle_hotkeys(ctx); // 传入 ctx
         self.handle_background_tasks(ctx);
         self.handle_input_events(ctx);
         self.draw_ui(ctx);
         self.handle_ui_interactions(ctx);
-        handle_screenshot_system(ctx, &mut self.state, &self.config);
+        handle_screenshot_system(ctx, &mut self.state);
     }
 }

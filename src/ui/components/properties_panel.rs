@@ -1,4 +1,5 @@
-use egui::{Align, Context, Layout, Ui, CursorIcon};
+use egui::{Align, Context, Layout, Ui, CursorIcon, Id};
+use std::sync::Arc;
 use crate::core::business::BusinessData;
 use crate::i18n::lang::{get_text, TextBundle};
 use crate::model::config::Config;
@@ -10,7 +11,6 @@ pub fn draw_properties_panel(
     ctx: &Context,
     state: &mut ViewState,
     data: &BusinessData,
-    config: &Config,
 ) {
     // 检查当前 UI 模式是否为 Properties
     let mut is_open = matches!(state.ui_mode, UiMode::Properties);
@@ -18,6 +18,7 @@ pub fn draw_properties_panel(
         return;
     }
 
+    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
     let texts = get_text(config.language);
 
     egui::SidePanel::right("properties_panel")
@@ -41,7 +42,7 @@ pub fn draw_properties_panel(
 
             // 直接从 data 中获取当前图片的属性
             if let Some(props) = &data.current_properties {
-                render_properties_content(ui, props, texts);
+                render_properties_content(ui, props, &texts);
             } else {
                 ui.label("No image loaded.");
             }

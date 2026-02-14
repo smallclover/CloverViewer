@@ -1,5 +1,6 @@
 use eframe::emath::Pos2;
 use egui::{Area, Context, Frame, Id, Order, Sense};
+use std::sync::Arc;
 use crate::core::business::BusinessData;
 use crate::i18n::lang::{get_text, TextBundle};
 use crate::model::config::Config;
@@ -69,11 +70,12 @@ pub fn render_context_menu(
 }
 
 pub fn handle_context_menu_action(
+    ctx: &Context,
     action: ContextMenuAction,
     data: &BusinessData,
     state: &mut ViewState,
-    config: &Config,
 ) {
+    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
     let texts = get_text(config.language);
     match action {
         ContextMenuAction::Copy => {

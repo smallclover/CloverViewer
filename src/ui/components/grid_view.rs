@@ -1,5 +1,6 @@
 use eframe::egui;
-use egui::{Context, ScrollArea, Ui, Color32, Frame, Stroke, Sense, Align2, FontId};
+use egui::{Context, ScrollArea, Ui, Color32, Frame, Stroke, Sense, Align2, FontId, Id};
+use std::sync::Arc;
 use crate::{
     core::business::BusinessData,
     i18n::lang::get_text,
@@ -11,8 +12,8 @@ pub fn draw_grid_view(
     ui: &mut Ui,
     data: &mut BusinessData,
     state: &mut ViewState,
-    config: &Config,
 ) {
+    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
     if data.list.is_empty() {
         let texts = get_text(config.language);
         ui.centered_and_justified(|ui| {

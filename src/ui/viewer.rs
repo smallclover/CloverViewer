@@ -1,8 +1,9 @@
 use eframe::egui;
 use egui::{
-    CentralPanel, Color32, Context, Frame,
+    CentralPanel, Color32, Context, Frame, Id
 };
 use rfd::FileDialog;
+use std::sync::Arc;
 use crate::{
     core::business::BusinessData,
     i18n::lang::get_text,
@@ -30,10 +31,10 @@ use crate::ui::components::{
 pub fn draw_top_panel(
     ctx: &Context,
     state: &mut ViewState,
-    config: &Config,
 ) {
+    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::NULL).unwrap());
     let texts = get_text(config.language);
-    let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode, texts, config);
+    let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode, &texts);
 
     if open_file {
         let sender = state.path_sender.clone();
@@ -60,27 +61,24 @@ pub fn draw_top_panel(
 pub fn draw_bottom_panel(
     ctx: &Context,
     state: &mut ViewState,
-    config: &Config,
 ) {
-    draw_status_bar(ctx, state,config);
+    draw_status_bar(ctx, state);
 }
 
 pub fn draw_central_panel(
     ctx: &Context,
     data: &mut BusinessData,
     state: &mut ViewState,
-    config: &Config,
 ) {
-    let texts = get_text(config.language);
     let background_frame = Frame::NONE.fill(Color32::from_rgb(25, 25, 25));
 
     CentralPanel::default().frame(background_frame).show(ctx, |ui| {
         match state.view_mode {
             ViewMode::Single => {
-                draw_single_view(ctx, ui, data, state, texts);
+                draw_single_view(ctx, ui, data, state);
             }
             ViewMode::Grid => {
-                draw_grid_view(ctx, ui, data, state, config);
+                draw_grid_view(ctx, ui, data, state);
             }
         }
     });
@@ -100,14 +98,14 @@ pub fn draw_overlays(
     match &mut state.ui_mode {
         UiMode::About => {
             let mut open = true;
-            render_about_window(ctx, &mut open, texts);
+            render_about_window(ctx, &mut open, &texts);
             if !open {
                 new_ui_mode = Some(UiMode::Normal);
             }
         }
         UiMode::Settings(cfg) => {
             let mut open = true;
-            let mut action = render_settings_window(ctx, &mut open, texts, cfg);
+            let mut action = render_settings_window(ctx, &mut open, &texts, cfg);
 
             if action == ModalAction::Apply {
                 *temp_config = cfg.clone();
@@ -121,7 +119,7 @@ pub fn draw_overlays(
         }
         UiMode::ContextMenu(pos) => {
             let mut pos_opt = Some(*pos);
-            let action = render_context_menu(ctx, &mut pos_opt, texts);
+            let action = render_context_menu(ctx, &mut pos_opt, &texts);
 
             if let Some(action) = action {
                 context_menu_action = Some(action);

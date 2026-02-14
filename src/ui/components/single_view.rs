@@ -1,11 +1,13 @@
 use eframe::egui;
 use egui::{
-    Color32, Context, CursorIcon, Image, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder
+    Color32, Context, CursorIcon, Image, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder, Id
 };
+use std::sync::Arc;
 use crate::{
     core::business::BusinessData,
-    i18n::lang::TextBundle,
+    i18n::lang::{get_text},
     model::state::{ViewState},
+    model::config::Config,
     ui::components::{
         arrows::{draw_arrows, Nav},
         preview::show_preview_window,
@@ -18,9 +20,10 @@ pub fn draw_single_view(
     ui: &mut Ui,
     data: &mut BusinessData,
     state: &mut ViewState,
-    texts: &TextBundle,
 ) {
     let rect = ui.available_rect_before_wrap();
+    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
+    let texts = get_text(config.language);
 
     if let Some(tex) = data.current_texture.as_ref() {
         render_image_viewer(ui, tex, data.zoom, data.loader.is_loading);

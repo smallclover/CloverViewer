@@ -5,7 +5,6 @@ use std::sync::mpsc::{channel, Receiver, TryRecvError};
 use std::thread;
 use std::path::PathBuf;
 use xcap::Monitor;
-use crate::model::config::Config;
 use crate::model::state::ViewState;
 use crate::ui::components::screenshot_toolbar::draw_screenshot_toolbar;
 use crate::ui::components::ui_mode::UiMode;
@@ -101,7 +100,7 @@ pub struct CapturedScreen {
     pub texture: Option<TextureHandle>,
 }
 
-pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, config: &Config) {
+pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
     if state.ui_mode != UiMode::Screenshot {
         return;
     }
@@ -272,7 +271,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, config: &C
                 .with_position(pos),
             |ctx, class| {
                 if class == ViewportClass::Immediate {
-                    let action = draw_screenshot_ui(ctx, screenshot_state_mut, i, config);
+                    let action = draw_screenshot_ui(ctx, screenshot_state_mut, i);
                     if action != ScreenshotAction::None {
                         final_action = action;
                         wants_to_close_viewports = true;
@@ -450,7 +449,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, config: &C
                                     eprintln!("[ERROR] Failed to copy image to clipboard: {}", e);
                                 } else {
                                     println!("[SUCCESS] Copied image to clipboard.");
-                                }
+                                 }
                             }
                         }
                     });
@@ -474,7 +473,6 @@ pub fn draw_screenshot_ui(
     ctx: &Context,
     state: &mut ScreenshotState,
     screen_index: usize,
-    config: &Config,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
 
@@ -690,7 +688,7 @@ pub fn draw_screenshot_ui(
 
         if let Some(toolbar_rect) = local_toolbar_rect {
             if viewport_rect.intersects(toolbar_rect) {
-                let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect, config);
+                let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect);
                 if toolbar_action != ScreenshotAction::None {
                     action = toolbar_action;
                 }

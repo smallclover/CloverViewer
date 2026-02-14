@@ -1,5 +1,6 @@
-use eframe::egui::{self, Color32, Rect, Vec2, Ui, Painter, Layout, Align, Stroke, StrokeKind};
+use eframe::egui::{self, Color32, Rect, Vec2, Ui, Painter, Layout, Align, Stroke, StrokeKind, Id};
 use egui::{Response, UiBuilder};
+use std::sync::Arc;
 use crate::i18n::lang::get_text;
 use crate::model::config::Config;
 use crate::ui::components::icons::{draw_icon_button, IconType};
@@ -10,9 +11,9 @@ pub fn draw_screenshot_toolbar(
     painter: &Painter,
     state: &mut ScreenshotState,
     toolbar_rect: Rect,
-    config: &Config,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
+    let config = ui.ctx().data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
     let texts = get_text(config.language);
 
     // --- 1. 绘制背景 ---
@@ -37,7 +38,7 @@ pub fn draw_screenshot_toolbar(
 
                 // === 1. 矩形工具 ===
                 let is_rect = state.current_tool == Some(ScreenshotTool::Rect);
-                let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect, texts);
+                let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect, &texts);
                 if rect_button.clicked() {
                     state.current_tool = Some(ScreenshotTool::Rect);
                 }
@@ -51,7 +52,7 @@ pub fn draw_screenshot_toolbar(
 
                 // === 2. 圆形工具 ===
                 let is_circle = state.current_tool == Some(ScreenshotTool::Circle);
-                let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle, texts);
+                let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle, &texts);
                 if circle_button.clicked() {
                     state.current_tool = Some(ScreenshotTool::Circle);
                 }
@@ -70,7 +71,7 @@ pub fn draw_screenshot_toolbar(
                     Stroke::new(1.0, Color32::from_gray(220))
                 );
 
-                if draw_icon_button(ui, false, IconType::Cancel, texts).clicked() {
+                if draw_icon_button(ui, false, IconType::Cancel, &texts).clicked() {
                     state.selection = None;
                     state.toolbar_pos = None;
                     state.current_tool = None;
@@ -79,11 +80,11 @@ pub fn draw_screenshot_toolbar(
                     state.color_picker.close(); // 关闭颜色选择器
                 }
 
-                if draw_icon_button(ui, false, IconType::SaveToClipboard, texts).clicked() {
+                if draw_icon_button(ui, false, IconType::SaveToClipboard, &texts).clicked() {
                     action = ScreenshotAction::SaveToClipboard;
                 }
 
-                if draw_icon_button(ui, false, IconType::Save, texts).clicked() {
+                if draw_icon_button(ui, false, IconType::Save, &texts).clicked() {
                     action = ScreenshotAction::SaveAndClose;
                 }
             },
