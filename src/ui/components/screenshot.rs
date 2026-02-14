@@ -58,6 +58,7 @@ pub struct ScreenshotState {
     // Drawing state
     pub shapes: Vec<DrawnShape>,
     pub current_shape_start: Option<Pos2>, // 正在绘制的形状起始点（全局物理坐标）
+    pub current_shape_end: Option<Pos2>,
 }
 
 impl Default for ScreenshotState {
@@ -78,6 +79,7 @@ impl Default for ScreenshotState {
             color_picker_position: None,
             shapes: Vec::new(),
             current_shape_start: None,
+            current_shape_end: None,
         }
     }
 }
@@ -549,7 +551,9 @@ pub fn draw_screenshot_ui(
                         // 绘图模式
                         if let Some(selection) = state.selection {
                             if selection.contains(global_phys) {
+                                // 开始拖拽时起点等于终点
                                 state.current_shape_start = Some(global_phys);
+                                state.current_shape_end = Some(global_phys);
                                 needs_repaint = true;
                             }
                         }
@@ -564,6 +568,7 @@ pub fn draw_screenshot_ui(
 
                 if response.dragged() {
                     if let Some(_) = state.current_shape_start {
+                        state.current_shape_end = Some(global_phys);
                         // 正在绘图，只请求重绘，不修改数据，直到松开
                         needs_repaint = true;
                     } else if let Some(drag_start_phys) = state.drag_start {
@@ -589,6 +594,7 @@ pub fn draw_screenshot_ui(
                             });
                         }
                         state.current_shape_start = None;
+                        state.current_shape_end = None;
                         needs_repaint = true;
                     } else if state.drag_start.is_some() {
                         // 完成选区
@@ -662,20 +668,24 @@ pub fn draw_screenshot_ui(
         }
 
         // 3.3 渲染正在绘制的形状
-        if let (Some(start_phys), Some(curr_pos_local)) = (state.current_shape_start, ui.input(|i| i.pointer.latest_pos())) {
+        if let (Some(start_phys), Some(end_phys)) = (state.current_shape_start, state.current_shape_end) {
              let start_local = Pos2::ZERO + ((start_phys - screen_offset_phys) / ppp);
-             let rect = Rect::from_two_pos(start_local, curr_pos_local);
+             let end_local = Pos2::ZERO + ((end_phys - screen_offset_phys) / ppp);
+             let rect = Rect::from_two_pos(start_local, end_local);
 
-             if let Some(tool) = state.current_tool {
-                 match tool {
-                     ScreenshotTool::Rect => {
-                         painter.rect_stroke(rect, 0.0, Stroke::new(state.stroke_width, state.active_color), StrokeKind::Outside);
-                     }
-                     ScreenshotTool::Circle => {
-                         painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(state.stroke_width, state.active_color)));
+             if viewport_rect.intersects(rect) {
+                 if let Some(tool) = state.current_tool {
+                     match tool {
+                         ScreenshotTool::Rect => {
+                             painter.rect_stroke(rect, 0.0, Stroke::new(state.stroke_width, state.active_color), StrokeKind::Outside);
+                         }
+                         ScreenshotTool::Circle => {
+                             painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(state.stroke_width, state.active_color)));
+                         }
                      }
                  }
              }
+
         }
 
         let border_width = 5.0;
