@@ -125,7 +125,7 @@ fn handle_tool_interaction(
                         state.color_picker.open();
 
                         // [核心修复] 位置设置为按钮的左下角，并稍微向下偏移一点点
-                        state.color_picker_position = Some(response.rect.left_bottom() + Vec2::new(0.0, 5.0));
+                        state.color_picker_anchor = Some(response.rect);
                         state.current_tool = Some(target_tool);
 
                         ui.data_mut(|d| d.insert_temp(button_id, true));

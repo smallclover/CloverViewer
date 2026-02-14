@@ -52,7 +52,7 @@ pub struct ScreenshotState {
     pub active_color: Color32,
     pub stroke_width: f32,
     pub color_picker: ColorPicker,
-    pub color_picker_position: Option<Pos2>,
+    pub color_picker_anchor: Option<Rect>,
 
 
     // Drawing state
@@ -76,7 +76,7 @@ impl Default for ScreenshotState {
             active_color: default_color,
             stroke_width: 2.0,
             color_picker: ColorPicker::new(default_color),
-            color_picker_position: None,
+            color_picker_anchor: None,
             shapes: Vec::new(),
             current_shape_start: None,
             current_shape_end: None,
@@ -499,12 +499,6 @@ pub fn draw_screenshot_ui(
         let image_widget = egui::Image::new(img_src).fit_to_exact_size(ui.available_size());
         ui.add(image_widget);
 
-        // // --- Color Picker ---
-        // if state.color_picker.show(ui, state.color_picker_position) {
-        //     state.active_color = state.color_picker.selected_color;
-        //     needs_repaint = true;
-        // }
-
         let painter = ui.painter().clone(); // Clone painter to avoid borrowing ui later
         let viewport_rect = ctx.viewport_rect();
         let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
@@ -709,7 +703,7 @@ pub fn draw_screenshot_ui(
                 // 对于“拥有工具栏”的这个屏幕来说，这个坐标是正确的。
                 // 对于其他屏幕，因为 local_toolbar_rect 通常不会相交（或者位置完全不对），不会进入这里，或者位置正确但不会绘制。
                 // 最重要的是，我们利用工具栏的可见性来约束颜色选择器的可见性。
-                if state.color_picker.show(ui, state.color_picker_position) {
+                if state.color_picker.show(ui, state.color_picker_anchor) {
                     state.active_color = state.color_picker.selected_color;
                     needs_repaint = true;
                 }
