@@ -93,48 +93,54 @@ pub fn draw_screenshot_toolbar(
 
     action
 }
-
-/// 处理截图工具按钮的交互（点击选中 + 长按弹出颜色）
 fn handle_tool_interaction(
     ui: &mut Ui,
     response: &Response,
     target_tool: ScreenshotTool,
-    state: &mut ScreenshotState
+    state: &mut ScreenshotState,
 ) {
-    // --- 1. 处理点击选中 ---
+    let button_id = response.id;
+
+    // [关键] 获取长按触发标记 (在 reset 之前获取)
+    let long_press_triggered = ui.data(|d| d.get_temp::<bool>(button_id).unwrap_or(false));
+
+    // --- 1. 处理点击 (选中工具 或 关闭调色盘) ---
     if response.clicked() {
         state.current_tool = Some(target_tool);
+
+        // 只有当这次点击 不是 长按触发后的松手动作时，才执行关闭逻辑
+        if !long_press_triggered {
+            if state.color_picker.is_open {
+                state.color_picker.close();
+            }
+        }
     }
 
     // --- 2. 处理长按逻辑 ---
-    let button_id = response.id;
-
     if response.is_pointer_button_down_on() {
         ui.ctx().request_repaint();
 
-        let already_triggered = ui.data(|d| d.get_temp::<bool>(button_id).unwrap_or(false));
-
-        if !already_triggered {
+        if !long_press_triggered {
             if let Some(press_origin) = ui.input(|i| i.pointer.press_origin()) {
                 if response.rect.contains(press_origin) {
                     let press_time = ui.input(|i| i.pointer.press_start_time()).unwrap_or(0.0);
                     let current_time = ui.input(|i| i.time);
 
                     if current_time - press_time > 0.6 {
-                        // === 触发长按逻辑 ===
+                        // === 触发长按 ===
                         state.color_picker.open();
-
-                        // [核心修复] 位置设置为按钮的左下角，并稍微向下偏移一点点
                         state.color_picker_anchor = Some(response.rect);
                         state.current_tool = Some(target_tool);
 
+                        // 标记已触发，防止 clicked 在松手时误判
                         ui.data_mut(|d| d.insert_temp(button_id, true));
                     }
                 }
             }
         }
     } else {
-        if ui.data(|d| d.get_temp::<bool>(button_id).unwrap_or(false)) {
+        // --- 3. 松手重置 ---
+        if long_press_triggered {
             ui.data_mut(|d| d.insert_temp(button_id, false));
         }
     }
