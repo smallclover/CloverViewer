@@ -34,20 +34,21 @@ pub fn draw_screenshot_toolbar(
                 .with_main_wrap(false),
             |ui| {
                 ui.style_mut().spacing.item_spacing = Vec2::new(8.0, 0.0);
+
                 // === 1. 矩形工具 ===
                 let is_rect = state.current_tool == Some(ScreenshotTool::Rect);
                 let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect, texts);
                 if rect_button.clicked() {
                     state.current_tool = Some(ScreenshotTool::Rect);
                 }
-                // 长按矩形
+                // 长按矩形 - 传入 rect_button 本身作为定位锚点
                 handle_tool_interaction(
                     ui,
-                    &rect_button,
+                    &rect_button, // 传入 Response
                     ScreenshotTool::Rect,
                     state,
-                    toolbar_rect
                 );
+
                 // === 2. 圆形工具 ===
                 let is_circle = state.current_tool == Some(ScreenshotTool::Circle);
                 let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle, texts);
@@ -55,13 +56,12 @@ pub fn draw_screenshot_toolbar(
                     state.current_tool = Some(ScreenshotTool::Circle);
                 }
 
-                // 长按矩形
+                // 长按圆形 - 传入 circle_button 本身作为定位锚点
                 handle_tool_interaction(
                     ui,
-                    &circle_button,
+                    &circle_button, // 传入 Response
                     ScreenshotTool::Circle,
                     state,
-                    toolbar_rect
                 );
 
                 let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(1.0, 16.0), egui::Sense::hover());
@@ -76,6 +76,7 @@ pub fn draw_screenshot_toolbar(
                     state.current_tool = None;
                     state.shapes.clear();
                     state.current_shape_start = None;
+                    state.color_picker.close(); // 关闭颜色选择器
                 }
 
                 if draw_icon_button(ui, false, IconType::SaveToClipboard, texts).clicked() {
@@ -96,9 +97,8 @@ pub fn draw_screenshot_toolbar(
 fn handle_tool_interaction(
     ui: &mut Ui,
     response: &Response,
-    target_tool: ScreenshotTool, // 当前按钮对应的工具类型 (Rect 或 Circle)
-    state: &mut ScreenshotState,
-    toolbar_rect: Rect, // 用来确定颜色选择器弹出的位置
+    target_tool: ScreenshotTool,
+    state: &mut ScreenshotState
 ) {
     // --- 1. 处理点击选中 ---
     if response.clicked() {
@@ -109,34 +109,30 @@ fn handle_tool_interaction(
     let button_id = response.id;
 
     if response.is_pointer_button_down_on() {
-        // 只要按住，就请求刷新，保证时间流动
         ui.ctx().request_repaint();
 
-        // 检查是否已经触发过长按（防止反复触发）
         let already_triggered = ui.data(|d| d.get_temp::<bool>(button_id).unwrap_or(false));
 
         if !already_triggered {
-            // 获取按下位置，确保还在按钮范围内
             if let Some(press_origin) = ui.input(|i| i.pointer.press_origin()) {
                 if response.rect.contains(press_origin) {
                     let press_time = ui.input(|i| i.pointer.press_start_time()).unwrap_or(0.0);
                     let current_time = ui.input(|i| i.time);
 
-                    // 阈值：0.6秒
                     if current_time - press_time > 0.6 {
                         // === 触发长按逻辑 ===
                         state.color_picker.open();
-                        state.color_picker_position = Some(toolbar_rect.left_bottom());
 
-                        // 标记为已触发
+                        // [核心修复] 位置设置为按钮的左下角，并稍微向下偏移一点点
+                        state.color_picker_position = Some(response.rect.left_bottom() + Vec2::new(0.0, 5.0));
+                        state.current_tool = Some(target_tool);
+
                         ui.data_mut(|d| d.insert_temp(button_id, true));
                     }
                 }
             }
         }
     } else {
-        // --- 3. 松手重置 ---
-        // 只有当之前标记为 true 时才去重置，减少哈希查找开销
         if ui.data(|d| d.get_temp::<bool>(button_id).unwrap_or(false)) {
             ui.data_mut(|d| d.insert_temp(button_id, false));
         }

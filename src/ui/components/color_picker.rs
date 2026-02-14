@@ -39,10 +39,6 @@ impl ColorPicker {
         }
     }
 
-    pub fn toggle(&mut self) {
-        self.is_open = !self.is_open;
-    }
-
     pub fn open(&mut self) {
         self.is_open = true;
     }
@@ -56,7 +52,7 @@ impl ColorPicker {
         if self.is_open {
             // [修复] 检查位置是否属于当前屏幕上下文
             if let Some(pos) = position {
-                let screen_rect = ui.ctx().screen_rect();
+                let screen_rect = ui.ctx().content_rect();
                 // 只有当 弹出的位置 在 当前屏幕范围内 时，才绘制
                 // 还要考虑到 Window 可能有一定大小，稍微放宽一点判断或者只判断左上角
                 if !screen_rect.contains(pos) {

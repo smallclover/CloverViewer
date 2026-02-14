@@ -499,11 +499,11 @@ pub fn draw_screenshot_ui(
         let image_widget = egui::Image::new(img_src).fit_to_exact_size(ui.available_size());
         ui.add(image_widget);
 
-        // --- Color Picker ---
-        if state.color_picker.show(ui, state.color_picker_position) {
-            state.active_color = state.color_picker.selected_color;
-            needs_repaint = true;
-        }
+        // // --- Color Picker ---
+        // if state.color_picker.show(ui, state.color_picker_position) {
+        //     state.active_color = state.color_picker.selected_color;
+        //     needs_repaint = true;
+        // }
 
         let painter = ui.painter().clone(); // Clone painter to avoid borrowing ui later
         let viewport_rect = ctx.viewport_rect();
@@ -539,7 +539,10 @@ pub fn draw_screenshot_ui(
         if let Some(press_pos) = response.interact_pointer_pos() {
             let is_clicking_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(press_pos));
 
-            if !is_clicking_toolbar {
+            let is_interacting_with_picker = state.color_picker.is_open &&
+                ui.ctx().is_pointer_over_area(); // 简单的检查，如果鼠标悬浮在任何 egui 窗口上（包括 picker）
+
+            if !is_clicking_toolbar && !is_interacting_with_picker {
                 let local_vec_phys = press_pos.to_vec2() * ppp;
                 let global_phys = screen_offset_phys + local_vec_phys;
 
@@ -556,6 +559,7 @@ pub fn draw_screenshot_ui(
                         // 选区模式
                         state.drag_start = Some(global_phys);
                         state.toolbar_pos = None;
+                        state.color_picker.close();//重新开始拖拽选区时，强制关闭颜色选择器
                         needs_repaint = true;
                     }
                 }
@@ -689,6 +693,17 @@ pub fn draw_screenshot_ui(
                 let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect, config);
                 if toolbar_action != ScreenshotAction::None {
                     action = toolbar_action;
+                }
+
+                // [修复核心] 将 Color Picker 放在这里渲染！
+                // 这样只有拥有工具栏的那个屏幕才会尝试绘制颜色选择器。
+                // 此时 state.color_picker_position 是基于工具栏计算出的局部坐标，
+                // 对于“拥有工具栏”的这个屏幕来说，这个坐标是正确的。
+                // 对于其他屏幕，因为 local_toolbar_rect 通常不会相交（或者位置完全不对），不会进入这里，或者位置正确但不会绘制。
+                // 最重要的是，我们利用工具栏的可见性来约束颜色选择器的可见性。
+                if state.color_picker.show(ui, state.color_picker_position) {
+                    state.active_color = state.color_picker.selected_color;
+                    needs_repaint = true;
                 }
             }
         }
