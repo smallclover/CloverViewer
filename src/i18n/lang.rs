@@ -84,6 +84,7 @@ pub struct TextBundle {
     pub tooltip_cancel: &'static str,
     pub tooltip_save: &'static str,
     pub tooltip_save_to_clipboard: &'static str,
+    pub tooltip_mouse_copy_color: &'static str,
 }
 
 pub const ZH_TEXT: TextBundle = TextBundle {
@@ -134,6 +135,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     tooltip_cancel: "取消",
     tooltip_save: "保存到桌面",
     tooltip_save_to_clipboard: "复制到剪贴板",
+    tooltip_mouse_copy_color: "按 Ctrl + C 复制颜色",
 };
 
 pub const EN_TEXT: TextBundle = TextBundle {
@@ -184,6 +186,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
     tooltip_cancel: "Cancel",
     tooltip_save: "Save to Desktop",
     tooltip_save_to_clipboard: "Copy to Clipboard",
+    tooltip_mouse_copy_color: "Press Ctrl + C Copy Color",
 };
 
 pub const JA_TEXT: TextBundle = TextBundle {
@@ -234,6 +237,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
     tooltip_cancel: "キャンセル",
     tooltip_save: "デスクトップに保存",
     tooltip_save_to_clipboard: "クリップボードにコピー",
+    tooltip_mouse_copy_color: "Ctrl + C を押して色をコピー",
 };
 
 pub fn get_text(lang: Language) -> &'static TextBundle {

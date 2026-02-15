@@ -1,5 +1,9 @@
+use std::sync::Arc;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Stroke, Ui, Vec2, FontId, Align2, StrokeKind};
 use eframe::egui::ColorImage;
+use egui::Id;
+use crate::i18n::lang::get_text;
+use crate::model::config::Config;
 
 /// 绘制放大镜组件
 pub fn draw_magnifier(
@@ -9,28 +13,27 @@ pub fn draw_magnifier(
     pointer_pos: Pos2,
     ppp: f32,
 ) {
-    // --- 1. 参数调整 (倍率调小，视野调大) ---
-    // 网格数量变大 (17 -> 65)，能看到更多周围的像素
+    let config = ui.ctx().data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
+    let texts = get_text(config.language);
+    // --- 1. 参数调整 ---
+    // 下面的参数可以调节放大倍率和显示状态
+    //>>
     let pixel_grid_size = 60;
-    // 单个像素视觉大小变小 (9.0 -> 3.0)，倍率降低
+    //<<
     let zoom_pixel_size = 3.0;
-
     let half_grid = pixel_grid_size / 2;
 
-    // 放大镜主体的宽高 (25 * 6 = 150px)
     let magnifier_size = pixel_grid_size as f32 * zoom_pixel_size;
-    // 底部信息栏高度
-    let info_bar_height = 46.0;
 
-    // 卡片整体大小
+    // [修改点 1] 增加信息栏高度，以容纳提示文字 (46.0 -> 64.0)
+    let info_bar_height = 64.0;
+
     let card_size = Vec2::new(magnifier_size, magnifier_size + info_bar_height);
 
     // --- 2. 计算卡片位置 ---
-    // 默认在鼠标右下角，稍微离远一点点
     let offset = Vec2::new(20.0, 20.0);
     let mut card_pos = pointer_pos + offset;
 
-    // 边界检测：防止超出屏幕
     let screen_rect = ui.ctx().viewport_rect();
     if card_pos.x + card_size.x > screen_rect.max.x {
         card_pos.x = pointer_pos.x - offset.x - card_size.x;
@@ -51,39 +54,30 @@ pub fn draw_magnifier(
     );
 
     // --- 4. 绘制上半部分：像素放大镜 ---
+    // ... (这部分像素绘制逻辑保持不变，为了节省篇幅省略，请保留原有的网格遍历代码) ...
     let magnifier_rect = Rect::from_min_size(card_pos, Vec2::new(magnifier_size, magnifier_size));
-
-    // 计算中心像素的物理坐标
     let center_phys_x = (pointer_pos.x * ppp).round() as isize;
     let center_phys_y = (pointer_pos.y * ppp).round() as isize;
-
     let img_width = image.width() as isize;
     let img_height = image.height() as isize;
 
-    // 遍历网格绘制像素
     for dy in -half_grid..=half_grid {
         for dx in -half_grid..=half_grid {
             let src_x = center_phys_x + dx;
             let src_y = center_phys_y + dy;
-
             let color = if src_x >= 0 && src_x < img_width && src_y >= 0 && src_y < img_height {
                 let idx = src_y as usize * image.width() + src_x as usize;
                 image.pixels[idx]
             } else {
                 Color32::BLACK
             };
-
             let grid_x = (dx + half_grid) as f32;
             let grid_y = (dy + half_grid) as f32;
-
             let pixel_rect = Rect::from_min_size(
                 card_pos + Vec2::new(grid_x * zoom_pixel_size, grid_y * zoom_pixel_size),
                 Vec2::new(zoom_pixel_size, zoom_pixel_size)
             );
-
             painter.rect_filled(pixel_rect, 0.0, color);
-            // 像素变小了，去掉网格线可能会看起来更干净，或者保留极淡的线
-            // painter.rect_stroke(pixel_rect, 0.0, Stroke::new(0.5, Color32::from_black_alpha(20)), StrokeKind::Inside);
         }
     }
 
@@ -93,41 +87,30 @@ pub fn draw_magnifier(
         card_pos + Vec2::new(center_grid_idx * zoom_pixel_size, center_grid_idx * zoom_pixel_size),
         Vec2::new(zoom_pixel_size, zoom_pixel_size)
     );
-
-    // 高亮中心像素 (青色边框)
     painter.rect_stroke(
         center_pixel_rect,
         0.0,
-        Stroke::new(1.5, Color32::from_rgb(0, 255, 255)), // 线宽稍微调细一点适配小像素
+        Stroke::new(1.5, Color32::from_rgb(0, 255, 255)),
         StrokeKind::Outside
     );
-
-    // 全长十字辅助线
     let center_line_color = Color32::from_rgba_unmultiplied(0, 255, 255, 100);
-    painter.line_segment(
-        [magnifier_rect.center_top(), magnifier_rect.center_bottom()],
-        Stroke::new(1.0, center_line_color)
-    );
-    painter.line_segment(
-        [magnifier_rect.left_center(), magnifier_rect.right_center()],
-        Stroke::new(1.0, center_line_color)
-    );
+    painter.line_segment([magnifier_rect.center_top(), magnifier_rect.center_bottom()], Stroke::new(1.0, center_line_color));
+    painter.line_segment([magnifier_rect.left_center(), magnifier_rect.right_center()], Stroke::new(1.0, center_line_color));
+
 
     // --- 6. 绘制下半部分：信息文本 ---
     let center_idx = if center_phys_x >= 0 && center_phys_x < img_width && center_phys_y >= 0 && center_phys_y < img_height {
-        (center_phys_y as usize * image.width() + center_phys_x as usize)
+        center_phys_y as usize * image.width() + center_phys_x as usize
     } else {
         0
     };
     let center_color = if center_phys_x >= 0 && center_phys_x < img_width { image.pixels[center_idx] } else { Color32::BLACK };
 
-    // 信息区域
     let info_rect = Rect::from_min_max(
         Pos2::new(card_rect.min.x, card_rect.max.y - info_bar_height),
         card_rect.max
     );
 
-    // 分割线
     painter.line_segment(
         [info_rect.left_top(), info_rect.right_top()],
         Stroke::new(1.0, Color32::from_gray(60))
@@ -137,15 +120,17 @@ pub fn draw_magnifier(
     let hex_text = format!("#{:02X}{:02X}{:02X}", center_color.r(), center_color.g(), center_color.b());
 
     let text_color = Color32::WHITE;
+    let hint_color = Color32::from_gray(180); // 提示文字用灰色
     let font_id = FontId::proportional(12.0);
+    // 提示文字稍微小一点
+    let hint_font_id = FontId::proportional(10.0);
 
-    // 布局计算：将信息栏分为上下两行
-    let row_height = info_bar_height / 2.0;
+    // 布局计算：将信息栏分为三行 (大概)
+    let line_height = info_bar_height / 3.0;
 
     // 第一行：坐标 (POS)
-    let row1_center_y = info_rect.min.y + row_height / 2.0;
     painter.text(
-        Pos2::new(info_rect.min.x + 8.0, row1_center_y),
+        Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 0.5 + 2.0),
         Align2::LEFT_CENTER,
         format!("POS: {}", coord_text),
         font_id.clone(),
@@ -153,33 +138,33 @@ pub fn draw_magnifier(
     );
 
     // 第二行：HEX值 + 颜色块
-    let row2_center_y = info_rect.min.y + row_height + row_height / 2.0;
-
-    // 先画 HEX 文本
+    let row2_y = info_rect.min.y + line_height * 1.5 + 2.0;
     let hex_galley = painter.layout_no_wrap(format!("HEX: {}", hex_text), font_id.clone(), text_color);
     let hex_text_width = hex_galley.size().x;
     painter.galley(
-        Pos2::new(info_rect.min.x + 8.0, row2_center_y - hex_galley.size().y / 2.0),
+        Pos2::new(info_rect.min.x + 8.0, row2_y - hex_galley.size().y / 2.0),
         hex_galley,
         text_color
     );
 
-    // 颜色预览块 (紧跟 HEX 文本)
     let color_preview_size = 12.0;
     let color_preview_pos = Pos2::new(
         info_rect.min.x + 8.0 + hex_text_width + 8.0,
-        row2_center_y - color_preview_size / 2.0
+        row2_y - color_preview_size / 2.0
     );
     let color_preview_rect = Rect::from_min_size(
         color_preview_pos,
         Vec2::new(color_preview_size, color_preview_size)
     );
-
     painter.rect_filled(color_preview_rect, 2.0, center_color);
-    painter.rect_stroke(
-        color_preview_rect,
-        2.0,
-        Stroke::new(1.0, Color32::WHITE),
-        StrokeKind::Inside
+    painter.rect_stroke(color_preview_rect, 2.0, Stroke::new(1.0, Color32::WHITE), StrokeKind::Inside);
+
+    // [修改点 2] 第三行：提示文字
+    painter.text(
+        Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 2.5),
+        Align2::LEFT_CENTER,
+        texts.tooltip_mouse_copy_color,
+        hint_font_id,
+        hint_color,
     );
 }

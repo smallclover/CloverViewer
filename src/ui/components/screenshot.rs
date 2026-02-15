@@ -60,6 +60,8 @@ pub struct ScreenshotState {
     pub shapes: Vec<DrawnShape>,
     pub current_shape_start: Option<Pos2>, // 正在绘制的形状起始点（全局物理坐标）
     pub current_shape_end: Option<Pos2>,
+
+    pub copy_requested: bool,
 }
 
 impl Default for ScreenshotState {
@@ -81,6 +83,7 @@ impl Default for ScreenshotState {
             shapes: Vec::new(),
             current_shape_start: None,
             current_shape_end: None,
+            copy_requested: false,
         }
     }
 }
@@ -253,14 +256,45 @@ pub fn draw_screenshot_ui(
                 if !is_over_toolbar && !is_interacting_popup {
                     let screen = &state.captures[screen_index];
 
-                    // [修复] 这里直接使用 ui.painter() 获取当前层的绘图对象
+                    // 1. 绘制放大镜
                     draw_magnifier(
                         ui,
-                        ui.painter(), // <--- 关键修改：直接传 ui.painter()
+                        ui.painter(),
                         &screen.image,
                         pointer_pos,
                         ppp
                     );
+
+                    // 2. [新增] Ctrl + C 复制颜色逻辑
+                    // 检查 Ctrl + C 是否按下
+                    if state.copy_requested || ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::C)) {
+                        // 重置信号，防止下一帧重复复制
+                        state.copy_requested = false;
+                        // 计算当前鼠标下的像素颜色
+                        let center_phys_x = (pointer_pos.x * ppp).round() as isize;
+                        let center_phys_y = (pointer_pos.y * ppp).round() as isize;
+                        let img_width = screen.image.width() as isize;
+                        let img_height = screen.image.height() as isize;
+
+                        if center_phys_x >= 0 && center_phys_x < img_width && center_phys_y >= 0 && center_phys_y < img_height {
+                            let idx = center_phys_y as usize * screen.image.width() + center_phys_x as usize;
+                            let color = screen.image.pixels[idx];
+
+                            // 格式化 HEX 字符串
+                            let hex_text = format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b());
+
+                            // 写入剪贴板
+                            if let Ok(mut clipboard) = Clipboard::new() {
+                                if let Err(e) = clipboard.set_text(hex_text.clone()) {
+                                    eprintln!("[ERROR] Failed to set clipboard text: {}", e);
+                                } else {
+                                    println!("[SUCCESS] Color {} copied to clipboard", hex_text);
+                                    // 这里如果想做个提示 Toast，需要通过 state 调用 toast_system
+                                    // 比如: state.toast_system.info(format!("Color {} Copied", hex_text));
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

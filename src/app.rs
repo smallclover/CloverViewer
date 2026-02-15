@@ -36,13 +36,18 @@ pub fn run() -> eframe::Result<()> {
     // 初始化热键管理器
     let hotkeys_manager = GlobalHotKeyManager::new().unwrap();
 
-    // 定义 Alt + S
-    let mut modifiers = Modifiers::empty();
-    modifiers.insert(Modifiers::ALT);
-    let hotkey = HotKey::new(Some(modifiers), Code::KeyS);
+    // 热键 1: Alt + S (唤醒/截图)
+    let mut mods_s = Modifiers::empty();
+    mods_s.insert(Modifiers::ALT);
+    let hotkey_show = HotKey::new(Some(mods_s), Code::KeyS);
 
-    // 注册快捷键
-    hotkeys_manager.register(hotkey).unwrap();
+    // 热键 2: Ctrl + C (仅在截图模式下注册，这里只初始化不注册)
+    let mut mods_c = Modifiers::empty();
+    mods_c.insert(Modifiers::CONTROL);
+    let hotkey_copy = HotKey::new(Some(mods_c), Code::KeyC);
+
+    // 初始只注册唤醒键
+    hotkeys_manager.register(hotkey_show).unwrap();
 
 
     let mut options = eframe::NativeOptions {
@@ -62,7 +67,8 @@ pub fn run() -> eframe::Result<()> {
                 cc,
                 start_path,
                 hotkeys_manager,
-                hotkey,
+                hotkey_show,
+                hotkey_copy, // 传入定义的 Copy 热键
             )))
         }),
     )
@@ -72,8 +78,16 @@ pub struct CloverApp {
     data: BusinessData,
     state: ViewState,
     config: Arc<Config>,
-    hotkey_receiver: mpsc::Receiver<()>,
-    _hotkeys_manager: GlobalHotKeyManager,
+    // [修改] 通道现在传递热键 ID (u32)
+    hotkey_receiver: mpsc::Receiver<u32>,
+    hotkeys_manager: GlobalHotKeyManager, // 去掉下划线，我们需要用它
+
+    // 保存热键定义
+    hotkey_show: HotKey,
+    hotkey_copy: HotKey,
+
+    // 标记 Ctrl+C 是否已注册
+    is_copy_registered: bool,
 }
 
 impl CloverApp {
@@ -81,7 +95,8 @@ impl CloverApp {
         cc: &eframe::CreationContext<'_>,
         start_path: Option<PathBuf>,
         hotkeys_manager: GlobalHotKeyManager,
-        hotkey: HotKey,
+        hotkey_show: HotKey,
+        hotkey_copy: HotKey,
     ) -> Self {
         // 1. 设置字体
         let mut fonts = FontDefinitions::default();
@@ -90,15 +105,14 @@ impl CloverApp {
         cc.egui_ctx.set_fonts(fonts);
 
         // 2. 建立通道并设置“带唤醒功能”的热键回调
+        // [修改] 通道传递 u32
         let (tx, rx) = mpsc::channel();
         let ctx_clone = cc.egui_ctx.clone();
 
         GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
-            if event.id == hotkey.id() {
-                let _ = tx.send(());
-                // 强制唤醒后台运行的 egui 窗口
-                ctx_clone.request_repaint();
-            }
+            // 发送触发的热键 ID
+            let _ = tx.send(event.id);
+            ctx_clone.request_repaint();
         })));
 
         let config = Arc::new(load_config());
@@ -111,7 +125,10 @@ impl CloverApp {
             state: ViewState::default(),
             config,
             hotkey_receiver: rx,
-            _hotkeys_manager: hotkeys_manager,
+            hotkeys_manager,
+            hotkey_show,
+            hotkey_copy,
+            is_copy_registered: false,
         };
 
         if let Some(path) = start_path {
@@ -135,10 +152,36 @@ impl CloverApp {
         }
     }
 
+    // [修改] 热键处理逻辑
     fn handle_hotkeys(&mut self, _ctx: &Context) {
-        if self.hotkey_receiver.try_recv().is_ok() {
-            // 激活截图模式
-            self.state.ui_mode = UiMode::Screenshot;
+        // 1. 动态注册/注销 Ctrl+C
+        // 如果进入截图模式且未注册 -> 注册
+        if self.state.ui_mode == UiMode::Screenshot && !self.is_copy_registered {
+            if let Ok(_) = self.hotkeys_manager.register(self.hotkey_copy) {
+                self.is_copy_registered = true;
+                println!("[Hotkey] Registered Ctrl+C for Screenshot");
+            }
+        }
+        // 如果退出截图模式且已注册 -> 注销
+        else if self.state.ui_mode != UiMode::Screenshot && self.is_copy_registered {
+            if let Ok(_) = self.hotkeys_manager.unregister(self.hotkey_copy) {
+                self.is_copy_registered = false;
+                println!("[Hotkey] Unregistered Ctrl+C");
+            }
+        }
+
+        // 2. 处理接收到的热键事件
+        while let Ok(id) = self.hotkey_receiver.try_recv() {
+            if id == self.hotkey_show.id() {
+                // Alt + S: 激活截图
+                self.state.ui_mode = UiMode::Screenshot;
+            } else if id == self.hotkey_copy.id() {
+                // Ctrl + C: 只有在截图模式下才会收到这个 (因为只有那时才注册)
+                if self.state.ui_mode == UiMode::Screenshot {
+                    // 设置标志位，通知 screenshot.rs 执行复制
+                    self.state.screenshot_state.copy_requested = true;
+                }
+            }
         }
     }
 
