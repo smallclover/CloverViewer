@@ -478,7 +478,7 @@ pub fn draw_screenshot_ui(
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
 
-    // 解决借用冲突：先获取 texture 和 screen_info，然后释放 state 的借用
+    // 先获取 texture 和 screen_info，然后释放 state 的借用
     let (img_src, screen_info) = {
         let screen = &mut state.captures[screen_index];
         let texture = screen.texture.get_or_insert_with(|| {
@@ -633,7 +633,45 @@ pub fn draw_screenshot_ui(
                 painter.rect_filled(left, 0.0, overlay_color);
                 painter.rect_filled(right, 0.0, overlay_color);
 
-                painter.rect_stroke(clipped_local_sel, 0.0, Stroke::new(2.0, Color32::GREEN), StrokeKind::Outside);
+                let border_color = Color32::from_rgb(0, 255, 0); // 微信绿/青色
+                let border_stroke = Stroke::new(1.0, border_color); // 线条可以细一点，显得精致
+                let anchor_size = 6.0; // 小方块的大小
+                let anchor_fill = Color32::GREEN; // 方块内部填充绿色
+
+                painter.rect_stroke(clipped_local_sel, 0.0, border_stroke, StrokeKind::Outside);
+
+                // 3. 计算8个锚点的位置 (本地逻辑坐标)
+                // 只有当选区足够大时才绘制锚点，避免太拥挤
+                if clipped_local_sel.width() > anchor_size * 2.0 && clipped_local_sel.height() > anchor_size * 2.0 {
+                    let min = clipped_local_sel.min;
+                    let max = clipped_local_sel.max;
+                    let center = clipped_local_sel.center();
+
+                    let anchors = vec![
+                        // 4个角
+                        min,                                      // 左上
+                        Pos2::new(max.x, min.y),                  // 右上
+                        Pos2::new(min.x, max.y),                  // 左下
+                        max,                                      // 右下
+                        // 4个边中点
+                        Pos2::new(center.x, min.y),               // 上中
+                        Pos2::new(center.x, max.y),               // 下中
+                        Pos2::new(min.x, center.y),               // 左中
+                        Pos2::new(max.x, center.y),               // 右中
+                    ];
+
+                    // 4. 绘制所有锚点
+                    for anchor_pos in anchors {
+                        let anchor_rect = Rect::from_center_size(
+                            anchor_pos,
+                            egui::vec2(anchor_size, anchor_size)
+                        );
+
+                        // 绘制方块：先填白，再描绿边
+                        painter.rect_filled(anchor_rect, 0.0, anchor_fill);
+                        painter.rect_stroke(anchor_rect, 0.0, border_stroke, StrokeKind::Outside);
+                    }
+                }
             } else {
                 painter.rect_filled(viewport_rect, 0.0, overlay_color);
             }
