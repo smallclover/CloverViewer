@@ -40,7 +40,7 @@ CloverViewer 是一个基于 Rust 开发的轻量级工具，集图片浏览与�
 *   BMP
 *   WebP
 *   TIFF
-*   AVIF
+*   AVIF(需要dav1d.dll)
 
 ## 🛠️ 开发环境搭建
 

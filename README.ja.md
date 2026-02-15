@@ -40,7 +40,7 @@ CloverViewerは、Rustで開発された軽量ツールで、画像閲覧とス�
 *   BMP
 *   WebP
 *   TIFF
-*   AVIF (dav1d.dll)
+*   AVIF (dav1d.dll必要)
 
 ## 🛠️ 開発環境のセットアップ
 

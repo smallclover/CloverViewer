@@ -40,7 +40,7 @@ Supports common image formats, including but not limited to:
 *   BMP
 *   WebP
 *   TIFF
-*   AVIF (dav1d.dll)
+*   AVIF (required dav1d.dll)
 
 ## 🛠️ Development Environment Setup
 
