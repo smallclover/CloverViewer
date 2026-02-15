@@ -358,8 +358,6 @@ fn handle_interaction(
     }
     needs_repaint
 }
-
-// [Fix E0308]: 参数改为 &mut Ui
 fn render_canvas_elements(
     ui: &mut Ui,
     state: &ScreenshotState,
@@ -375,14 +373,18 @@ fn render_canvas_elements(
     if let Some(global_sel_phys) = state.selection {
         let vec_min = global_sel_phys.min - screen_offset_phys;
         let vec_max = global_sel_phys.max - screen_offset_phys;
+
+        // 转换为当前屏幕的局部逻辑坐标
         let local_logical_rect = Rect::from_min_max(
             Pos2::ZERO + (vec_min / ppp),
             Pos2::ZERO + (vec_max / ppp),
         );
+
         let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
         let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
 
         if clipped_local_sel.is_positive() {
+            // 绘制遮罩
             let top = Rect::from_min_max(screen_rect_local.min, Pos2::new(screen_rect_local.max.x, clipped_local_sel.min.y));
             let bottom = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.max.y), screen_rect_local.max);
             let left = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.min.y), Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y));
@@ -393,14 +395,58 @@ fn render_canvas_elements(
             painter.rect_filled(left, 0.0, overlay_color);
             painter.rect_filled(right, 0.0, overlay_color);
 
-            // 绘制选区 (线宽 1.0)
-            paint_wechat_style_box(painter, clipped_local_sel, 1.0);
+            // 绘制选区 (风格)
+            paint_style_box(painter, clipped_local_sel, 1.0);
+
+            // --- [新增] 绘制尺寸标签 ---
+            // 只有当选区的左上角在当前屏幕范围内时，才绘制标签，避免跨屏时重复绘制
+            // 稍微放宽一点判断(expand)，防止刚好在边缘时闪烁
+            if screen_rect_local.expand(1.0).contains(local_logical_rect.min) {
+                // 1. 准备文本
+                let w = global_sel_phys.width().round() as u32;
+                let h = global_sel_phys.height().round() as u32;
+                let text = format!("{} x {}", w, h);
+                let font_id = egui::FontId::proportional(12.0);
+                let text_color = Color32::WHITE;
+
+                // 2. 计算文本布局 (Galley)
+                // 注意：这里虽然传入了颜色，但 painter.galley 绘制时仍需再次确认
+                let galley = painter.layout_no_wrap(text, font_id, text_color);
+
+                // 3. 计算标签背景矩形
+                let padding = egui::vec2(6.0, 4.0);
+                let bg_size = galley.size() + padding * 2.0;
+
+                // 4. 决定标签位置
+                // 默认位置：选区左上角上方 5px
+                let mut label_pos = local_logical_rect.min - egui::vec2(0.0, bg_size.y + 5.0);
+
+                // 边缘检测：如果上方空间不足（比如选区贴着屏幕顶部），则移动到选区内部
+                if label_pos.y < screen_rect_local.min.y {
+                    label_pos = local_logical_rect.min + egui::vec2(5.0, 5.0);
+                }
+
+                let label_rect = Rect::from_min_size(label_pos, bg_size);
+
+                // 5. 绘制标签背景 (黑色半透明 + 圆角)
+                painter.rect_filled(
+                    label_rect,
+                    4.0, // 圆角半径
+                    Color32::from_black_alpha(160) // 半透明黑色
+                );
+
+                // 6. 绘制文本
+                // [修复核心]: painter.galley 需要 3 个参数 (位置, galley, 颜色)
+                painter.galley(label_rect.min + padding, galley, text_color);
+            }
+            // --- [新增结束] ---
+
         } else {
             painter.rect_filled(viewport_rect, 0.0, overlay_color);
         }
     }
 
-    // 2. 渲染已绘制的形状
+    // 2. 渲染已绘制的形状 (保持不变)
     for shape in &state.shapes {
         let start_local = Pos2::ZERO + ((shape.start - screen_offset_phys) / ppp);
         let end_local = Pos2::ZERO + ((shape.end - screen_offset_phys) / ppp);
@@ -418,7 +464,7 @@ fn render_canvas_elements(
         }
     }
 
-    // 3. 渲染正在绘制的形状
+    // 3. 渲染正在绘制的形状 (保持不变)
     if let (Some(start_phys), Some(end_phys)) = (state.current_shape_start, state.current_shape_end) {
         let start_local = Pos2::ZERO + ((start_phys - screen_offset_phys) / ppp);
         let end_local = Pos2::ZERO + ((end_phys - screen_offset_phys) / ppp);
@@ -438,12 +484,10 @@ fn render_canvas_elements(
         }
     }
 
-    // 4. 初始全屏边框
+    // 4. 初始全屏边框 (保持不变)
     if state.selection.is_none() && state.current_shape_start.is_none() {
-        // 向内缩进4px，防止边缘的锚点被切掉
         let inset_rect = full_rect.shrink(4.0);
-        // [视觉修改] 初始画面线条粗一点，线宽设为 3.0
-        paint_wechat_style_box(painter, inset_rect, 3.0);
+        paint_style_box(painter, inset_rect, 3.0);
     }
 }
 
@@ -471,17 +515,17 @@ fn render_toolbar_and_overlays(
     action
 }
 
-// 独立的微信风格边框绘制函数
-fn paint_wechat_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
+// 独立的风格边框绘制函数
+fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
     let anchor_size = 6.0;
-    let wechat_green = Color32::from_rgb(0, 255, 0);
+    let green = Color32::from_rgb(0, 255, 0);
 
     // 主边框
-    let main_stroke = Stroke::new(line_width, wechat_green);
+    let main_stroke = Stroke::new(line_width, green);
     // 锚点描边保持细线
-    let anchor_stroke = Stroke::new(1.0, wechat_green);
+    let anchor_stroke = Stroke::new(1.0, green);
     // [视觉修改] 锚点填充改为绿色
-    let anchor_fill = wechat_green;
+    let anchor_fill = green;
 
     // 1. 绘制矩形主边框
     painter.rect_stroke(rect, 0.0, main_stroke, StrokeKind::Outside);
