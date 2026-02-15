@@ -11,6 +11,7 @@ use crate::ui::components::ui_mode::UiMode;
 use arboard::{Clipboard, ImageData};
 use std::borrow::Cow;
 use crate::ui::components::color_picker::ColorPicker;
+use crate::ui::components::magnifier::draw_magnifier;
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum ScreenshotAction {
@@ -240,6 +241,26 @@ pub fn draw_screenshot_ui(
                     if toolbar_act != ScreenshotAction::None {
                         action = toolbar_act;
                     }
+                }
+            }
+
+            // --- [新增] 鼠标放大镜 ---
+            if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
+                // 计算是否在工具栏或弹窗上
+                let is_over_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(pointer_pos));
+                let is_interacting_popup = state.color_picker.is_open && ui.ctx().is_pointer_over_area();
+
+                if !is_over_toolbar && !is_interacting_popup {
+                    let screen = &state.captures[screen_index];
+
+                    // [修复] 这里直接使用 ui.painter() 获取当前层的绘图对象
+                    draw_magnifier(
+                        ui,
+                        ui.painter(), // <--- 关键修改：直接传 ui.painter()
+                        &screen.image,
+                        pointer_pos,
+                        ppp
+                    );
                 }
             }
 
