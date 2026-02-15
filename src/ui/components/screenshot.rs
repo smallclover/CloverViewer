@@ -356,73 +356,73 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
 
                         // --- 绘制形状到最终图片上 ---
                         for shape in shapes {
-                             let start_x = shape.start.x - selection_phys.min.x;
-                             let start_y = shape.start.y - selection_phys.min.y;
-                             let end_x = shape.end.x - selection_phys.min.x;
-                             let end_y = shape.end.y - selection_phys.min.y;
-                             let rect = Rect::from_two_pos(Pos2::new(start_x, start_y), Pos2::new(end_x, end_y));
-                             let x0 = rect.min.x.round() as i32;
-                             let y0 = rect.min.y.round() as i32;
-                             let x1 = rect.max.x.round() as i32;
-                             let y1 = rect.max.y.round() as i32;
-                             let color = image::Rgba([shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a()]);
-                             let thickness = shape.stroke_width.round() as i32;
+                            let start_x = shape.start.x - selection_phys.min.x;
+                            let start_y = shape.start.y - selection_phys.min.y;
+                            let end_x = shape.end.x - selection_phys.min.x;
+                            let end_y = shape.end.y - selection_phys.min.y;
+                            let rect = Rect::from_two_pos(Pos2::new(start_x, start_y), Pos2::new(end_x, end_y));
+                            let x0 = rect.min.x.round() as i32;
+                            let y0 = rect.min.y.round() as i32;
+                            let x1 = rect.max.x.round() as i32;
+                            let y1 = rect.max.y.round() as i32;
+                            let color = image::Rgba([shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a()]);
+                            let thickness = shape.stroke_width.round() as i32;
 
-                             match shape.tool {
-                                 ScreenshotTool::Rect => {
-                                     for x in x0..=x1 {
-                                         for t in 0..thickness {
-                                             if x >= 0 && x < final_width as i32 {
-                                                 if y0 + t >= 0 && y0 + t < final_height as i32 {
-                                                     final_image.put_pixel(x as u32, (y0 + t) as u32, color);
-                                                 }
-                                                 if y1 - t >= 0 && y1 - t < final_height as i32 {
-                                                     final_image.put_pixel(x as u32, (y1 - t) as u32, color);
-                                                 }
-                                             }
-                                         }
-                                     }
-                                     for y in y0..=y1 {
-                                         for t in 0..thickness {
-                                             if y >= 0 && y < final_height as i32 {
-                                                 if x0 + t >= 0 && x0 + t < final_width as i32 {
-                                                     final_image.put_pixel((x0 + t) as u32, y as u32, color);
-                                                 }
-                                                 if x1 - t >= 0 && x1 - t < final_width as i32 {
-                                                     final_image.put_pixel((x1 - t) as u32, y as u32, color);
-                                                 }
-                                             }
-                                         }
-                                     }
-                                 }
-                                 ScreenshotTool::Circle => {
-                                     let center_x = (x0 + x1) as f32 / 2.0;
-                                     let center_y = (y0 + y1) as f32 / 2.0;
-                                     let a = (x1 - x0).abs() as f32 / 2.0;
-                                     let b = (y1 - y0).abs() as f32 / 2.0;
-                                     if a > 0.0 && b > 0.0 {
-                                         for x in x0..=x1 {
-                                             for y in y0..=y1 {
-                                                 let dx = x as f32 - center_x;
-                                                 let dy = y as f32 - center_y;
-                                                 let dist = (dx * dx) / (a * a) + (dy * dy) / (b * b);
-                                                 let a_in = a - thickness as f32;
-                                                 let b_in = b - thickness as f32;
-                                                 let dist_in = if a_in > 0.0 && b_in > 0.0 {
-                                                     (dx * dx) / (a_in * a_in) + (dy * dy) / (b_in * b_in)
-                                                 } else {
-                                                     2.0
-                                                 };
-                                                 if dist <= 1.0 && dist_in >= 1.0 {
-                                                     if x >= 0 && x < final_width as i32 && y >= 0 && y < final_height as i32 {
-                                                         final_image.put_pixel(x as u32, y as u32, color);
-                                                     }
-                                                 }
-                                             }
-                                         }
-                                     }
-                                 }
-                             }
+                            match shape.tool {
+                                ScreenshotTool::Rect => {
+                                    for x in x0..=x1 {
+                                        for t in 0..thickness {
+                                            if x >= 0 && x < final_width as i32 {
+                                                if y0 + t >= 0 && y0 + t < final_height as i32 {
+                                                    final_image.put_pixel(x as u32, (y0 + t) as u32, color);
+                                                }
+                                                if y1 - t >= 0 && y1 - t < final_height as i32 {
+                                                    final_image.put_pixel(x as u32, (y1 - t) as u32, color);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    for y in y0..=y1 {
+                                        for t in 0..thickness {
+                                            if y >= 0 && y < final_height as i32 {
+                                                if x0 + t >= 0 && x0 + t < final_width as i32 {
+                                                    final_image.put_pixel((x0 + t) as u32, y as u32, color);
+                                                }
+                                                if x1 - t >= 0 && x1 - t < final_width as i32 {
+                                                    final_image.put_pixel((x1 - t) as u32, y as u32, color);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                ScreenshotTool::Circle => {
+                                    let center_x = (x0 + x1) as f32 / 2.0;
+                                    let center_y = (y0 + y1) as f32 / 2.0;
+                                    let a = (x1 - x0).abs() as f32 / 2.0;
+                                    let b = (y1 - y0).abs() as f32 / 2.0;
+                                    if a > 0.0 && b > 0.0 {
+                                        for x in x0..=x1 {
+                                            for y in y0..=y1 {
+                                                let dx = x as f32 - center_x;
+                                                let dy = y as f32 - center_y;
+                                                let dist = (dx * dx) / (a * a) + (dy * dy) / (b * b);
+                                                let a_in = a - thickness as f32;
+                                                let b_in = b - thickness as f32;
+                                                let dist_in = if a_in > 0.0 && b_in > 0.0 {
+                                                    (dx * dx) / (a_in * a_in) + (dy * dy) / (b_in * b_in)
+                                                } else {
+                                                    2.0
+                                                };
+                                                if dist <= 1.0 && dist_in >= 1.0 {
+                                                    if x >= 0 && x < final_width as i32 && y >= 0 && y < final_height as i32 {
+                                                        final_image.put_pixel(x as u32, y as u32, color);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
                         if final_action == ScreenshotAction::SaveAndClose {
@@ -451,7 +451,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
                                     eprintln!("[ERROR] Failed to copy image to clipboard: {}", e);
                                 } else {
                                     println!("[SUCCESS] Copied image to clipboard.");
-                                 }
+                                }
                             }
                         }
                     });
@@ -496,262 +496,270 @@ pub fn draw_screenshot_ui(
     egui::CentralPanel::default()
         .frame(egui::Frame::NONE.inner_margin(0.0))
         .show(ctx, |ui| {
-        let image_widget = egui::Image::new(img_src).fit_to_exact_size(ui.available_size());
-        ui.add(image_widget);
+            let image_widget = egui::Image::new(img_src).fit_to_exact_size(ui.available_size());
+            ui.add(image_widget);
 
-        let painter = ui.painter().clone(); // Clone painter to avoid borrowing ui later
-        let viewport_rect = ctx.viewport_rect();
-        let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
-        let full_rect = ui.max_rect();
+            let painter = ui.painter().clone(); // Clone painter to avoid borrowing ui later
+            let viewport_rect = ctx.viewport_rect();
+            let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
+            let full_rect = ui.max_rect();
 
-        // --- 1. 获取物理基准信息 ---
-        let screen_x = screen_info.x as f32;
-        let screen_y = screen_info.y as f32;
-        let screen_offset_phys = Pos2::new(screen_x, screen_y);
-        let ppp = ctx.pixels_per_point();
+            // --- 定义微信风格绘制逻辑 (闭包) ---
+            // 增加 line_width 参数来控制边框粗细
+            let draw_wechat_style_box = |rect: Rect, painter: &egui::Painter, line_width: f32| {
+                let anchor_size = 6.0;
 
-        // --- 2. 输入处理：将 局部逻辑坐标 -> 全局物理坐标 ---
+                // 样式配置
+                let wechat_green = Color32::from_rgb(0, 255, 0);
 
-        let mut local_toolbar_rect = None;
-        if let Some(global_toolbar_pos_phys) = state.toolbar_pos {
-            let vec_phys = global_toolbar_pos_phys - screen_offset_phys;
-            let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
+                // 主边框使用传入的宽度
+                let main_stroke = Stroke::new(line_width, wechat_green);
+                // 锚点描边保持细线，使其清晰
+                let anchor_stroke = Stroke::new(1.0, wechat_green);
+                // [修改点 2] 锚点填充改为绿色
+                let anchor_fill = wechat_green;
 
-            // 精确计算的宽度：
-            // 5个按钮(160) + 5个间距(40) + 1个分隔符(1) + 2个Padding(16) = 217.0
-            let toolbar_width = 217.0;
-            let toolbar_height = 48.0;
-            // 调整工具栏位置右对齐
-            let toolbar_min_pos = Pos2::new(local_pos_logical.x - toolbar_width, local_pos_logical.y + 10.0);
+                // 1. 绘制矩形主边框
+                painter.rect_stroke(rect, 0.0, main_stroke, StrokeKind::Outside);
 
-            local_toolbar_rect = Some(Rect::from_min_size(toolbar_min_pos, egui::vec2(toolbar_width, toolbar_height)));
-        }
+                // 2. 绘制8个锚点 (只有当矩形足够大时才绘制，避免挤在一起)
+                if rect.width() > anchor_size * 3.0 && rect.height() > anchor_size * 3.0 {
+                    let min = rect.min;
+                    let max = rect.max;
+                    let center = rect.center();
 
-        let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::drag());
-
-        // --- 交互逻辑 ---
-        if let Some(press_pos) = response.interact_pointer_pos() {
-            let is_clicking_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(press_pos));
-
-            let is_interacting_with_picker = state.color_picker.is_open &&
-                ui.ctx().is_pointer_over_area(); // 简单的检查，如果鼠标悬浮在任何 egui 窗口上（包括 picker）
-
-            if !is_clicking_toolbar && !is_interacting_with_picker {
-                let local_vec_phys = press_pos.to_vec2() * ppp;
-                let global_phys = screen_offset_phys + local_vec_phys;
-
-                if response.drag_started() {
-                    if state.current_tool.is_some() {
-                        // 绘图模式
-                        if let Some(selection) = state.selection {
-                            if selection.contains(global_phys) {
-                                // 开始拖拽时起点等于终点
-                                state.current_shape_start = Some(global_phys);
-                                state.current_shape_end = Some(global_phys);
-                                needs_repaint = true;
-                            }
-                        }
-                    } else {
-                        // 选区模式
-                        state.drag_start = Some(global_phys);
-                        state.toolbar_pos = None;
-                        state.color_picker.close();//重新开始拖拽选区时，强制关闭颜色选择器
-                        needs_repaint = true;
-                    }
-                }
-
-                if response.dragged() {
-                    if let Some(_) = state.current_shape_start {
-                        state.current_shape_end = Some(global_phys);
-                        // 正在绘图，只请求重绘，不修改数据，直到松开
-                        needs_repaint = true;
-                    } else if let Some(drag_start_phys) = state.drag_start {
-                        // 正在拖拽选区
-                        let rect = Rect::from_two_pos(drag_start_phys, global_phys);
-                        if state.selection.map_or(true, |s| s != rect) {
-                            state.selection = Some(rect);
-                        }
-                        needs_repaint = true;
-                    }
-                }
-
-                if response.drag_stopped() {
-                    if let Some(start_pos) = state.current_shape_start {
-                        // 完成绘图
-                        if let Some(tool) = state.current_tool {
-                            state.shapes.push(DrawnShape {
-                                tool,
-                                start: start_pos,
-                                end: global_phys,
-                                color: state.active_color,
-                                stroke_width: state.stroke_width,
-                            });
-                        }
-                        state.current_shape_start = None;
-                        state.current_shape_end = None;
-                        needs_repaint = true;
-                    } else if state.drag_start.is_some() {
-                        // 完成选区
-                        state.drag_start = None;
-                        if let Some(sel) = state.selection {
-                            if sel.width() > 10.0 && sel.height() > 10.0 {
-                                state.toolbar_pos = Some(sel.right_bottom());
-                            } else {
-                                state.selection = None;
-                                state.toolbar_pos = None;
-                            }
-                            needs_repaint = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        // --- 3. 渲染：将 全局物理坐标 -> 局部逻辑坐标 ---
-
-        // 3.1 渲染选区背景遮罩
-        if let Some(global_sel_phys) = state.selection {
-            let vec_min = global_sel_phys.min - screen_offset_phys;
-            let vec_max = global_sel_phys.max - screen_offset_phys;
-
-            let local_logical_rect = Rect::from_min_max(
-                Pos2::ZERO + (vec_min / ppp),
-                Pos2::ZERO + (vec_max / ppp),
-            );
-
-            let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
-            let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
-
-            if clipped_local_sel.is_positive() {
-                let top = Rect::from_min_max(screen_rect_local.min, Pos2::new(screen_rect_local.max.x, clipped_local_sel.min.y));
-                let bottom = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.max.y), screen_rect_local.max);
-                let left = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.min.y), Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y));
-                let right = Rect::from_min_max(Pos2::new(clipped_local_sel.max.x, clipped_local_sel.min.y), Pos2::new(screen_rect_local.max.x, clipped_local_sel.max.y));
-
-                painter.rect_filled(top, 0.0, overlay_color);
-                painter.rect_filled(bottom, 0.0, overlay_color);
-                painter.rect_filled(left, 0.0, overlay_color);
-                painter.rect_filled(right, 0.0, overlay_color);
-
-                let border_color = Color32::from_rgb(0, 255, 0); // 微信绿/青色
-                let border_stroke = Stroke::new(1.0, border_color); // 线条可以细一点，显得精致
-                let anchor_size = 6.0; // 小方块的大小
-                let anchor_fill = Color32::GREEN; // 方块内部填充绿色
-
-                painter.rect_stroke(clipped_local_sel, 0.0, border_stroke, StrokeKind::Outside);
-
-                // 3. 计算8个锚点的位置 (本地逻辑坐标)
-                // 只有当选区足够大时才绘制锚点，避免太拥挤
-                if clipped_local_sel.width() > anchor_size * 2.0 && clipped_local_sel.height() > anchor_size * 2.0 {
-                    let min = clipped_local_sel.min;
-                    let max = clipped_local_sel.max;
-                    let center = clipped_local_sel.center();
-
-                    let anchors = vec![
-                        // 4个角
+                    // 定义8个点的位置
+                    let anchors = [
                         min,                                      // 左上
                         Pos2::new(max.x, min.y),                  // 右上
-                        Pos2::new(min.x, max.y),                  // 左下
                         max,                                      // 右下
-                        // 4个边中点
+                        Pos2::new(min.x, max.y),                  // 左下
                         Pos2::new(center.x, min.y),               // 上中
                         Pos2::new(center.x, max.y),               // 下中
                         Pos2::new(min.x, center.y),               // 左中
                         Pos2::new(max.x, center.y),               // 右中
                     ];
 
-                    // 4. 绘制所有锚点
                     for anchor_pos in anchors {
                         let anchor_rect = Rect::from_center_size(
                             anchor_pos,
                             egui::vec2(anchor_size, anchor_size)
                         );
-
-                        // 绘制方块：先填白，再描绿边
+                        // 填充绿色
                         painter.rect_filled(anchor_rect, 0.0, anchor_fill);
-                        painter.rect_stroke(anchor_rect, 0.0, border_stroke, StrokeKind::Outside);
+                        // 描细绿边，增加清晰度
+                        painter.rect_stroke(anchor_rect, 0.0, anchor_stroke, StrokeKind::Outside);
                     }
                 }
+            };
+
+            // --- 1. 获取物理基准信息 ---
+            let screen_x = screen_info.x as f32;
+            let screen_y = screen_info.y as f32;
+            let screen_offset_phys = Pos2::new(screen_x, screen_y);
+            let ppp = ctx.pixels_per_point();
+
+            // --- 2. 输入处理：将 局部逻辑坐标 -> 全局物理坐标 ---
+
+            let mut local_toolbar_rect = None;
+            if let Some(global_toolbar_pos_phys) = state.toolbar_pos {
+                let vec_phys = global_toolbar_pos_phys - screen_offset_phys;
+                let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
+
+                // 精确计算的宽度：
+                // 5个按钮(160) + 5个间距(40) + 1个分隔符(1) + 2个Padding(16) = 217.0
+                let toolbar_width = 217.0;
+                let toolbar_height = 48.0;
+                // 调整工具栏位置右对齐
+                let toolbar_min_pos = Pos2::new(local_pos_logical.x - toolbar_width, local_pos_logical.y + 10.0);
+
+                local_toolbar_rect = Some(Rect::from_min_size(toolbar_min_pos, egui::vec2(toolbar_width, toolbar_height)));
+            }
+
+            let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::drag());
+
+            // --- 交互逻辑 ---
+            if let Some(press_pos) = response.interact_pointer_pos() {
+                let is_clicking_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(press_pos));
+
+                let is_interacting_with_picker = state.color_picker.is_open &&
+                    ui.ctx().is_pointer_over_area(); // 简单的检查，如果鼠标悬浮在任何 egui 窗口上（包括 picker）
+
+                if !is_clicking_toolbar && !is_interacting_with_picker {
+                    let local_vec_phys = press_pos.to_vec2() * ppp;
+                    let global_phys = screen_offset_phys + local_vec_phys;
+
+                    if response.drag_started() {
+                        if state.current_tool.is_some() {
+                            // 绘图模式
+                            if let Some(selection) = state.selection {
+                                if selection.contains(global_phys) {
+                                    // 开始拖拽时起点等于终点
+                                    state.current_shape_start = Some(global_phys);
+                                    state.current_shape_end = Some(global_phys);
+                                    needs_repaint = true;
+                                }
+                            }
+                        } else {
+                            // 选区模式
+                            state.drag_start = Some(global_phys);
+                            state.toolbar_pos = None;
+                            state.color_picker.close();//重新开始拖拽选区时，强制关闭颜色选择器
+                            needs_repaint = true;
+                        }
+                    }
+
+                    if response.dragged() {
+                        if let Some(_) = state.current_shape_start {
+                            state.current_shape_end = Some(global_phys);
+                            // 正在绘图，只请求重绘，不修改数据，直到松开
+                            needs_repaint = true;
+                        } else if let Some(drag_start_phys) = state.drag_start {
+                            // 正在拖拽选区
+                            let rect = Rect::from_two_pos(drag_start_phys, global_phys);
+                            if state.selection.map_or(true, |s| s != rect) {
+                                state.selection = Some(rect);
+                            }
+                            needs_repaint = true;
+                        }
+                    }
+
+                    if response.drag_stopped() {
+                        if let Some(start_pos) = state.current_shape_start {
+                            // 完成绘图
+                            if let Some(tool) = state.current_tool {
+                                state.shapes.push(DrawnShape {
+                                    tool,
+                                    start: start_pos,
+                                    end: global_phys,
+                                    color: state.active_color,
+                                    stroke_width: state.stroke_width,
+                                });
+                            }
+                            state.current_shape_start = None;
+                            state.current_shape_end = None;
+                            needs_repaint = true;
+                        } else if state.drag_start.is_some() {
+                            // 完成选区
+                            state.drag_start = None;
+                            if let Some(sel) = state.selection {
+                                if sel.width() > 10.0 && sel.height() > 10.0 {
+                                    state.toolbar_pos = Some(sel.right_bottom());
+                                } else {
+                                    state.selection = None;
+                                    state.toolbar_pos = None;
+                                }
+                                needs_repaint = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- 3. 渲染：将 全局物理坐标 -> 局部逻辑坐标 ---
+
+            // 3.1 渲染选区背景遮罩 & 选区边框
+            if let Some(global_sel_phys) = state.selection {
+                let vec_min = global_sel_phys.min - screen_offset_phys;
+                let vec_max = global_sel_phys.max - screen_offset_phys;
+
+                let local_logical_rect = Rect::from_min_max(
+                    Pos2::ZERO + (vec_min / ppp),
+                    Pos2::ZERO + (vec_max / ppp),
+                );
+
+                let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
+                let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
+
+                if clipped_local_sel.is_positive() {
+                    let top = Rect::from_min_max(screen_rect_local.min, Pos2::new(screen_rect_local.max.x, clipped_local_sel.min.y));
+                    let bottom = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.max.y), screen_rect_local.max);
+                    let left = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.min.y), Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y));
+                    let right = Rect::from_min_max(Pos2::new(clipped_local_sel.max.x, clipped_local_sel.min.y), Pos2::new(screen_rect_local.max.x, clipped_local_sel.max.y));
+
+                    painter.rect_filled(top, 0.0, overlay_color);
+                    painter.rect_filled(bottom, 0.0, overlay_color);
+                    painter.rect_filled(left, 0.0, overlay_color);
+                    painter.rect_filled(right, 0.0, overlay_color);
+
+                    // 使用统一风格绘制选区，线宽为 1.0
+                    draw_wechat_style_box(clipped_local_sel, &painter, 1.0);
+                } else {
+                    painter.rect_filled(viewport_rect, 0.0, overlay_color);
+                }
             } else {
-                painter.rect_filled(viewport_rect, 0.0, overlay_color);
+                // 没有选区时，不画黑色遮罩
             }
-        } else {
-            painter.rect_filled(viewport_rect, 0.0, overlay_color);
-        }
 
-        // 3.2 渲染已绘制的形状
-        for shape in &state.shapes {
-             // 转换坐标
-             let start_local = Pos2::ZERO + ((shape.start - screen_offset_phys) / ppp);
-             let end_local = Pos2::ZERO + ((shape.end - screen_offset_phys) / ppp);
-             let rect = Rect::from_two_pos(start_local, end_local);
+            // 3.2 渲染已绘制的形状
+            for shape in &state.shapes {
+                // 转换坐标
+                let start_local = Pos2::ZERO + ((shape.start - screen_offset_phys) / ppp);
+                let end_local = Pos2::ZERO + ((shape.end - screen_offset_phys) / ppp);
+                let rect = Rect::from_two_pos(start_local, end_local);
 
-             // 裁剪到当前屏幕
-             if viewport_rect.intersects(rect) {
-                 match shape.tool {
-                     ScreenshotTool::Rect => {
-                         painter.rect_stroke(rect, 0.0, Stroke::new(shape.stroke_width, shape.color), StrokeKind::Outside);
-                     }
-                     ScreenshotTool::Circle => {
-                         painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(shape.stroke_width, shape.color)));
-                     }
-                 }
-             }
-        }
-
-        // 3.3 渲染正在绘制的形状
-        if let (Some(start_phys), Some(end_phys)) = (state.current_shape_start, state.current_shape_end) {
-             let start_local = Pos2::ZERO + ((start_phys - screen_offset_phys) / ppp);
-             let end_local = Pos2::ZERO + ((end_phys - screen_offset_phys) / ppp);
-             let rect = Rect::from_two_pos(start_local, end_local);
-
-             if viewport_rect.intersects(rect) {
-                 if let Some(tool) = state.current_tool {
-                     match tool {
-                         ScreenshotTool::Rect => {
-                             painter.rect_stroke(rect, 0.0, Stroke::new(state.stroke_width, state.active_color), StrokeKind::Outside);
-                         }
-                         ScreenshotTool::Circle => {
-                             painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(state.stroke_width, state.active_color)));
-                         }
-                     }
-                 }
-             }
-
-        }
-
-        let border_width = 5.0;
-        painter.rect_stroke(
-            full_rect,
-            0.0,
-            Stroke::new(border_width, Color32::GREEN),
-            StrokeKind::Inside
-        );
-
-        if let Some(toolbar_rect) = local_toolbar_rect {
-            if viewport_rect.intersects(toolbar_rect) {
-                let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect);
-                if toolbar_action != ScreenshotAction::None {
-                    action = toolbar_action;
-                }
-
-                // [修复核心] 将 Color Picker 放在这里渲染！
-                // 这样只有拥有工具栏的那个屏幕才会尝试绘制颜色选择器。
-                // 此时 state.color_picker_position 是基于工具栏计算出的局部坐标，
-                // 对于“拥有工具栏”的这个屏幕来说，这个坐标是正确的。
-                // 对于其他屏幕，因为 local_toolbar_rect 通常不会相交（或者位置完全不对），不会进入这里，或者位置正确但不会绘制。
-                // 最重要的是，我们利用工具栏的可见性来约束颜色选择器的可见性。
-                if state.color_picker.show(ui, state.color_picker_anchor, &mut state.stroke_width) {
-                    state.active_color = state.color_picker.selected_color;
-                    needs_repaint = true;
+                // 裁剪到当前屏幕
+                if viewport_rect.intersects(rect) {
+                    match shape.tool {
+                        ScreenshotTool::Rect => {
+                            painter.rect_stroke(rect, 0.0, Stroke::new(shape.stroke_width, shape.color), StrokeKind::Outside);
+                        }
+                        ScreenshotTool::Circle => {
+                            painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(shape.stroke_width, shape.color)));
+                        }
+                    }
                 }
             }
-        }
 
-        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-            action = ScreenshotAction::Close;
-        }
-    });
+            // 3.3 渲染正在绘制的形状
+            if let (Some(start_phys), Some(end_phys)) = (state.current_shape_start, state.current_shape_end) {
+                let start_local = Pos2::ZERO + ((start_phys - screen_offset_phys) / ppp);
+                let end_local = Pos2::ZERO + ((end_phys - screen_offset_phys) / ppp);
+                let rect = Rect::from_two_pos(start_local, end_local);
+
+                if viewport_rect.intersects(rect) {
+                    if let Some(tool) = state.current_tool {
+                        match tool {
+                            ScreenshotTool::Rect => {
+                                painter.rect_stroke(rect, 0.0, Stroke::new(state.stroke_width, state.active_color), StrokeKind::Outside);
+                            }
+                            ScreenshotTool::Circle => {
+                                painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(state.stroke_width, state.active_color)));
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            // --- 4. 初始全屏边框 ---
+            // 只有当没有选区，且不在画图时，才显示全屏初始边框
+            if state.selection.is_none() && state.current_shape_start.is_none() {
+                // 向内缩进4px，防止边缘的锚点被切掉
+                let inset_rect = full_rect.shrink(4.0);
+                // [修改点 1] 初始画面线条粗一点，线宽设为 3.0
+                draw_wechat_style_box(inset_rect, &painter, 3.0);
+            }
+
+            if let Some(toolbar_rect) = local_toolbar_rect {
+                if viewport_rect.intersects(toolbar_rect) {
+                    let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect);
+                    if toolbar_action != ScreenshotAction::None {
+                        action = toolbar_action;
+                    }
+
+                    // [修复核心] 将 Color Picker 放在这里渲染！
+                    if state.color_picker.show(ui, state.color_picker_anchor, &mut state.stroke_width) {
+                        state.active_color = state.color_picker.selected_color;
+                        needs_repaint = true;
+                    }
+                }
+            }
+
+            if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+                action = ScreenshotAction::Close;
+            }
+        });
 
     if needs_repaint {
         ctx.request_repaint();
