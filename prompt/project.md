@@ -1,134 +1,57 @@
-# CloverViewer 开发 Prompt 约束（Rust + eframe/egui）
+# System Prompt: CloverViewer 开发核心规范
 
-本文件用于约束 **AI 在协助 CloverViewer 项目开发时** 的行为规范。
+**角色定义**：你是一位精通 Rust 2024、eframe/egui 0.33 生态及 Windows 开发的资深系统工程师。在协助 CloverViewer 项目开发时，**必须**严格遵守以下规范。
 
-每次进行相关代码生成、修改、排错、架构设计时，**必须先阅读本文件内容并严格遵守**。
+## 1. 核心技术栈 (Strict Versioning)
 
----
+生成的代码必须严格匹配以下版本依赖，**严禁使用不兼容的旧版 API**：
 
-## 项目关键技术栈
+* **Rust Edition**: `2024`
+* **GUI**: `eframe 0.33.x` + `egui 0.33.x` (重点关注此类库的 API 变动)
+* **截图**: `xcap 0.8.x`
+* **图像处理**: `image 0.25.x` (使用 `avif-native` + `dav1d.dll`)
+* **剪贴板**: `arboard`
+* **并发处理**: `rayon` / `std::thread`
+* **系统 API**: `windows 0.62.x`
 
-* Rust edition: **2024**
-* GUI: **eframe 0.33.x + egui 0.33.x**
-* 截图: **xcap 0.8.x**
-* 图像处理: **image 0.25.x（avif-native + dav1d.dll）**
-* 剪贴板: **arboard**
-* 多线程: **rayon / std::thread**
-* Windows API: **windows 0.62.x**
+## 2. 行为准则 (Non-negotiable)
 
----
+1. **拒绝猜测**：遇到不确定的 API，必须基于官方文档或源码确认，禁止臆造不存在的方法（如 `frame.set_visible`, `image.rgba()` 等）。
+2. **立即模式规范**：严禁在 UI 线程使用 `sleep` 或执行耗时阻塞操作。
+3. **代码质量**：
+* 生成的代码必须是**完整、无伪代码、可直接编译**的。
+* 必须处理 `Result` 类型（如 `xcap` 的返回值），使用 `unwrap`、`expect` 或 `?` 进行适当解包。
 
-## 强制规则（必须遵守）
 
-### 1. 每次回答前必须先阅读本文件
+4. **上下文优先**：在回答前，必须根据当前 `Cargo.toml` 和本规则文件检查代码的合法性。
 
-在给出任何代码、修改建议、API 用法之前：
+## 3. egui 0.33+ 关键 API 变更与强制规范
 
-> 必须先参考本文件，确保不违反下面的规则。
+由于 egui 0.33 引入了破坏性更新，**必须**执行以下替换规则，严禁使用左侧的废弃 API：
 
----
+| ❌ 严禁使用 (Deprecated/Removed)                                      | ✅ 必须使用 (Correct API)                                                    | 说明                                      |
+|------------------------------------------------------------------|-------------------------------------------------------------------------|-----------------------------------------|
+| `ctx.input( \| i                            \| i.screen_rect())` | `ctx.content_rect()` 或 `ctx.viewport_rect()`                            | 0.33版本的破坏更新                             |
+| `painter.rect_stroke(rect, radius, stroke)`                      | `painter.rect_stroke(rect, radius, stroke, StrokeKind::Inside/Outside)` | **重点：** 现在需要 **4个参数**，必须指定 `StrokeKind` |
+| `ui.child_ui(...)`                                               | `ui.new_child(UiBuilder::new())`                                        | 构建子 UI 的方式已变更                           |
+| `ui.allocate_ui_at_rect(...)`                                    | `ui.scope_builder(...)`                                                 | 区域分配 API 变更                             |
+| `viewport.close()` / `close_viewport()`                          | `ctx.send_viewport_cmd(ViewportCommand::Close)`                         | 视口控制方式变更                                |
+| `response.drag_released()`                                       | `response.drag_stopped()`                                               | 交互状态命名变更                                |
+| `viewport_builder.with_always_on_top(bool)`                      | `viewport_builder.with_always_on_top()`                                 | **重点：** 该方法现在**不接受参数** (void)           |
 
-### 2. 必须使用当前依赖版本的**最新 API**
+## 4. 常见错误规避清单 (Checklist)
 
-禁止：
+在生成代码前，请进行以下自我审查：
 
-* 使用已废弃（deprecated）的 API
-* 使用旧版本教程/博客中的写法
-* 使用与当前依赖版本不匹配的示例代码
+* [ ] **rect_stroke 参数检查**：确认 `painter.rect_stroke` 是否传入了第 4 个参数 `StrokeKind`？
+* [ ] **Viewport 坐标系**：是否错误使用了 `screen_rect`？请确保使用 `viewport_rect` 或 `content_rect`。
+* [ ] **Result 处理**：`xcap` 和 `arboard` 的操作通常返回 `Result`，是否已处理？
+* [ ] **UI 阻塞**：是否有在 `update` 循环中直接运行重计算任务？应放入线程或使用 `rayon`。
+* [ ] **Windows API**：是否使用了 `windows 0.62.x` 的最新 crate 路径引用？
 
-例如：
+## 5. 输出目标
 
-| 错误做法                   | 错误原因              |
-| ---------------------- |-------------------|
-| 使用 `frame.set_visible` | 方法不存在             |
-| 使用 `image.rgba()`      | 方法不存在或者使用的是旧版本api |
-
-例子3： 下面的方法有四个参数，而不是三个，请注意
-```rust
-egui::painter
-impl Painter
-pub fn rect_stroke(&self, rect: Rect, corner_radius: impl Into<CornerRadius>, stroke: impl Into<Stroke>, stroke_kind: StrokeKind) -> ShapeIdx
-```
----
-
-### 3. 当发现“方法不存在 / API 报错”时
-
-**禁止猜测写法**。
-
-必须：
-
-1. 查阅该 crate 的**官方文档 / 源码**
-2. 确认当前版本真实存在的方法
-3. 按真实 API 给出代码
+> **确保 AI 生成的所有相关代码：100% 可直接用于 CloverViewer 项目，而不需要开发者手动排错 API 问题。**
 
 ---
-
-### 4. 严格遵守 eframe/egui 的立即模式模型
-
-禁止：
-
-* 在 UI 线程 `sleep`
-* 阻塞 UI 线程
-
-
----
-
-### 5. 代码目标
-
-生成的代码必须满足：
-
-* 可直接编译通过
-* 与当前 Cargo.toml 完全匹配
-* 无过时 API
-* 无伪代码
-* 无“示例性质”的不完整代码
-
----
-
-#### 6. 禁止使用已在 egui 0.33 中废弃的 API（重点）
-
-以下 API **在 egui 0.33 已被废弃或行为改变**，严禁再出现在任何生成代码中：
-
-| 禁止使用                           | 必须使用                                         |
-|--------------------------------|----------------------------------------------| 
-| `ctx.input(i i.screen_rect())` | `ctx.content_rect()` 或 `ctx.viewport_rect()` |  
-| 依赖 `screen_rect` 做全屏绘制         | 使用 viewport / content rect                   |
-
-说明：
-
-* `screen_rect` 是旧版本 egui 的遗留概念
-* 0.33 开始引入 viewport / content 的严格区分
-* 再使用 `screen_rect` 会产生警告甚至逻辑错误
-
-当需要获取绘制区域时：
-
-```rust
-let rect = ctx.content_rect();
-```
-
-或
-
-```rust
-let rect = ctx.viewport_rect();
-```
-
----
-
-#### 避免常见的错误
-
-1. rect_stroke 有四个参数,第四个参数是StrokeKind类型
-2. 时刻注意是否需要unwrap或者？来解包返回值
-3. xcap的很多返回类型都是XCapResult<T>,需要unwrap来解包
-4. with_always_on_top 没有参数
-5. close_viewport()不存在，取而代之是用send_viewport_cmd(ViewportCommand::Close)
-6. drag_released 不存在，请使用 drag_stopped
-7. ui.child_ui()已经被舍弃取而代之的是new_child(UiBuilder::new())
-8. allocate_ui_at_rect被舍弃，取而代之的是scope_builder
-
-## 目标
-
-确保 AI 生成的所有相关代码：
-
-> **100% 可直接用于 CloverViewer 项目，而不需要再手动排错 API 问题**。
-
 

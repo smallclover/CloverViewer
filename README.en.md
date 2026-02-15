@@ -16,6 +16,24 @@
 
 CloverViewer is an image viewing tool developed in Rust, designed to provide a fast and smooth image browsing experience.
 
+## ✨ Features
+
+*   **Browse Folder Images**: Quickly and easily browse all images within a folder.
+*   **View Image Details**: View high-resolution images and detailed attribute information.
+*   **Copy Image**: Support copying images to the clipboard.
+*   **Screenshot**: Built-in screenshot tool for capturing screen content.
+
+## 🖼️ Supported Formats
+
+Supports common image formats, including but not limited to:
+*   PNG
+*   JPEG / JPG
+*   GIF
+*   BMP
+*   WebP
+*   TIFF
+*   AVIF (dav1d.dll)
+
 ## 🛠️ Development Environment Setup
 
 This project depends on the `dav1d` library to support the AVIF image format. For compiling on Windows, it is recommended to use `vcpkg` to manage C/C++ dependencies.
@@ -69,6 +87,10 @@ Once the environment is configured, clean and rebuild the project:
 cargo clean
 cargo build
 ```
+
+## 🤝 Acknowledgements
+
+Special thanks to **Gemini AI** for the valuable assistance provided during the development of this project.
 
 ## 📄 License
 
