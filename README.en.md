@@ -1,8 +1,8 @@
 <div align="center">
   <img src="assets/images/clover_viewer.png" width="300" alt="CloverViewer Logo">
-  <h1>CloverViewer</h1>
+  <h1>CloverViewer Image Viewer & Screenshot Tool</h1>
   <p>
-    A lightweight image viewer written in Rust.<br>
+    A lightweight image viewer and screenshot tool written in Rust.<br>
     The logo design is inspired by the capital letters C and L—C forms the guard of a sword, and L is the sword itself.
   </p>
   <p>
@@ -14,7 +14,7 @@
 
 ## 📖 Introduction
 
-CloverViewer is an image viewing tool developed in Rust, designed to provide a fast and smooth image browsing experience.
+CloverViewer is a lightweight tool developed in Rust, combining image browsing and screen capturing capabilities, designed to provide a fast and smooth user experience.
 
 ## ✨ Features
 
@@ -25,10 +25,10 @@ CloverViewer is an image viewing tool developed in Rust, designed to provide a f
 
 ## 📸 Screenshots
 
-|                              Grid Mode                               |                             Detail Mode                              |
-|:--------------------------------------------------------------------:|:--------------------------------------------------------------------:|
-|     <img src="screenshot/宫格模式.png" width="400" alt="Grid Mode">      |    <img src="screenshot/详情模式.png" width="400" alt="Detail Mode">     |
-|                        **Screenshot Mode 1**                         |                        **Screenshot Mode 2**                         |
+| Grid Mode | Detail Mode |
+| :---: | :---: |
+| <img src="screenshot/宫格模式.png" width="400" alt="Grid Mode"> | <img src="screenshot/详情模式.png" width="400" alt="Detail Mode"> |
+| **Screenshot Mode 1** | **Screenshot Mode 2** |
 | <img src="screenshot/截图模式1.png" width="400" alt="Screenshot Mode 1"> | <img src="screenshot/截图模式2.png" width="400" alt="Screenshot Mode 2"> |
 
 ## 🖼️ Supported Formats

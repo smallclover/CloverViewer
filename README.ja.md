@@ -1,8 +1,8 @@
 <div align="center">
   <img src="assets/images/clover_viewer.png" width="300" alt="CloverViewer Logo">
-  <h1>CloverViewer (クローバービューア)</h1>
+  <h1>CloverViewer 画像閲覧・スクリーンショットツール</h1>
   <p>
-    Rustで書かれた軽量な画像ビューア。<br>
+    Rustで書かれた軽量な画像閲覧・スクリーンショットツール。<br>
     ロゴデザインは、大文字のCとLに由来しています。Cは剣のガード、Lは剣そのものを表しています。
   </p>
   <p>
@@ -14,7 +14,7 @@
 
 ## 📖 概要
 
-CloverViewerは、Rustで開発された画像表示ツールで、高速かつスムーズな画像閲覧体験を提供することを目指しています。
+CloverViewerは、Rustで開発された軽量ツールで、画像閲覧とスクリーンショット機能を兼ね備え、高速かつスムーズなユーザー体験を提供することを目指しています。
 
 ## ✨ 機能
 
@@ -25,10 +25,10 @@ CloverViewerは、Rustで開発された画像表示ツールで、高速かつ�
 
 ## 📸 スクリーンショット
 
-|                               グリッドモード                                |                                詳細モード                                 |
-|:--------------------------------------------------------------------:|:--------------------------------------------------------------------:|
-|     <img src="screenshot/宫格模式.png" width="400" alt="Grid Mode">      |    <img src="screenshot/详情模式.png" width="400" alt="Detail Mode">     |
-|                          **スクリーンショットモード 1**                          |                          **スクリーンショットモード 2**                          |
+| グリッドモード | 詳細モード |
+| :---: | :---: |
+| <img src="screenshot/宫格模式.png" width="400" alt="Grid Mode"> | <img src="screenshot/详情模式.png" width="400" alt="Detail Mode"> |
+| **スクリーンショットモード 1** | **スクリーンショットモード 2** |
 | <img src="screenshot/截图模式1.png" width="400" alt="Screenshot Mode 1"> | <img src="screenshot/截图模式2.png" width="400" alt="Screenshot Mode 2"> |
 
 ## 🖼️ 対応フォーマット

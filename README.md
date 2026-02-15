@@ -1,8 +1,8 @@
 <div align="center">
   <img src="assets/images/clover_viewer.png" width="300" alt="CloverViewer Logo">
-  <h1>CloverViewer 三叶草图片查看器</h1>
+  <h1>CloverViewer 三叶草图片查看与截图工具</h1>
   <p>
-    基于 Rust 编写的轻量级图片查看器。<br>
+    基于 Rust 编写的轻量级图片查看与截图工具。<br>
     图标设计源自大写字母 C 和 L —— C 是剑的护手，L 是剑本身。
   </p>
   <p>
@@ -14,7 +14,7 @@
 
 ## 📖 简介
 
-CloverViewer 是一个使用 Rust 开发的图片查看工具，旨在提供快速、流畅的图片浏览体验。
+CloverViewer 是一个基于 Rust 开发的轻量级工具，集图片浏览与屏幕截图功能于一体，旨在提供快速、流畅的使用体验。
 
 ## ✨ 功能特性
 
@@ -25,10 +25,10 @@ CloverViewer 是一个使用 Rust 开发的图片查看工具，旨在提供快�
 
 ## 📸 截图预览
 
-|                           宫格模式                           |                           详情模式                           |
-|:--------------------------------------------------------:|:--------------------------------------------------------:|
-|  <img src="screenshot/宫格模式.png" width="400" alt="宫格模式">  |  <img src="screenshot/详情模式.png" width="400" alt="详情模式">  |
-|                        **截图模式 1**                        |                        **截图模式 2**                        |
+| 宫格模式 | 详情模式 |
+| :---: | :---: |
+| <img src="screenshot/宫格模式.png" width="400" alt="宫格模式"> | <img src="screenshot/详情模式.png" width="400" alt="详情模式"> |
+| **截图模式 1** | **截图模式 2** |
 | <img src="screenshot/截图模式1.png" width="400" alt="截图模式1"> | <img src="screenshot/截图模式2.png" width="400" alt="截图模式2"> |
 
 ## 🖼️ 支持的格式
