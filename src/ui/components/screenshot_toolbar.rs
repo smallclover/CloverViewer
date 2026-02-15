@@ -72,12 +72,7 @@ pub fn draw_screenshot_toolbar(
                 );
 
                 if draw_icon_button(ui, false, IconType::Cancel, &texts).clicked() {
-                    state.selection = None;
-                    state.toolbar_pos = None;
-                    state.current_tool = None;
-                    state.shapes.clear();
-                    state.current_shape_start = None;
-                    state.color_picker.close(); // 关闭颜色选择器
+                    action = ScreenshotAction::Close;
                 }
 
                 if draw_icon_button(ui, false, IconType::SaveToClipboard, &texts).clicked() {
