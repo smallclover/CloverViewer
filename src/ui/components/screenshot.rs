@@ -63,7 +63,7 @@ pub struct ScreenshotState {
 
 impl Default for ScreenshotState {
     fn default() -> Self {
-        let default_color = Color32::from_rgb(255, 0, 0);
+        let default_color = Color32::from_rgb(204, 0, 0);
         Self {
             captures: Vec::new(),
             selection: None,
