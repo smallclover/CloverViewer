@@ -23,6 +23,14 @@ CloverViewer is an image viewing tool developed in Rust, designed to provide a f
 *   **Copy Image**: Support copying images to the clipboard.
 *   **Screenshot**: Built-in screenshot tool for capturing screen content.
 
+## 📸 Screenshots
+
+|                              Grid Mode                               |                             Detail Mode                              |
+|:--------------------------------------------------------------------:|:--------------------------------------------------------------------:|
+|     <img src="screenshot/宫格模式.png" width="400" alt="Grid Mode">      |    <img src="screenshot/详情模式.png" width="400" alt="Detail Mode">     |
+|                        **Screenshot Mode 1**                         |                        **Screenshot Mode 2**                         |
+| <img src="screenshot/截图模式1.png" width="400" alt="Screenshot Mode 1"> | <img src="screenshot/截图模式2.png" width="400" alt="Screenshot Mode 2"> |
+
 ## 🖼️ Supported Formats
 
 Supports common image formats, including but not limited to:
