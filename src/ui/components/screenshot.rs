@@ -703,7 +703,7 @@ pub fn draw_screenshot_ui(
                 // 对于“拥有工具栏”的这个屏幕来说，这个坐标是正确的。
                 // 对于其他屏幕，因为 local_toolbar_rect 通常不会相交（或者位置完全不对），不会进入这里，或者位置正确但不会绘制。
                 // 最重要的是，我们利用工具栏的可见性来约束颜色选择器的可见性。
-                if state.color_picker.show(ui, state.color_picker_anchor) {
+                if state.color_picker.show(ui, state.color_picker_anchor, &mut state.stroke_width) {
                     state.active_color = state.color_picker.selected_color;
                     needs_repaint = true;
                 }
