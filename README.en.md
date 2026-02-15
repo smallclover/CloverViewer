@@ -25,10 +25,10 @@ CloverViewer is a lightweight tool developed in Rust, combining image browsing a
 
 ## 📸 Screenshots
 
-| Grid Mode | Detail Mode |
-| :---: | :---: |
-| <img src="screenshot/宫格模式.png" width="400" alt="Grid Mode"> | <img src="screenshot/详情模式.png" width="400" alt="Detail Mode"> |
-| **Screenshot Mode 1** | **Screenshot Mode 2** |
+|                              Grid Mode                               |                             Detail Mode                              |
+|:--------------------------------------------------------------------:|:--------------------------------------------------------------------:|
+|     <img src="screenshot/宫格模式.png" width="400" alt="Grid Mode">      |    <img src="screenshot/详情模式.png" width="400" alt="Detail Mode">     |
+|                        **Screenshot Mode 1**                         |                        **Screenshot Mode 2**                         |
 | <img src="screenshot/截图模式1.png" width="400" alt="Screenshot Mode 1"> | <img src="screenshot/截图模式2.png" width="400" alt="Screenshot Mode 2"> |
 
 ## 🖼️ Supported Formats
