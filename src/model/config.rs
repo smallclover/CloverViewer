@@ -7,10 +7,27 @@ use std::{
 use crate::i18n::lang::Language;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct HotkeysConfig {
+    pub show_screenshot: String,
+    pub copy_screenshot: String,
+}
+
+impl Default for HotkeysConfig {
+    fn default() -> Self {
+        Self {
+            show_screenshot: "Alt+S".to_string(),
+            copy_screenshot: "Ctrl+C".to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct Config {
     pub language: Language,
     #[serde(default = "default_zoom_sensitivity")]
     pub zoom_sensitivity: f32,
+    #[serde(default)]
+    pub hotkeys: HotkeysConfig,
 }
 
 fn default_zoom_sensitivity() -> f32 {
@@ -22,6 +39,7 @@ impl Default for Config {
         Self {
             language: Language::default(),
             zoom_sensitivity: default_zoom_sensitivity(),
+            hotkeys: HotkeysConfig::default(),
         }
     }
 }

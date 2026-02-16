@@ -21,6 +21,7 @@ pub fn draw_menu(
 
     let mut open_file_dialog = false;
     let mut open_folder_dialog = false;
+    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
 
     TopBottomPanel::top("menu").show(ctx, |ui| {
         MenuBar::new().ui(ui, |ui| {
@@ -41,7 +42,7 @@ pub fn draw_menu(
 
                 // 设置
                 if ui.button(text.menu_settings).clicked() {
-                    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
+
                     *ui_mode = UiMode::Settings((*config).clone());
                     ui.close();
                 }
@@ -51,7 +52,7 @@ pub fn draw_menu(
             ui.menu_button(text.menu_edit, |ui| {
                 ui.set_min_width(130.0);
 
-                if ui.add(egui::Button::new(text.menu_screenshot).shortcut_text("Alt+S")).clicked() {
+                if ui.add(egui::Button::new(text.menu_screenshot).shortcut_text(&config.hotkeys.show_screenshot)).clicked() {
                     *ui_mode = UiMode::Screenshot;
                     ui.close();
                 }
