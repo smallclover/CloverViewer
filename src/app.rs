@@ -152,7 +152,7 @@ impl CloverApp {
 }
 
 impl eframe::App for CloverApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
         // 保持 Config 在 context 中更新
         ctx.data_mut(|data| data.insert_temp(Id::NULL, Arc::clone(&self.config)));
 
@@ -163,6 +163,6 @@ impl eframe::App for CloverApp {
         self.handle_input_events(ctx);
         self.draw_ui(ctx);
         self.handle_ui_interactions(ctx);
-        handle_screenshot_system(ctx, &mut self.state);
+        handle_screenshot_system(ctx, &mut self.state, frame);
     }
 }

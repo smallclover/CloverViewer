@@ -41,8 +41,6 @@ pub struct TextBundle {
     // Settings
     pub settings_title: &'static str,
     pub settings_general: &'static str,
-    pub settings_appearance: &'static str, // New tab
-    pub settings_advanced: &'static str,   // New tab
     pub settings_language: &'static str,
     pub settings_close: &'static str,
     pub settings_apply: &'static str,
@@ -102,8 +100,6 @@ pub const ZH_TEXT: TextBundle = TextBundle {
 
     settings_title: "设置",
     settings_general: "常规",
-    settings_appearance: "外观",
-    settings_advanced: "高级",
     settings_language: "语言",
     settings_close: "关闭",
     settings_apply: "应用",
@@ -153,8 +149,6 @@ pub const EN_TEXT: TextBundle = TextBundle {
 
     settings_title: "Settings",
     settings_general: "General",
-    settings_appearance: "Appearance",
-    settings_advanced: "Advanced",
     settings_language: "Language",
     settings_close: "Close",
     settings_apply: "Apply",
@@ -204,8 +198,6 @@ pub const JA_TEXT: TextBundle = TextBundle {
 
     settings_title: "設定",
     settings_general: "一般",
-    settings_appearance: "外観",
-    settings_advanced: "詳細",
     settings_language: "言語",
     settings_close: "閉じる",
     settings_apply: "設定",

@@ -13,6 +13,8 @@ use std::borrow::Cow;
 use crate::ui::components::color_picker::ColorPicker;
 use crate::ui::components::magnifier::draw_magnifier;
 
+// --- 类型定义 ---
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum ScreenshotAction {
     None,
@@ -46,7 +48,6 @@ pub struct ScreenshotState {
     // Async capture state
     pub is_capturing: bool,
     pub capture_receiver: Option<Receiver<Vec<CapturedScreen>>>,
-    pub should_minimize: bool,
 
     // Toolbar state
     pub current_tool: Option<ScreenshotTool>,
@@ -58,7 +59,7 @@ pub struct ScreenshotState {
 
     // Drawing state
     pub shapes: Vec<DrawnShape>,
-    pub current_shape_start: Option<Pos2>, // 正在绘制的形状起始点（全局物理坐标）
+    pub current_shape_start: Option<Pos2>, // 正在绘制的形状起始点
     pub current_shape_end: Option<Pos2>,
 
     pub copy_requested: bool,
@@ -74,7 +75,6 @@ impl Default for ScreenshotState {
             toolbar_pos: None,
             is_capturing: false,
             capture_receiver: None,
-            should_minimize: false,
             current_tool: None,
             active_color: default_color,
             stroke_width: 2.0,
@@ -108,15 +108,16 @@ pub struct CapturedScreen {
 
 // --- Main System Logic ---
 
-pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
+// [注意] 这里增加了 frame 参数，请确保在 app.rs 中调用时传入
+pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, frame: &eframe::Frame) {
     if state.ui_mode != UiMode::Screenshot {
         return;
     }
 
     // 1. 初始化捕获
-    // [Fix E0499]: 这里必须传入 disjoint fields (独立的字段引用)，不能直接传 &mut state
     if state.screenshot_state.captures.is_empty() {
-        handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot_state);
+        // 将 frame 传递给捕获流程
+        handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot_state, frame);
     }
 
     // 如果还没有捕获到内容，或者捕获失败退出了，直接返回
@@ -131,7 +132,6 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
     let mut wants_to_close_viewports = false;
 
     // 2. 渲染所有视口
-    // 先收集 ViewportId 和 ScreenInfo，避免在循环中持续借用 state
     let screens_info: Vec<_> = state.screenshot_state.captures.iter().map(|c| {
         (
             c.screen_info.clone(),
@@ -139,12 +139,10 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
         )
     }).collect();
 
-    // 这里的 state 借用已结束，可以在循环中重新借用 state.screenshot_state
     for (i, (screen_info, viewport_id)) in screens_info.into_iter().enumerate() {
         let phys_x = screen_info.x as f32;
         let phys_y = screen_info.y as f32;
         let self_scale = screen_info.scale_factor;
-        // 逻辑坐标 = 物理坐标 / 缩放因子
         let logic_x = phys_x / self_scale;
         let logic_y = phys_y / self_scale;
         let pos = egui::pos2(logic_x, logic_y);
@@ -158,7 +156,6 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
                 .with_position(pos),
             |ctx, class| {
                 if class == ViewportClass::Immediate {
-                    // 这里的闭包是串行执行的，所以可以安全地借用
                     let action = draw_screenshot_ui(ctx, &mut state.screenshot_state, i);
                     if action != ScreenshotAction::None {
                         final_action = action;
@@ -181,10 +178,12 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
         state.ui_mode = UiMode::Normal;
         *screenshot_state_mut = ScreenshotState::default();
 
-        if screenshot_state_mut.should_minimize {
-            ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
-            ctx.send_viewport_cmd(ViewportCommand::Focus);
-        }
+        // [关键] 退出截图模式时，恢复窗口可被捕获的状态
+        // 这样如果用户在正常模式下录屏，窗口是可见的
+        set_window_exclude_from_capture(frame, false);
+
+        ctx.send_viewport_cmd(ViewportCommand::Visible(true));
+        ctx.send_viewport_cmd(ViewportCommand::Focus);
     }
 }
 
@@ -197,7 +196,7 @@ pub fn draw_screenshot_ui(
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
 
-    // 准备纹理 (Texture)
+    // 准备纹理
     let (img_src, screen_info) = {
         let screen = &mut state.captures[screen_index];
         let texture = screen.texture.get_or_insert_with(|| {
@@ -215,8 +214,6 @@ pub fn draw_screenshot_ui(
     egui::CentralPanel::default()
         .frame(egui::Frame::NONE.inner_margin(0.0))
         .show(ctx, |ui| {
-            // [Fix E0308]: ui 是 &mut Ui 类型，后续函数必须接收 &mut Ui
-
             // 1. 绘制底图
             let image_widget = egui::Image::new(img_src).fit_to_exact_size(ui.available_size());
             ui.add(image_widget);
@@ -225,20 +222,19 @@ pub fn draw_screenshot_ui(
             let screen_offset_phys = Pos2::new(screen_info.x as f32, screen_info.y as f32);
             let ppp = ctx.pixels_per_point();
 
-            // 3. 预先计算工具栏位置 (用于点击检测)
+            // 3. 预先计算工具栏位置
             let local_toolbar_rect = calculate_toolbar_rect(state, screen_offset_phys, ppp);
 
-            // 4. 处理输入交互 (Interaction)
+            // 4. 处理交互
             if handle_interaction(ui, state, screen_offset_phys, ppp, local_toolbar_rect) {
                 needs_repaint = true;
             }
 
-            // 5. 渲染画布元素 (Canvas: Mask, Selection, Shapes)
+            // 5. 渲染画布元素
             render_canvas_elements(ui, state, screen_offset_phys, ppp);
 
-            // 6. 渲染上层 UI (Toolbar, Picker)
+            // 6. 渲染工具栏
             if let Some(rect) = local_toolbar_rect {
-                // 只在工具栏位于当前屏幕范围内时渲染
                 if ui.clip_rect().intersects(rect) {
                     let toolbar_act = render_toolbar_and_overlays(ui, state, rect);
                     if toolbar_act != ScreenshotAction::None {
@@ -247,16 +243,15 @@ pub fn draw_screenshot_ui(
                 }
             }
 
-            // --- [新增] 鼠标放大镜 ---
+            // 7. 鼠标放大镜 & 取色
             if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-                // 计算是否在工具栏或弹窗上
                 let is_over_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(pointer_pos));
                 let is_interacting_popup = state.color_picker.is_open && ui.ctx().is_pointer_over_area();
 
                 if !is_over_toolbar && !is_interacting_popup {
                     let screen = &state.captures[screen_index];
 
-                    // 1. 绘制放大镜
+                    // 绘制放大镜
                     draw_magnifier(
                         ui,
                         ui.painter(),
@@ -265,12 +260,9 @@ pub fn draw_screenshot_ui(
                         ppp
                     );
 
-                    // 2. [新增] Ctrl + C 复制颜色逻辑
-                    // 检查 Ctrl + C 是否按下
+                    // Ctrl + C 复制颜色
                     if state.copy_requested || ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::C)) {
-                        // 重置信号，防止下一帧重复复制
                         state.copy_requested = false;
-                        // 计算当前鼠标下的像素颜色
                         let center_phys_x = (pointer_pos.x * ppp).round() as isize;
                         let center_phys_y = (pointer_pos.y * ppp).round() as isize;
                         let img_width = screen.image.width() as isize;
@@ -279,18 +271,13 @@ pub fn draw_screenshot_ui(
                         if center_phys_x >= 0 && center_phys_x < img_width && center_phys_y >= 0 && center_phys_y < img_height {
                             let idx = center_phys_y as usize * screen.image.width() + center_phys_x as usize;
                             let color = screen.image.pixels[idx];
-
-                            // 格式化 HEX 字符串
                             let hex_text = format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b());
 
-                            // 写入剪贴板
                             if let Ok(mut clipboard) = Clipboard::new() {
                                 if let Err(e) = clipboard.set_text(hex_text.clone()) {
                                     eprintln!("[ERROR] Failed to set clipboard text: {}", e);
                                 } else {
                                     println!("[SUCCESS] Color {} copied to clipboard", hex_text);
-                                    // 这里如果想做个提示 Toast，需要通过 state 调用 toast_system
-                                    // 比如: state.toast_system.info(format!("Color {} Copied", hex_text));
                                 }
                             }
                         }
@@ -311,25 +298,21 @@ pub fn draw_screenshot_ui(
     action
 }
 
-// --- Sub-functions for Rendering & Logic ---
+// --- Sub-functions ---
 
 fn calculate_toolbar_rect(state: &ScreenshotState, screen_offset_phys: Pos2, ppp: f32) -> Option<Rect> {
     if let Some(global_toolbar_pos_phys) = state.toolbar_pos {
         let vec_phys = global_toolbar_pos_phys - screen_offset_phys;
         let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
-
         let toolbar_width = 217.0;
         let toolbar_height = 48.0;
-        // 工具栏位置微调
         let toolbar_min_pos = Pos2::new(local_pos_logical.x - toolbar_width, local_pos_logical.y + 10.0);
-
         Some(Rect::from_min_size(toolbar_min_pos, egui::vec2(toolbar_width, toolbar_height)))
     } else {
         None
     }
 }
 
-// [Fix E0308]: 参数改为 &mut Ui
 fn handle_interaction(
     ui: &mut Ui,
     state: &mut ScreenshotState,
@@ -382,7 +365,6 @@ fn handle_interaction(
 
             if response.drag_stopped() {
                 if let Some(start_pos) = state.current_shape_start {
-                    // 完成绘图
                     if let Some(tool) = state.current_tool {
                         state.shapes.push(DrawnShape {
                             tool,
@@ -396,7 +378,6 @@ fn handle_interaction(
                     state.current_shape_end = None;
                     needs_repaint = true;
                 } else if state.drag_start.is_some() {
-                    // 完成选区
                     state.drag_start = None;
                     if let Some(sel) = state.selection {
                         if sel.width() > 10.0 && sel.height() > 10.0 {
@@ -413,6 +394,7 @@ fn handle_interaction(
     }
     needs_repaint
 }
+
 fn render_canvas_elements(
     ui: &mut Ui,
     state: &ScreenshotState,
@@ -424,12 +406,10 @@ fn render_canvas_elements(
     let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
     let full_rect = ui.max_rect();
 
-    // 1. 渲染选区背景遮罩 & 选区边框
     if let Some(global_sel_phys) = state.selection {
         let vec_min = global_sel_phys.min - screen_offset_phys;
         let vec_max = global_sel_phys.max - screen_offset_phys;
 
-        // 转换为当前屏幕的局部逻辑坐标
         let local_logical_rect = Rect::from_min_max(
             Pos2::ZERO + (vec_min / ppp),
             Pos2::ZERO + (vec_max / ppp),
@@ -439,7 +419,6 @@ fn render_canvas_elements(
         let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
 
         if clipped_local_sel.is_positive() {
-            // 绘制遮罩
             let top = Rect::from_min_max(screen_rect_local.min, Pos2::new(screen_rect_local.max.x, clipped_local_sel.min.y));
             let bottom = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.max.y), screen_rect_local.max);
             let left = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.min.y), Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y));
@@ -450,58 +429,34 @@ fn render_canvas_elements(
             painter.rect_filled(left, 0.0, overlay_color);
             painter.rect_filled(right, 0.0, overlay_color);
 
-            // 绘制选区 (风格)
             paint_style_box(painter, clipped_local_sel, 1.0);
 
-            // --- [新增] 绘制尺寸标签 ---
-            // 只有当选区的左上角在当前屏幕范围内时，才绘制标签，避免跨屏时重复绘制
-            // 稍微放宽一点判断(expand)，防止刚好在边缘时闪烁
             if screen_rect_local.expand(1.0).contains(local_logical_rect.min) {
-                // 1. 准备文本
                 let w = global_sel_phys.width().round() as u32;
                 let h = global_sel_phys.height().round() as u32;
                 let text = format!("{} x {}", w, h);
                 let font_id = egui::FontId::proportional(12.0);
                 let text_color = Color32::WHITE;
 
-                // 2. 计算文本布局 (Galley)
-                // 注意：这里虽然传入了颜色，但 painter.galley 绘制时仍需再次确认
                 let galley = painter.layout_no_wrap(text, font_id, text_color);
-
-                // 3. 计算标签背景矩形
                 let padding = egui::vec2(6.0, 4.0);
                 let bg_size = galley.size() + padding * 2.0;
 
-                // 4. 决定标签位置
-                // 默认位置：选区左上角上方 5px
                 let mut label_pos = local_logical_rect.min - egui::vec2(0.0, bg_size.y + 5.0);
-
-                // 边缘检测：如果上方空间不足（比如选区贴着屏幕顶部），则移动到选区内部
                 if label_pos.y < screen_rect_local.min.y {
                     label_pos = local_logical_rect.min + egui::vec2(5.0, 5.0);
                 }
 
                 let label_rect = Rect::from_min_size(label_pos, bg_size);
-
-                // 5. 绘制标签背景 (黑色半透明 + 圆角)
-                painter.rect_filled(
-                    label_rect,
-                    4.0, // 圆角半径
-                    Color32::from_black_alpha(160) // 半透明黑色
-                );
-
-                // 6. 绘制文本
-                // [修复核心]: painter.galley 需要 3 个参数 (位置, galley, 颜色)
+                painter.rect_filled(label_rect, 4.0, Color32::from_black_alpha(160));
                 painter.galley(label_rect.min + padding, galley, text_color);
             }
-            // --- [新增结束] ---
 
         } else {
             painter.rect_filled(viewport_rect, 0.0, overlay_color);
         }
     }
 
-    // 2. 渲染已绘制的形状 (保持不变)
     for shape in &state.shapes {
         let start_local = Pos2::ZERO + ((shape.start - screen_offset_phys) / ppp);
         let end_local = Pos2::ZERO + ((shape.end - screen_offset_phys) / ppp);
@@ -519,7 +474,6 @@ fn render_canvas_elements(
         }
     }
 
-    // 3. 渲染正在绘制的形状 (保持不变)
     if let (Some(start_phys), Some(end_phys)) = (state.current_shape_start, state.current_shape_end) {
         let start_local = Pos2::ZERO + ((start_phys - screen_offset_phys) / ppp);
         let end_local = Pos2::ZERO + ((end_phys - screen_offset_phys) / ppp);
@@ -539,21 +493,18 @@ fn render_canvas_elements(
         }
     }
 
-    // 4. 初始全屏边框 (保持不变)
     if state.selection.is_none() && state.current_shape_start.is_none() {
         let inset_rect = full_rect.shrink(4.0);
         paint_style_box(painter, inset_rect, 3.0);
     }
 }
 
-// [Fix E0308]: 参数改为 &mut Ui
 fn render_toolbar_and_overlays(
     ui: &mut Ui,
     state: &mut ScreenshotState,
     toolbar_rect: Rect,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
-    // 克隆 painter 以避免借用冲突，或直接传递
     let painter = ui.painter().clone();
 
     let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect);
@@ -561,7 +512,6 @@ fn render_toolbar_and_overlays(
         action = toolbar_action;
     }
 
-    // ColorPicker.show 需要 &mut Ui
     if state.color_picker.show(ui, state.color_picker_anchor, &mut state.stroke_width) {
         state.active_color = state.color_picker.selected_color;
         ui.ctx().request_repaint();
@@ -570,43 +520,28 @@ fn render_toolbar_and_overlays(
     action
 }
 
-// 独立的风格边框绘制函数
 fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
     let anchor_size = 6.0;
     let green = Color32::from_rgb(0, 255, 0);
-
-    // 主边框
     let main_stroke = Stroke::new(line_width, green);
-    // 锚点描边保持细线
     let anchor_stroke = Stroke::new(1.0, green);
-    // [视觉修改] 锚点填充改为绿色
     let anchor_fill = green;
 
-    // 1. 绘制矩形主边框
     painter.rect_stroke(rect, 0.0, main_stroke, StrokeKind::Outside);
 
-    // 2. 绘制8个锚点 (只有当矩形足够大时才绘制)
     if rect.width() > anchor_size * 3.0 && rect.height() > anchor_size * 3.0 {
         let min = rect.min;
         let max = rect.max;
         let center = rect.center();
 
         let anchors = [
-            min,                                      // 左上
-            Pos2::new(max.x, min.y),                  // 右上
-            max,                                      // 右下
-            Pos2::new(min.x, max.y),                  // 左下
-            Pos2::new(center.x, min.y),               // 上中
-            Pos2::new(center.x, max.y),               // 下中
-            Pos2::new(min.x, center.y),               // 左中
-            Pos2::new(max.x, center.y),               // 右中
+            min, Pos2::new(max.x, min.y), max, Pos2::new(min.x, max.y),
+            Pos2::new(center.x, min.y), Pos2::new(center.x, max.y),
+            Pos2::new(min.x, center.y), Pos2::new(max.x, center.y),
         ];
 
         for anchor_pos in anchors {
-            let anchor_rect = Rect::from_center_size(
-                anchor_pos,
-                egui::vec2(anchor_size, anchor_size)
-            );
+            let anchor_rect = Rect::from_center_size(anchor_pos, egui::vec2(anchor_size, anchor_size));
             painter.rect_filled(anchor_rect, 0.0, anchor_fill);
             painter.rect_stroke(anchor_rect, 0.0, anchor_stroke, StrokeKind::Outside);
         }
@@ -615,32 +550,29 @@ fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
 
 // --- Helpers for System Logic (Capture, Save) ---
 
-// [Fix E0499]: 签名接收 disjoint fields
 fn handle_capture_process(
     ctx: &Context,
     ui_mode: &mut UiMode,
-    screenshot_state: &mut ScreenshotState
+    screenshot_state: &mut ScreenshotState,
+    frame: &eframe::Frame // [关键] 传入 frame 以获取句柄
 ) {
     if !screenshot_state.is_capturing {
         screenshot_state.is_capturing = true;
 
-        let is_focused = ctx.input(|i| i.focused);
-        let is_minimized = ctx.input(|i| i.viewport().minimized.unwrap_or(false));
-        screenshot_state.should_minimize = is_focused && !is_minimized;
+        // [关键] 调用 Windows API，设置窗口为“截图透明”
+        // 这样窗口可以一直显示，不会挂起，但截不下来
+        set_window_exclude_from_capture(frame, true);
 
-        if screenshot_state.should_minimize {
-            ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
-        }
+        ctx.request_repaint();
 
         let (tx, rx) = channel();
         screenshot_state.capture_receiver = Some(rx);
         let ctx_clone = ctx.clone();
-        let should_minimize = screenshot_state.should_minimize;
 
         thread::spawn(move || {
-            if should_minimize {
-                thread::sleep(std::time::Duration::from_millis(300));
-            }
+            // 这里只需要极短的等待，甚至不需要 sleep，因为 API 设置是瞬时的
+            // 为了保险起见，给一点点 buffer 时间
+            thread::sleep(std::time::Duration::from_millis(50));
             println!("[DEBUG] Capturing screens in background...");
 
             let count = match Monitor::all() {
@@ -691,17 +623,20 @@ fn handle_capture_process(
                 screenshot_state.captures = captures;
                 screenshot_state.is_capturing = false;
                 screenshot_state.capture_receiver = None;
+
+                // [关键] 截图完成，恢复窗口正常属性
+                set_window_exclude_from_capture(frame, false);
+
                 ctx.request_repaint();
             }
             Err(TryRecvError::Empty) => { ctx.request_repaint(); }
             Err(TryRecvError::Disconnected) => {
                 screenshot_state.is_capturing = false;
                 screenshot_state.capture_receiver = None;
-                *ui_mode = UiMode::Normal; // 失败时重置 UI Mode
-                if screenshot_state.should_minimize {
-                    ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
-                    ctx.send_viewport_cmd(ViewportCommand::Focus);
-                }
+                *ui_mode = UiMode::Normal;
+
+                // 失败也要恢复
+                set_window_exclude_from_capture(frame, false);
             }
         }
     }
@@ -713,7 +648,6 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
 
         if let Some(selection_phys) = screenshot_state.selection {
             if selection_phys.is_positive() {
-                // 准备线程所需数据
                 let captures_data: Vec<_> = screenshot_state.captures.iter().map(|c| {
                     (
                         c.raw_image.clone(),
@@ -732,7 +666,6 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
 
                     let mut final_image = RgbaImage::new(final_width, final_height);
 
-                    // 1. 拼接图片
                     for (i, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
                         let intersection = selection_phys.intersect(*monitor_rect_phys);
                         if !intersection.is_positive() { continue; }
@@ -743,17 +676,15 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
                         let crop_h = intersection.height().round() as u32;
 
                         if crop_x + crop_w > raw_image.width() || crop_y + crop_h > raw_image.height() {
-                            eprintln!("[ERROR] Monitor {} crop out of bounds.", i);
                             continue;
                         }
 
                         let cropped_part = image::imageops::crop_imm(&**raw_image, crop_x, crop_y, crop_w, crop_h).to_image();
                         let paste_x = (intersection.min.x - selection_phys.min.x).max(0.0).round() as u32;
                         let paste_y = (intersection.min.y - selection_phys.min.y).max(0.0).round() as u32;
-                        if let Err(e) = final_image.copy_from(&cropped_part, paste_x, paste_y) { eprintln!("[ERROR] Failed to copy part: {}", e); }
+                        let _ = final_image.copy_from(&cropped_part, paste_x, paste_y);
                     }
 
-                    // 2. 绘制标注形状
                     for shape in shapes {
                         let start_x = shape.start.x - selection_phys.min.x;
                         let start_y = shape.start.y - selection_phys.min.y;
@@ -828,4 +759,34 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
             }
         }
     }
+}
+
+// --- Windows API Helper ---
+
+#[cfg(target_os = "windows")]
+pub fn set_window_exclude_from_capture(frame: &eframe::Frame, exclude: bool) {
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE, WDA_NONE};
+
+    // 1. 获取 WindowHandle
+    if let Ok(handle) = frame.window_handle() {
+        // 2. [修复] 使用 .as_raw() 获取 RawWindowHandle 枚举 (raw-window-handle 0.6)
+        if let RawWindowHandle::Win32(win32) = handle.as_raw() {
+            // 3. [修复] 类型转换：win32.hwnd (NonZeroIsize) -> isize -> *mut c_void
+            // windows 0.52 的 HWND 包装的是 *mut c_void
+            let hwnd_ptr = win32.hwnd.get() as *mut std::ffi::c_void;
+            let hwnd = HWND(hwnd_ptr);
+
+            let affinity = if exclude { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE };
+            unsafe {
+                let _ = SetWindowDisplayAffinity(hwnd, affinity);
+            }
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn set_window_exclude_from_capture(_frame: &eframe::Frame, _exclude: bool) {
+    // Non-Windows fallback (不做任何操作，或者使用 Visible 方案回退)
 }

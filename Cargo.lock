@@ -15,6 +15,7 @@ dependencies = [
  "kamadak-exif",
  "lru",
  "num_cpus",
+ "raw-window-handle",
  "rayon",
  "rfd",
  "serde",
