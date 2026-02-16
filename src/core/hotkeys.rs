@@ -5,9 +5,13 @@ use global_hotkey::{
     GlobalHotKeyEvent, GlobalHotKeyManager,
     hotkey::{Code, HotKey, Modifiers},
 };
-
-use crate::model::state::ViewState;
 use crate::ui::components::ui_mode::UiMode;
+
+// 定义 HotkeyManager 可能产生的动作
+pub enum HotkeyAction {
+    SetScreenshotMode,
+    RequestScreenshotCopy,
+}
 
 pub struct HotkeyManager {
     hotkeys_manager: GlobalHotKeyManager,
@@ -48,27 +52,34 @@ impl HotkeyManager {
         }
     }
 
-    pub fn update(&mut self, state: &mut ViewState) {
-        if state.ui_mode == UiMode::Screenshot && !self.is_copy_registered {
+    // update不再直接修改state，而是返回一个动作列表
+    pub fn update(&mut self, ui_mode: &UiMode) -> Vec<HotkeyAction> {
+        let mut actions = Vec::new();
+
+        // 1. 动态注册/注销 Ctrl+C
+        if *ui_mode == UiMode::Screenshot && !self.is_copy_registered {
             if self.hotkeys_manager.register(self.copy_hotkey).is_ok() {
                 self.is_copy_registered = true;
                 println!("[Hotkey] Registered Ctrl+C for Screenshot");
             }
-        } else if state.ui_mode != UiMode::Screenshot && self.is_copy_registered {
+        } else if *ui_mode != UiMode::Screenshot && self.is_copy_registered {
             if self.hotkeys_manager.unregister(self.copy_hotkey).is_ok() {
                 self.is_copy_registered = false;
                 println!("[Hotkey] Unregistered Ctrl+C");
             }
         }
 
+        // 2. 处理接收到的热键事件
         while let Ok(id) = self.hotkey_receiver.try_recv() {
             if id == self.show_hotkey.id() {
-                state.ui_mode = UiMode::Screenshot;
+                actions.push(HotkeyAction::SetScreenshotMode);
             } else if id == self.copy_hotkey.id() {
-                if state.ui_mode == UiMode::Screenshot {
-                    state.screenshot_state.copy_requested = true;
+                if *ui_mode == UiMode::Screenshot {
+                    actions.push(HotkeyAction::RequestScreenshotCopy);
                 }
             }
         }
+
+        actions
     }
 }

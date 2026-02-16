@@ -6,7 +6,7 @@ use std::{
     env
 };
 use crate::{
-    core::{business::BusinessData, hotkeys::HotkeyManager},
+    core::{business::BusinessData},
     model::{
         config::{load_config, save_config, Config},
         state::{ViewMode, ViewState},
@@ -52,7 +52,6 @@ pub struct CloverApp {
     data: BusinessData,
     state: ViewState,
     config: Arc<Config>,
-    hotkey_manager: HotkeyManager,
 }
 
 impl CloverApp {
@@ -66,8 +65,6 @@ impl CloverApp {
         fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "my_font".to_owned());
         cc.egui_ctx.set_fonts(fonts);
 
-        let hotkey_manager = HotkeyManager::new(&cc.egui_ctx);
-
         let config = Arc::new(load_config());
 
         cc.egui_ctx
@@ -75,9 +72,8 @@ impl CloverApp {
 
         let mut app = Self {
             data: BusinessData::new(),
-            state: ViewState::default(),
+            state: ViewState::new(&cc.egui_ctx),
             config,
-            hotkey_manager,
         };
 
         if let Some(path) = start_path {
@@ -140,7 +136,7 @@ impl eframe::App for CloverApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         ctx.data_mut(|data| data.insert_temp(Id::NULL, Arc::clone(&self.config)));
 
-        self.hotkey_manager.update(&mut self.state);
+        self.state.update_hotkeys();
         self.handle_background_tasks(ctx);
         self.handle_input_events(ctx);
         self.draw_ui(ctx);
