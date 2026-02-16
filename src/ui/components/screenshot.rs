@@ -666,7 +666,7 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
 
                     let mut final_image = RgbaImage::new(final_width, final_height);
 
-                    for (i, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
+                    for (_, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
                         let intersection = selection_phys.intersect(*monitor_rect_phys);
                         if !intersection.is_positive() { continue; }
 
