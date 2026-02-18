@@ -1,6 +1,5 @@
 pub mod context_menu;
 pub mod modal;
-pub mod mouse;
 pub mod properties_panel;
 pub mod resources;
 pub mod toast;

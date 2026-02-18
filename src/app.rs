@@ -17,7 +17,6 @@ use crate::ui::{
     components::{
         context_menu::handle_context_menu_action,
         modal::ModalAction,
-        mouse::handle_input_events,
         properties_panel::draw_properties_panel,
         resources::APP_FONT,
         screenshot::{handle_screenshot_system},
@@ -106,7 +105,7 @@ impl CloverApp {
     }
 
     fn handle_input_events(&mut self, ctx: &Context) {
-        handle_input_events(ctx, &mut self.data);
+        viewer::handle_input_events(ctx, &mut self.data);
     }
 
     fn draw_ui(&mut self, ctx: &Context) {
@@ -157,26 +156,6 @@ impl eframe::App for CloverApp {
         self.state.process_hotkey_events();
 
         self.handle_background_tasks(ctx);
-        // self.handle_input_events(ctx); // 移除这里的调用，因为在 draw_ui 中会处理，或者在 update 中处理一次即可，但要注意顺序
-        // 实际上 handle_input_events 应该在 update 中调用，但要避免重复调用导致的问题
-        // 之前的问题可能是 handle_input_events 内部逻辑导致死循环或者阻塞
-        // 检查 handle_input_events 实现：
-        // pub fn handle_input_events(ctx: &Context, data: &mut BusinessData) {
-        //     if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) { ... }
-        //     ...
-        // }
-        // 看起来没问题。
-        // 但是，如果在 update 中调用了 handle_input_events，并且 handle_input_events 可能会触发耗时操作（如加载图片），
-        // 且该操作是在主线程同步执行的，那就会卡死。
-        // data.prev_image -> load_current -> loader.load_async
-        // load_async 是异步的，应该没问题。
-
-        // 重新审视 "点击键盘左右按键切换时，会直接卡死"
-        // 可能是因为每一帧都在检测按键，如果按住不放，会疯狂触发加载？
-        // key_pressed 只在按下的一瞬间为 true。
-
-        // 另一种可能是 handle_input_events 和其他地方冲突了。
-        // 比如 state.process_hotkey_events() 也处理了按键？
 
         self.handle_input_events(ctx);
 
