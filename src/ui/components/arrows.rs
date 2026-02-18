@@ -25,15 +25,7 @@ pub fn draw_arrows(ui: &mut Ui, rect: Rect) -> Option<Nav> {
     // 定义左侧感应区域，固定宽度
     let left_hover_rect = Rect::from_min_max(
         rect.min,
-        rect.min + egui::vec2(hover_zone_width, rect.height()),
-    );
-
-    // 调试：绘制左侧感应区域
-    ui.painter().rect_filled(
-        left_hover_rect,
-        0.0,
-        // Color32::from_rgba_unmultiplied(255, 0, 0, 50), // 半透明红色
-        Color32::default()
+        rect.min + Vec2::new(hover_zone_width, rect.height()),
     );
 
     if ui.rect_contains_pointer(left_hover_rect) || ui.rect_contains_pointer(left_rect) {
@@ -52,16 +44,8 @@ pub fn draw_arrows(ui: &mut Ui, rect: Rect) -> Option<Nav> {
     );
     // 只有鼠标悬停在右侧区域时才显示右按钮
     let right_hover_rect = Rect::from_min_max(
-        rect.max - egui::vec2(hover_zone_width, rect.height()),
+        rect.max - Vec2::new(hover_zone_width, rect.height()),
         rect.max,
-    );
-
-    // 调试：绘制右侧感应区域
-    ui.painter().rect_filled(
-        right_hover_rect,
-        0.0,
-        // Color32::from_rgba_unmultiplied(0, 0, 255, 50), // 半透明蓝色
-        Color32::default()
     );
 
     if ui.rect_contains_pointer(right_hover_rect) || ui.rect_contains_pointer(right_rect) {

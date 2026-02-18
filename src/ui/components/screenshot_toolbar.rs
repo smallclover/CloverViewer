@@ -1,8 +1,6 @@
-use eframe::egui::{self, Color32, Rect, Vec2, Ui, Painter, Layout, Align, Stroke, StrokeKind, Id};
+use eframe::egui::{self, Color32, Rect, Vec2, Ui, Painter, Layout, Align, Stroke, StrokeKind};
 use egui::{Response, UiBuilder};
-use std::sync::Arc;
-use crate::i18n::lang::get_text;
-use crate::model::config::Config;
+use crate::i18n::lang::{get_i18n_text};
 use crate::ui::components::icons::{draw_icon_button, IconType};
 use super::screenshot::{ScreenshotState, ScreenshotTool, ScreenshotAction};
 
@@ -13,8 +11,7 @@ pub fn draw_screenshot_toolbar(
     toolbar_rect: Rect,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
-    let config = ui.ctx().data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
-    let texts = get_text(config.language);
+    let text = get_i18n_text(ui.ctx());
 
     // --- 1. 绘制背景 ---
     painter.rect_filled(toolbar_rect, 8.0, Color32::WHITE);
@@ -38,7 +35,7 @@ pub fn draw_screenshot_toolbar(
 
                 // === 1. 矩形工具 ===
                 let is_rect = state.current_tool == Some(ScreenshotTool::Rect);
-                let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect, &texts);
+                let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect, &text);
                 if rect_button.clicked() {
                     state.current_tool = Some(ScreenshotTool::Rect);
                 }
@@ -52,7 +49,7 @@ pub fn draw_screenshot_toolbar(
 
                 // === 2. 圆形工具 ===
                 let is_circle = state.current_tool == Some(ScreenshotTool::Circle);
-                let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle, &texts);
+                let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle, &text);
                 if circle_button.clicked() {
                     state.current_tool = Some(ScreenshotTool::Circle);
                 }
@@ -71,15 +68,15 @@ pub fn draw_screenshot_toolbar(
                     Stroke::new(1.0, Color32::from_gray(220))
                 );
 
-                if draw_icon_button(ui, false, IconType::Cancel, &texts).clicked() {
+                if draw_icon_button(ui, false, IconType::Cancel, &text).clicked() {
                     action = ScreenshotAction::Close;
                 }
 
-                if draw_icon_button(ui, false, IconType::SaveToClipboard, &texts).clicked() {
+                if draw_icon_button(ui, false, IconType::SaveToClipboard, &text).clicked() {
                     action = ScreenshotAction::SaveToClipboard;
                 }
 
-                if draw_icon_button(ui, false, IconType::Save, &texts).clicked() {
+                if draw_icon_button(ui, false, IconType::Save, &text).clicked() {
                     action = ScreenshotAction::SaveAndClose;
                 }
             },

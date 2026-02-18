@@ -1,8 +1,6 @@
-use egui::{Align, Context, Layout, Ui, CursorIcon, Id};
-use std::sync::Arc;
+use egui::{Align, Context, Layout, Ui, CursorIcon};
 use crate::core::business::BusinessData;
-use crate::i18n::lang::{get_text, TextBundle};
-use crate::model::config::Config;
+use crate::i18n::lang::{get_i18n_text, TextBundle};
 use crate::model::image_meta::ImageProperties;
 use crate::ui::components::ui_mode::UiMode;
 use crate::model::state::ViewState;
@@ -18,8 +16,7 @@ pub fn draw_properties_panel(
         return;
     }
 
-    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
-    let texts = get_text(config.language);
+    let text = get_i18n_text(ctx);
 
     egui::SidePanel::right("properties_panel")
         .resizable(true)
@@ -31,7 +28,7 @@ pub fn draw_properties_panel(
             }
 
             ui.horizontal(|ui| {
-                ui.heading(texts.img_prop);
+                ui.heading(text.img_prop);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if ui.button("X").clicked() {
                         is_open = false;
@@ -42,7 +39,7 @@ pub fn draw_properties_panel(
 
             // 直接从 data 中获取当前图片的属性
             if let Some(props) = &data.current_properties {
-                render_properties_content(ui, props, &texts);
+                render_properties_content(ui, props, &text);
             } else {
                 ui.label("No image loaded.");
             }
@@ -55,25 +52,25 @@ pub fn draw_properties_panel(
 }
 
 /// 图片属性内容
-fn render_properties_content(ui: &mut Ui, properties: &ImageProperties, texts: &TextBundle) {
+fn render_properties_content(ui: &mut Ui, properties: &ImageProperties, text: &TextBundle) {
     egui::Grid::new("properties_grid")
         .num_columns(2)
         .spacing([40.0, 4.0])
         .striped(true)
         .show(ui, |ui| {
-            ui.label(format!("{}:",texts.img_name));
+            ui.label(format!("{}:",text.img_name));
             ui.label(&properties.name);
             ui.end_row();
 
-            ui.label(format!("{}:",texts.img_date));
+            ui.label(format!("{}:",text.img_date));
             ui.label(&properties.date);
             ui.end_row();
 
-            ui.label(format!("{}:",texts.img_dim));
+            ui.label(format!("{}:",text.img_dim));
             ui.label(format!("{}x{} {:.1} MB", properties.width, properties.height, (properties.size as f64) / (1024.0 * 1024.0)));
             ui.end_row();
 
-            ui.label(format!("{}:",texts.img_path));
+            ui.label(format!("{}:",text.img_path));
             ui.label(properties.path.to_string_lossy().to_string());
             ui.end_row();
         });

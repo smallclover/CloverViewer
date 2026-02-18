@@ -1,12 +1,14 @@
 use eframe::emath::Pos2;
-use egui::{Area, Context, Frame, Id, Order, Sense};
-use std::sync::Arc;
-use crate::core::business::BusinessData;
-use crate::i18n::lang::{get_text, TextBundle};
-use crate::model::config::Config;
-use crate::model::state::ViewState;
-use crate::ui::components::ui_mode::UiMode;
-use crate::utils::clipboard::copy_image_to_clipboard_async;
+use egui::{Area, Context, Frame, Id, Order, Sense, Layout, Align};
+use crate::{
+    model::{
+        state::ViewState
+    },
+    utils::clipboard::{copy_image_path_to_clipboard, copy_image_to_clipboard_async},
+    ui::components::ui_mode::UiMode,
+    i18n::lang::{get_i18n_text},
+    core::business::BusinessData
+};
 
 /// 右键菜单中的操作
 pub enum ContextMenuAction {
@@ -18,14 +20,13 @@ pub enum ContextMenuAction {
 pub fn render_context_menu(
     ctx: &Context,
     pos: &mut Option<Pos2>,
-    text: &TextBundle,
 ) -> Option<ContextMenuAction> {
     let mut action = None;
-
+    let text = get_i18n_text(ctx);
     if let Some(position) = pos {
         let mut close_menu = false;
 
-        // 1. A full-screen transparent mask to catch clicks and close the menu.
+        // 一个全屏的遮罩，用于响应点击事件
         Area::new(Id::new("context_menu_mask"))
             .order(Order::Middle)
             .fixed_pos(Pos2::ZERO)
@@ -37,14 +38,14 @@ pub fn render_context_menu(
                 }
             });
 
-        // 2. The actual menu.
+        // 实际菜单
         Area::new(Id::new("context_menu"))
             .order(Order::Foreground)
             .fixed_pos(*position)
             .show(ctx, |ui| {
                 Frame::menu(ui.style()).show(ui, |ui| {
                     ui.set_width(120.0);
-                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                    ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
                         if ui.button(text.context_menu_copy).clicked() {
                             action = Some(ContextMenuAction::Copy);
                             close_menu = true;
@@ -75,8 +76,7 @@ pub fn handle_context_menu_action(
     data: &BusinessData,
     state: &mut ViewState,
 ) {
-    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
-    let texts = get_text(config.language);
+
     match action {
         ContextMenuAction::Copy => {
             if let (Some(tex), Some(pixels)) = (
@@ -85,20 +85,18 @@ pub fn handle_context_menu_action(
             ) {
                 let [w, h] = tex.size();
                 copy_image_to_clipboard_async(
+                    ctx,
                     pixels,
                     w,
                     h,
                     &state.toast_manager,
-                    texts,
                 );
             }
         }
         ContextMenuAction::CopyPath => {
             if let Some(path) = data.current() {
-                let mut clipboard = arboard::Clipboard::new().unwrap();
-                let _ = clipboard.set_text(path.to_string_lossy().to_string());
+                copy_image_path_to_clipboard(ctx,path, &state.toast_manager);
             }
-            state.toast_manager.success(texts.copied_message);
         }
         ContextMenuAction::ShowProperties => {
             state.ui_mode = UiMode::Properties;

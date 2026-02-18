@@ -4,6 +4,8 @@ use std::{
     path::PathBuf,
     env,
 };
+use std::sync::Arc;
+use egui::{Context, Id};
 use crate::i18n::lang::Language;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -63,4 +65,9 @@ pub fn save_config(config: &Config) {
     if let Ok(content) = serde_json::to_string_pretty(config) {
         let _ = fs::write(path, content);
     }
+}
+
+pub fn get_context_config(ctx: &Context) -> Arc<Config>{
+    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
+    config
 }

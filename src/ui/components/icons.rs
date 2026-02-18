@@ -30,7 +30,7 @@ impl IconType {
 pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, text: &TextBundle) -> Response {
     // 1. 统一按钮大小 32x32
     let button_size = vec2(32.0, 32.0);
-    // Use Sense::click_and_drag to enable long_touched
+    //
     let (rect, response) = ui.allocate_exact_size(button_size, Sense::click_and_drag());
 
     // 添加 Tooltip

@@ -1,19 +1,18 @@
 use eframe::egui;
 use egui::{
-    Color32, Context, CursorIcon, Image, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder, Id
+    Color32, Context, CursorIcon, Image, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder
 };
-use std::sync::Arc;
+
 use crate::{
     core::business::BusinessData,
-    i18n::lang::{get_text},
     model::state::{ViewState},
-    model::config::Config,
     ui::components::{
         arrows::{draw_arrows, Nav},
         preview::show_preview_window,
         ui_mode::UiMode,
     },
 };
+use crate::i18n::lang::get_i18n_text;
 
 pub fn draw_single_view(
     ctx: &Context,
@@ -22,8 +21,7 @@ pub fn draw_single_view(
     state: &mut ViewState,
 ) {
     let rect = ui.available_rect_before_wrap();
-    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
-    let texts = get_text(config.language);
+    let text = get_i18n_text(ctx);
 
     if let Some(tex) = data.current_texture.as_ref() {
         render_image_viewer(ui, tex, data.zoom, data.loader.is_loading);
@@ -52,15 +50,15 @@ pub fn draw_single_view(
         ui.scope_builder(UiBuilder::new().max_rect(rect),|ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(ui.available_height() * 0.4);
-                ui.label(RichText::new(texts.viewer_error).color(Color32::RED).size(14.0));
+                ui.label(RichText::new(text.viewer_error).color(Color32::RED).size(14.0));
             });
         });
     } else if data.loader.is_loading {
         // loading, but no texture yet
     } else if data.current().is_some() && data.list.is_empty() {
-        ui.centered_and_justified(|ui| ui.label(texts.viewer_no_images));
+        ui.centered_and_justified(|ui| ui.label(text.viewer_no_images));
     } else {//打开软件的时候，没有文件夹，此时显示提示
-        ui.centered_and_justified(|ui| ui.label(texts.viewer_drag_hint));
+        ui.centered_and_justified(|ui| ui.label(text.viewer_drag_hint));
     }
 
     if data.current().is_some() {

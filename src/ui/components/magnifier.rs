@@ -1,9 +1,6 @@
-use std::sync::Arc;
 use eframe::egui::{Color32, Painter, Pos2, Rect, Stroke, Ui, Vec2, FontId, Align2, StrokeKind};
 use eframe::egui::ColorImage;
-use egui::Id;
-use crate::i18n::lang::get_text;
-use crate::model::config::Config;
+use crate::i18n::lang::{get_i18n_text};
 
 /// 绘制放大镜组件
 pub fn draw_magnifier(
@@ -13,8 +10,7 @@ pub fn draw_magnifier(
     pointer_pos: Pos2,
     ppp: f32,
 ) {
-    let config = ui.ctx().data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
-    let texts = get_text(config.language);
+    let text = get_i18n_text(ui.ctx());
     // --- 1. 参数调整 ---
     // 下面的参数可以调节放大倍率和显示状态
     //>>
@@ -163,7 +159,7 @@ pub fn draw_magnifier(
     painter.text(
         Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 2.5),
         Align2::LEFT_CENTER,
-        texts.tooltip_mouse_copy_color,
+        text.tooltip_mouse_copy_color,
         hint_font_id,
         hint_color,
     );

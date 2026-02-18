@@ -1,8 +1,10 @@
 use egui::Context;
-use crate::i18n::lang::{TextBundle};
+use crate::i18n::lang::get_i18n_text;
 use crate::ui::components::modal::{ModalAction, ModalFrame};
 ///关于窗口
-pub fn render_about_window(ctx: &Context, open: &mut bool, text: &TextBundle) {
+pub fn render_about_window(ctx: &Context, open: &mut bool) {
+
+    let text = get_i18n_text(ctx);
 
     ModalFrame::show(ctx, open, text.about_title, |ui| {
         let mut action = ModalAction::None;

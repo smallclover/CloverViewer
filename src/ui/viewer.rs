@@ -1,9 +1,8 @@
 use eframe::egui;
 use egui::{
-    CentralPanel, Color32, Context, Frame, Id
+    CentralPanel, Color32, Context, Frame
 };
 use rfd::FileDialog;
-use std::sync::Arc;
 use crate::{
     core::business::BusinessData,
     i18n::lang::get_text,
@@ -32,9 +31,8 @@ pub fn draw_top_panel(
     ctx: &Context,
     state: &mut ViewState,
 ) {
-    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::NULL).unwrap());
-    let texts = get_text(config.language);
-    let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode, &texts);
+
+    let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode);
 
     if open_file {
         let sender = state.path_sender.clone();
@@ -98,7 +96,7 @@ pub fn draw_overlays(
     match &mut state.ui_mode {
         UiMode::About => {
             let mut open = true;
-            render_about_window(ctx, &mut open, &texts);
+            render_about_window(ctx, &mut open);
             if !open {
                 new_ui_mode = Some(UiMode::Normal);
             }
@@ -119,7 +117,7 @@ pub fn draw_overlays(
         }
         UiMode::ContextMenu(pos) => {
             let mut pos_opt = Some(*pos);
-            let action = render_context_menu(ctx, &mut pos_opt, &texts);
+            let action = render_context_menu(ctx, &mut pos_opt);
 
             if let Some(action) = action {
                 context_menu_action = Some(action);

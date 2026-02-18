@@ -1,10 +1,9 @@
 use crate::{
     ui::components::ui_mode::{UiMode},
 };
-use egui::{Context, MenuBar, TopBottomPanel, Id};
-use std::sync::Arc;
-use crate::i18n::lang::TextBundle;
-use crate::model::config::Config;
+use egui::{Context, MenuBar, TopBottomPanel};
+use crate::i18n::lang::{get_i18n_text};
+use crate::model::config::{get_context_config};
 
 /// 绘制主菜单栏
 ///
@@ -16,12 +15,12 @@ use crate::model::config::Config;
 pub fn draw_menu(
     ctx: &Context,
     ui_mode: &mut UiMode,
-    text: &TextBundle,
 ) -> (bool, bool) {
 
     let mut open_file_dialog = false;
     let mut open_folder_dialog = false;
-    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
+    let text = get_i18n_text(ctx);
+    let config = get_context_config(ctx);
 
     TopBottomPanel::top("menu").show(ctx, |ui| {
         MenuBar::new().ui(ui, |ui| {

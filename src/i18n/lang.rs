@@ -1,4 +1,6 @@
+use egui::Context;
 use serde::{Deserialize, Serialize};
+use crate::model::config::get_context_config;
 
 #[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum Language {
@@ -238,4 +240,9 @@ pub fn get_text(lang: Language) -> &'static TextBundle {
         Language::En => &EN_TEXT,
         Language::Ja => &JA_TEXT,
     }
+}
+
+pub fn get_i18n_text(ctx: &Context) -> &'static TextBundle {
+    let config = get_context_config(ctx);
+    get_text(config.language)
 }

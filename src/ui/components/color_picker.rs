@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::epaint::StrokeKind;
-use egui::{Color32, Sense, Pos2, Rect, Shape, Stroke, Vec2, UiBuilder};
-
+use egui::{Color32, Sense, Pos2, Rect, Shape, Stroke, Vec2, UiBuilder, Frame};
+//默认颜色
 const COLOR_OPTIONS: [Color32; 8] = [
     Color32::from_rgb(204, 0, 0),       // Red
     Color32::from_rgb(255, 128, 0),     // Orange
@@ -12,7 +12,7 @@ const COLOR_OPTIONS: [Color32; 8] = [
     Color32::from_rgb(0, 0, 0),         // Black
     Color32::from_rgb(255, 255, 255),   // White
 ];
-
+// 默认线条粗细
 const WIDTH_OPTIONS: [f32; 3] = [2.0, 4.0, 8.0];
 
 #[derive(Clone, PartialEq)]
@@ -63,7 +63,7 @@ impl ColorPicker {
                 let offset_y = 6.0;
                 let separator_width = 1.0;
 
-                // --- [关键修改] 宽度计算 ---
+                // --- 宽度计算 ---
                 // 总控件数 = 3个粗细按钮 + 1个分隔符 + 8个颜色按钮 = 12
                 // 总间距数 = 11 个 spacing
 
@@ -92,7 +92,7 @@ impl ColorPicker {
                 egui::Window::new("ColorPicker")
                     .fixed_pos(window_pos)
                     .fixed_size(Vec2::new(window_width, window_height))
-                    .frame(egui::Frame::NONE)
+                    .frame(Frame::NONE)
                     .title_bar(false)
                     .collapsible(false)
                     .resizable(false)

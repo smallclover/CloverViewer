@@ -1,10 +1,9 @@
 use eframe::egui;
-use egui::{Context, ScrollArea, Ui, Color32, Frame, Stroke, Sense, Align2, FontId, Id};
-use std::sync::Arc;
+use egui::{Context, ScrollArea, Ui, Color32, Frame, Stroke, Sense, Align2, FontId, Vec2, Grid, Rect, Pos2};
 use crate::{
     core::business::BusinessData,
-    i18n::lang::get_text,
-    model::{config::Config, state::{ViewState, ViewMode}},
+    model::{state::{ViewState, ViewMode}},
+    i18n::lang::get_i18n_text
 };
 
 pub fn draw_grid_view(
@@ -13,16 +12,16 @@ pub fn draw_grid_view(
     data: &mut BusinessData,
     state: &mut ViewState,
 ) {
-    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
+
     if data.list.is_empty() {
-        let texts = get_text(config.language);
+        let text = get_i18n_text(ctx);
         ui.centered_and_justified(|ui| {
-            ui.label(texts.viewer_no_images);
+            ui.label(text.viewer_no_images);
         });
         return;
     }
 
-    let item_size = egui::vec2(150.0, 150.0);
+    let item_size = Vec2::new(150.0, 150.0);
     let padding = 10.0;
     let frame_margin = 4.0;
     // 统一边框宽度，避免选中时布局抖动
@@ -49,8 +48,8 @@ pub fn draw_grid_view(
     let preload_rect = visible_rect.expand(500.0);
 
     ScrollArea::vertical().show(ui, |ui| {
-        egui::Grid::new("image_grid")
-            .spacing(egui::vec2(padding, padding))
+        Grid::new("image_grid")
+            .spacing(Vec2::new(padding, padding))
             .min_col_width(cell_width)
             .show(ui, |ui| {
                 for (i, path) in list.iter().enumerate() {
@@ -91,12 +90,12 @@ pub fn draw_grid_view(
                                 let tex_size = t.size_vec2();
                                 let scale = (rect.width() / tex_size.x).min(rect.height() / tex_size.y);
                                 let target_size = tex_size * scale;
-                                let target_rect = egui::Rect::from_center_size(rect.center(), target_size);
+                                let target_rect = Rect::from_center_size(rect.center(), target_size);
 
                                 ui.painter().image(
                                     t.id(),
                                     target_rect,
-                                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                                    Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)),
                                     Color32::WHITE
                                 );
                             } else {
