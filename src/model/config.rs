@@ -71,3 +71,8 @@ pub fn get_context_config(ctx: &Context) -> Arc<Config>{
     let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
     config
 }
+
+pub fn update_context_config(ctx:&Context, config: &Arc<Config>){
+    // 保持 Config 在 context 中更新
+    ctx.data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(config)));
+}

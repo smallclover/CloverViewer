@@ -12,6 +12,7 @@ use crate::{
         state::{ViewMode, ViewState},
     },
 };
+use crate::model::config::update_context_config;
 use crate::ui::{
     components::{
         context_menu::handle_context_menu_action,
@@ -74,7 +75,6 @@ impl CloverApp {
 
         // 将 Config 转为 Arc 以便在 App 中共享
         let config_arc = Arc::new(config);
-
         cc.egui_ctx
             .data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(&config_arc)));
 
@@ -143,9 +143,8 @@ impl CloverApp {
                 save_config(&self.config);
                 // 3. 关键：通知 State 重新加载热键
                 self.state.reload_hotkeys(&self.config);
-
-                // 可选：在这里重新设置 Context 中的 config 数据，确保其他组件也能拿到最新配置
-                ctx.data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(&self.config)));
+                // 在这里重新设置 Context 中的 config 数据，确保其他组件也能拿到最新配置
+                update_context_config(ctx, &self.config);
             }
         }
     }
@@ -153,10 +152,8 @@ impl CloverApp {
 
 impl eframe::App for CloverApp {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
-        // 保持 Config 在 context 中更新
-        ctx.data_mut(|data| data.insert_temp(Id::NULL, Arc::clone(&self.config)));
-
-        // 但一定要区分“每帧检测按键”和“配置变更重载按键”这两个概念。
+        update_context_config(ctx, &self.config);
+        // 定要区分“每帧检测按键”和“配置变更重载按键”这两个概念。
         self.state.process_hotkey_events();
 
         self.handle_background_tasks(ctx);

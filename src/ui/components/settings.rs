@@ -1,7 +1,7 @@
 use egui::{Align, Button, ComboBox, Context, Id, Key, Layout, Modifiers, ScrollArea, Ui};
 
 // 假设这些是你项目中的模块，保持原样
-use crate::i18n::lang::{Language, TextBundle};
+use crate::i18n::lang::{get_i18n_text, Language, TextBundle};
 use crate::model::config::Config;
 use crate::ui::components::modal::{ModalAction, ModalFrame};
 
@@ -76,7 +76,7 @@ fn render_sidebar(ui: &mut Ui, current_tab: &mut SettingsTab, text: &TextBundle)
         if ui.selectable_label(*current_tab == SettingsTab::General, format!("  {}", text.settings_general)).clicked() {
             *current_tab = SettingsTab::General;
         }
-        if ui.selectable_label(*current_tab == SettingsTab::Hotkeys, format!("  {}", "快捷键")).clicked() {
+        if ui.selectable_label(*current_tab == SettingsTab::Hotkeys, format!("  {}", text.settings_shortcut_key)).clicked() {
             *current_tab = SettingsTab::Hotkeys;
         }
         ui.add_space(ui.available_height());
@@ -88,9 +88,9 @@ fn render_content_header(ui: &mut Ui, current_tab: SettingsTab, text: &TextBundl
         ui.add_space(5.0);
         let title = match current_tab {
             SettingsTab::General => &text.settings_general,
-            SettingsTab::Hotkeys => "快捷键",
+            SettingsTab::Hotkeys => &text.settings_shortcut_key,
         };
-        ui.label(egui::RichText::new(format!("设置 > {}", title)).weak());
+        ui.label(egui::RichText::new(format!("{} > {}", text.settings_title, title)).weak());
     });
 }
 
@@ -121,11 +121,11 @@ fn render_content_body(
                 });
             }
             SettingsTab::Hotkeys => {
-                ui.heading("快捷键");
+                ui.heading(text.settings_shortcut_key);
                 ui.add_space(10.0);
 
-                render_hotkey_input(ui, "显示/截图:", &mut config.hotkeys.show_screenshot, recording_state, RecordingState::ShowScreenshot);
-                render_hotkey_input(ui, "复制截图:", &mut config.hotkeys.copy_screenshot, recording_state, RecordingState::CopyScreenshot);
+                render_hotkey_input(ui, format!("{}:", text.shortcut_key_screenshot).as_str(), &mut config.hotkeys.show_screenshot, recording_state, RecordingState::ShowScreenshot);
+                render_hotkey_input(ui, format!("{}:", text.shortcut_key_copy_color).as_str(), &mut config.hotkeys.copy_screenshot, recording_state, RecordingState::CopyScreenshot);
             }
         }
     });
@@ -140,9 +140,9 @@ fn render_hotkey_input(
 ) {
     ui.horizontal(|ui| {
         ui.label(label);
-
+        let text = get_i18n_text(ui.ctx());
         let is_recording = *recording_state == this_recorder;
-        let button_text = if is_recording { "请按下按键..." } else { hotkey_str.as_str() };
+        let button_text = if is_recording { text.shortcut_key_modified } else { hotkey_str.as_str() };
 
         if ui.add_sized([120.0, 20.0], Button::new(button_text)).clicked() {
             *recording_state = if is_recording { RecordingState::None } else { this_recorder };

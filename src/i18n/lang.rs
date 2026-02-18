@@ -46,7 +46,11 @@ pub struct TextBundle {
     pub settings_language: &'static str,
     pub settings_close: &'static str,
     pub settings_apply: &'static str,
+    pub settings_shortcut_key: &'static str,
 
+    pub shortcut_key_screenshot: &'static str,
+    pub shortcut_key_copy_color: &'static str,
+    pub shortcut_key_modified: &'static str,
     // About
     pub about_title: &'static str,
     pub about_desc: &'static str,
@@ -106,6 +110,11 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     settings_close: "关闭",
     settings_apply: "应用",
 
+    settings_shortcut_key: "快捷键",
+    shortcut_key_screenshot: "截图",
+    shortcut_key_copy_color: "复制颜色",
+    shortcut_key_modified: "请按下按键...",
+
     about_title: "关于项目",
     about_desc: "Rust 图片查看器",
     about_github: "GitHub 源码地址",
@@ -155,6 +164,11 @@ pub const EN_TEXT: TextBundle = TextBundle {
     settings_close: "Close",
     settings_apply: "Apply",
 
+    settings_shortcut_key: "Keyboard Shortcut",
+    shortcut_key_screenshot: "Screenshot",
+    shortcut_key_copy_color: "Copy Color",
+    shortcut_key_modified: "Please Press The Key…",
+
     about_title: "About",
     about_desc: "Rust Image Viewer",
     about_github: "GitHub Repository",
@@ -203,6 +217,11 @@ pub const JA_TEXT: TextBundle = TextBundle {
     settings_language: "言語",
     settings_close: "閉じる",
     settings_apply: "設定",
+
+    settings_shortcut_key: "ショートカットキー",
+    shortcut_key_screenshot: "スクリーンショット",
+    shortcut_key_copy_color: "カラーコピー",
+    shortcut_key_modified: "キーを押してください…",
 
     about_title: "プロジェクトについて",
     about_desc: "Rust 画像ビューア",
