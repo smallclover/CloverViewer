@@ -23,6 +23,9 @@ pub struct BusinessData {
     pub failed_thumbs: HashSet<PathBuf>,
     pub loading_thumbs: HashSet<PathBuf>,
     pub current_directory: Option<PathBuf>,
+    pub previous_texture: Option<TextureHandle>,
+    pub transition_start_time: Option<f64>,
+    pub transition_direction: i8,
 }
 
 impl BusinessData {
@@ -41,6 +44,9 @@ impl BusinessData {
             failed_thumbs: HashSet::new(),
             loading_thumbs: HashSet::new(),
             current_directory: None,
+            previous_texture: None,
+            transition_start_time: None,
+            transition_direction: 0,
         }
     }
 
@@ -126,6 +132,16 @@ impl BusinessData {
     }
 
     pub fn process_load_results(&mut self, ctx: &Context) -> bool {
+        // 如果正在进行动画，暂停处理高清图加载，优先保证动画流畅
+        if let Some(start_time) = self.transition_start_time {
+            let now = ctx.input(|i| i.time);
+            // 动画持续时间假设为 0.25s，这里给一点余量 0.3s
+            if now - start_time < 0.3 {
+                // 动画进行中，暂停处理加载结果
+                return false;
+            }
+        }
+
         let mut processed_count = 0;
         let mut should_trigger_preloads = false;
         let mut received_any = false;
@@ -220,12 +236,37 @@ impl BusinessData {
 
     pub fn prev_image(&mut self, ctx: Context) {
         if self.prev().is_some() {
+            self.previous_texture = self.current_texture.clone();
+            self.transition_direction = -1;
+            self.transition_start_time = Some(ctx.input(|i| i.time));
             self.load_current(ctx);
         }
     }
 
     pub fn next_image(&mut self, ctx: Context) {
         if self.next().is_some() {
+            self.previous_texture = self.current_texture.clone();
+            self.transition_direction = 1;
+            self.transition_start_time = Some(ctx.input(|i| i.time));
+            self.load_current(ctx);
+        }
+    }
+
+    pub fn jump_to_index(&mut self, ctx: Context, index: usize) {
+        if index != self.index && index < self.list.len() {
+            self.previous_texture = self.current_texture.clone();
+            // Determine direction
+            if index > self.index {
+                self.transition_direction = 1;
+            } else {
+                self.transition_direction = -1;
+            }
+            // Handle wrap-around case if needed, but simple comparison is usually fine for jump
+            // Or if you want "shortest path" logic, that's more complex.
+            // For now, let's stick to simple index comparison.
+
+            self.transition_start_time = Some(ctx.input(|i| i.time));
+            self.set_index(index);
             self.load_current(ctx);
         }
     }

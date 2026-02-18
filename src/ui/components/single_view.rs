@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui::{
-    Color32, Context, CursorIcon, Image, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder
+    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder, Vec2
 };
 
 use crate::{
@@ -23,8 +23,11 @@ pub fn draw_single_view(
     let rect = ui.available_rect_before_wrap();
     let text = get_i18n_text(ctx);
 
-    if let Some(tex) = data.current_texture.as_ref() {
-        render_image_viewer(ui, tex, data.zoom, data.loader.is_loading);
+    // Clone the texture handle to avoid borrowing `data` while we need to pass `data` mutably to `render_image_viewer`
+    let current_texture = data.current_texture.clone();
+
+    if let Some(tex) = current_texture.as_ref() {
+        render_image_viewer(ui, tex, data);
 
         if ui.input(|i| i.pointer.secondary_clicked()) {
             if let Some(pos) = ui.input(|i| i.pointer.hover_pos()) {
@@ -78,9 +81,10 @@ pub fn draw_single_view(
 fn render_image_viewer(
     ui: &mut Ui,
     tex: &TextureHandle,
-    zoom: f32,
-    is_loading_high_res: bool
+    data: &mut BusinessData,
 ) {
+    let zoom = data.zoom;
+    let is_loading_high_res = data.loader.is_loading;
     let size = tex.size_vec2() * zoom;
     let available_size = ui.available_size();
     let is_draggable = size.x > available_size.x || size.y > available_size.y;
@@ -111,19 +115,87 @@ fn render_image_viewer(
                 ui.vertical(|ui| {
                     ui.add_space(y_offset);
                     let img_rect = ui.allocate_exact_size(size, egui::Sense::hover()).0;
-                    let img_widget = Image::from_texture(tex).fit_to_exact_size(size);
-                    ui.put(img_rect, img_widget);
+
+                    // 动画逻辑
+                    let mut current_offset = Vec2::ZERO;
+                    let mut prev_offset = Vec2::ZERO;
+                    let mut prev_alpha = 0.0;
+                    let mut current_alpha = 1.0;
+
+                    if let Some(start_time) = data.transition_start_time {
+                        let now = ui.input(|i| i.time);
+                        let elapsed = (now - start_time) as f32;
+                        let duration = 0.25; // 动画持续时间
+
+                        if elapsed < duration {
+                            let t = (elapsed / duration).clamp(0.0, 1.0);
+
+                            // 使用 Cubic Bezier (ease-out-cubic)
+                            // t = 1 - (1-t)^3
+                            let ease_t = 1.0 - (1.0 - t).powi(3);
+
+                            let direction = data.transition_direction as f32;
+                            let slide_dist = available_size.x * 0.6; // 增加滑动距离
+
+                            // 视差滑动效果：
+                            // 当前图片从边缘滑入
+                            current_offset.x = slide_dist * direction * (1.0 - ease_t);
+                            current_alpha = ease_t.clamp(0.0, 1.0); // 当前图片淡入
+
+                            // 上一张图片只移动一小段距离 (视差)，并变暗
+                            prev_offset.x = -slide_dist * 0.3 * direction * ease_t;
+                            prev_alpha = 1.0 - ease_t;
+
+                            ui.ctx().request_repaint();
+                        } else {
+                            data.transition_start_time = None;
+                            data.previous_texture = None;
+                        }
+                    }
+
+                    // 绘制上一张图片（如果在动画中）
+                    if let Some(prev_tex) = &data.previous_texture {
+                        if prev_alpha > 0.0 {
+                            let prev_size = prev_tex.size_vec2() * zoom;
+                            let prev_x_offset = (available_size.x - prev_size.x).max(0.0) * 0.5;
+                            let prev_y_offset = (available_size.y - prev_size.y).max(0.0) * 0.5;
+
+                            let content_origin = img_rect.min - egui::vec2(x_offset, y_offset);
+                            let prev_rect = Rect::from_min_size(
+                                content_origin + egui::vec2(prev_x_offset, prev_y_offset) + prev_offset,
+                                prev_size
+                            );
+
+                            let painter = ui.painter();
+                            painter.image(
+                                prev_tex.id(),
+                                prev_rect,
+                                Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                                Color32::WHITE.gamma_multiply(prev_alpha)
+                            );
+                        }
+                    }
+
+                    // 绘制当前图片
+                    let current_rect = img_rect.translate(current_offset);
+                    // 使用 painter 绘制以支持偏移，而不是 widget
+                    ui.painter().image(
+                        tex.id(),
+                        current_rect,
+                        Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                        Color32::WHITE.gamma_multiply(current_alpha)
+                    );
 
                     if fade_alpha > 0.0 {
-                        let painter = ui.painter_at(img_rect);
+                        let painter = ui.painter_at(current_rect);
                         painter.rect_filled(
-                            img_rect,
+                            current_rect,
                             0.0,
                             Color32::BLACK.gamma_multiply(fade_alpha * 0.4)
                         );
                         let spinner_size = 32.0;
                         let spinner_rect = Rect::from_center_size(
-                            img_rect.center(),
+                            current_rect.center(),
                             egui::vec2(spinner_size, spinner_size)
                         );
                         ui.put(spinner_rect, egui::Spinner::new().size(spinner_size).color(Color32::WHITE.gamma_multiply(fade_alpha)));

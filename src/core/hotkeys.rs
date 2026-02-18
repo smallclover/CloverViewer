@@ -137,7 +137,10 @@ fn parse_hotkey_str(hotkey_str: &str) -> Option<HotKey> {
         }
     }
 
-    key_code.map(|code| HotKey::new(Some(modifiers), code))
+    if let Some(code) = key_code {
+        return Some(HotKey::new(Some(modifiers), code));
+    }
+    None
 }
 
 /// 简单的字符串到 Code 的映射

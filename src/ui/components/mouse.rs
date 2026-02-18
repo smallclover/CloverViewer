@@ -2,14 +2,12 @@ use egui::{Context, Key};
 use crate::core::business::BusinessData;
 
 pub fn handle_input_events(ctx: &Context, data: &mut BusinessData) {
-    ctx.input(|i| {
-        if i.key_pressed(Key::ArrowLeft) {
-            data.prev_image(ctx.clone());
-        }
-        if i.key_pressed(Key::ArrowRight) {
-            data.next_image(ctx.clone());
-        }
-    });
+    if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
+        data.prev_image(ctx.clone());
+    }
+    if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
+        data.next_image(ctx.clone());
+    }
     
     if let Some(path) = ctx.input(|i| {
         i.raw

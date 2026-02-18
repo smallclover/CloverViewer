@@ -22,7 +22,7 @@ pub fn show_preview_window(
     if !data.list.is_empty() {
         if let Some(new_idx) = draw_picker(ctx, data) {
             if new_idx != data.index {
-                data.set_index(new_idx);
+                data.jump_to_index(ctx.clone(), new_idx);
                 return true;
             }
         }
