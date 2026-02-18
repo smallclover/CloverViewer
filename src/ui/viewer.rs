@@ -5,7 +5,6 @@ use egui::{
 use rfd::FileDialog;
 use crate::{
     core::business::BusinessData,
-    i18n::lang::get_text,
     model::{
         config::Config,
         state::{ViewMode, ViewState},
@@ -22,6 +21,7 @@ use crate::{
         ui_mode::UiMode,
     },
 };
+use crate::i18n::lang::get_i18n_text;
 use crate::ui::components::{
     grid_view::draw_grid_view,
     single_view::draw_single_view
@@ -91,7 +91,8 @@ pub fn draw_overlays(
     let mut context_menu_action = None;
     let mut modal_action = None;
     let mut new_ui_mode = None;
-    let texts = get_text(temp_config.language);
+
+    let text = get_i18n_text(ctx);
 
     match &mut state.ui_mode {
         UiMode::About => {
@@ -103,7 +104,7 @@ pub fn draw_overlays(
         }
         UiMode::Settings(cfg) => {
             let mut open = true;
-            let mut action = render_settings_window(ctx, &mut open, &texts, cfg);
+            let mut action = render_settings_window(ctx, &mut open, &text, cfg);
 
             if action == ModalAction::Apply {
                 *temp_config = cfg.clone();
@@ -137,7 +138,7 @@ pub fn draw_overlays(
     }
 
     if data.current_texture.is_none() && data.loader.is_loading {
-        global_loading(ctx, texts.loading_parsing.to_string());
+        global_loading(ctx, text.loading_parsing.to_string());
     }
 
     (context_menu_action, modal_action)
