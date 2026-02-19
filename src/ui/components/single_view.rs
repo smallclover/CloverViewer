@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui::{
-    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder, Vec2
+    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder
 };
 
 use crate::{
@@ -117,41 +117,15 @@ fn render_image_viewer(
                     let img_rect = ui.allocate_exact_size(size, egui::Sense::hover()).0;
 
                     // 动画逻辑
-                    let mut current_offset = Vec2::ZERO;
-                    let mut prev_offset = Vec2::ZERO;
-                    let mut prev_alpha = 0.0;
-                    let mut current_alpha = 1.0;
-
-                    if let Some(start_time) = data.transition_start_time {
-                        let now = ui.input(|i| i.time);
-                        let elapsed = (now - start_time) as f32;
-                        let duration = 0.25; // 动画持续时间
-
-                        if elapsed < duration {
-                            let t = (elapsed / duration).clamp(0.0, 1.0);
-
-                            // 使用 Cubic Bezier (ease-out-cubic)
-                            // t = 1 - (1-t)^3
-                            let ease_t = 1.0 - (1.0 - t).powi(3);
-
-                            let direction = data.transition_direction as f32;
-                            let slide_dist = available_size.x * 0.6; // 增加滑动距离
-
-                            // 视差滑动效果：
-                            // 当前图片从边缘滑入
-                            current_offset.x = slide_dist * direction * (1.0 - ease_t);
-                            current_alpha = ease_t.clamp(0.0, 1.0); // 当前图片淡入
-
-                            // 上一张图片只移动一小段距离 (视差)，并变暗
-                            prev_offset.x = -slide_dist * 0.3 * direction * ease_t;
-                            prev_alpha = 1.0 - ease_t;
-
-                            ui.ctx().request_repaint();
-                        } else {
-                            data.transition_start_time = None;
-                            data.previous_texture = None;
-                        }
+                    // 移除过渡动画以消除抖动和淡入淡出效果，实现瞬间切换
+                    if data.transition_start_time.is_some() {
+                        data.transition_start_time = None;
+                        data.previous_texture = None;
                     }
+
+                    let prev_alpha = 0.0;
+                    let current_alpha = 1.0;
+                    let current_scale = 1.0;
 
                     // 绘制上一张图片（如果在动画中）
                     if let Some(prev_tex) = &data.previous_texture {
@@ -162,7 +136,7 @@ fn render_image_viewer(
 
                             let content_origin = img_rect.min - egui::vec2(x_offset, y_offset);
                             let prev_rect = Rect::from_min_size(
-                                content_origin + egui::vec2(prev_x_offset, prev_y_offset) + prev_offset,
+                                content_origin + egui::vec2(prev_x_offset, prev_y_offset),
                                 prev_size
                             );
 
@@ -177,8 +151,12 @@ fn render_image_viewer(
                     }
 
                     // 绘制当前图片
-                    let current_rect = img_rect.translate(current_offset);
-                    // 使用 painter 绘制以支持偏移，而不是 widget
+                    // 计算缩放后的矩形
+                    let scaled_size = size * current_scale;
+                    let center = img_rect.center();
+                    let current_rect = Rect::from_center_size(center, scaled_size);
+
+                    // 使用 painter 绘制
                     ui.painter().image(
                         tex.id(),
                         current_rect,
