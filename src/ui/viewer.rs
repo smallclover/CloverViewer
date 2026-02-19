@@ -36,21 +36,25 @@ pub fn draw_top_panel(
 
     if open_file {
         let sender = state.path_sender.clone();
+        let ctx_clone = ctx.clone();
         std::thread::spawn(move || {
             if let Some(path) = FileDialog::new()
                 .add_filter("Image", SUPPORTED_IMAGE_EXTENSIONS)
                 .pick_file()
             {
                 sender.send(path).ok();
+                ctx_clone.request_repaint();
             }
         });
     }
 
     if open_folder {
         let sender = state.path_sender.clone();
+        let ctx_clone = ctx.clone();
         std::thread::spawn(move || {
             if let Some(path) = FileDialog::new().pick_folder() {
                 sender.send(path).ok();
+                ctx_clone.request_repaint();
             }
         });
     }
