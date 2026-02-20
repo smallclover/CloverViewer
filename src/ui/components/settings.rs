@@ -1,9 +1,10 @@
 use egui::{Align, Button, ComboBox, Context, Id, Key, Layout, Modifiers, ScrollArea, Ui};
 
-// 假设这些是你项目中的模块，保持原样
-use crate::i18n::lang::{get_i18n_text, Language, TextBundle};
-use crate::model::config::Config;
-use crate::ui::components::modal::{ModalAction, ModalFrame};
+use crate::{
+    i18n::lang::{get_i18n_text, Language, TextBundle},
+    model::config::Config,
+    ui::components::modal::{ModalAction, ModalFrame}
+};
 
 #[derive(PartialEq, Clone, Copy, Hash)]
 enum SettingsTab {
@@ -124,56 +125,58 @@ fn render_content_body(
                 ui.heading(text.settings_shortcut_key);
                 ui.add_space(10.0);
 
-                render_hotkey_input(ui, format!("{}:", text.shortcut_key_screenshot).as_str(), &mut config.hotkeys.show_screenshot, recording_state, RecordingState::ShowScreenshot);
-                render_hotkey_input(ui, format!("{}:", text.shortcut_key_copy_color).as_str(), &mut config.hotkeys.copy_screenshot, recording_state, RecordingState::CopyScreenshot);
+                egui::Grid::new("hotkeys_grid")
+                    .num_columns(2)
+                    .spacing([40.0, 10.0])
+                    .striped(true)
+                    .show(ui, |ui| {
+                        render_hotkey_row(ui, &text.shortcut_key_screenshot, &mut config.hotkeys.show_screenshot, recording_state, RecordingState::ShowScreenshot);
+                        render_hotkey_row(ui, &text.shortcut_key_copy_color, &mut config.hotkeys.copy_screenshot, recording_state, RecordingState::CopyScreenshot);
+                    });
             }
         }
     });
 }
 
-fn render_hotkey_input(
+fn render_hotkey_row(
     ui: &mut Ui,
     label: &str,
     hotkey_str: &mut String,
     recording_state: &mut RecordingState,
     this_recorder: RecordingState,
 ) {
-    ui.horizontal(|ui| {
-        ui.label(label);
-        let text = get_i18n_text(ui.ctx());
-        let is_recording = *recording_state == this_recorder;
-        let button_text = if is_recording { text.shortcut_key_modified } else { hotkey_str.as_str() };
+    ui.label(format!("{}:", label));
 
-        if ui.add_sized([120.0, 20.0], Button::new(button_text)).clicked() {
-            *recording_state = if is_recording { RecordingState::None } else { this_recorder };
-        }
+    let text = get_i18n_text(ui.ctx());
+    let is_recording = *recording_state == this_recorder;
+    let button_text = if is_recording { text.shortcut_key_modified } else { hotkey_str.as_str() };
 
-        if is_recording {
-            ui.input(|i| {
-                if i.key_pressed(Key::Escape) {
+    if ui.add_sized([120.0, 20.0], Button::new(button_text)).clicked() {
+        *recording_state = if is_recording { RecordingState::None } else { this_recorder };
+    }
+
+    if is_recording {
+        ui.input(|i| {
+            if i.key_pressed(Key::Escape) {
+                *recording_state = RecordingState::None;
+                return;
+            }
+
+            let modifiers = i.modifiers;
+
+            for event in &i.events {
+                if let egui::Event::Key { key, pressed: true, repeat: false, .. } = event {
+                    *hotkey_str = format_hotkey(modifiers, *key);
                     *recording_state = RecordingState::None;
-                    return;
+                    break;
                 }
-
-                // [修复] 直接使用 modifiers，不需要 is_modifier_key 函数
-                // egui::Key 枚举不包含 Alt/Ctrl 等，它们只在 modifiers 中存在
-                let modifiers = i.modifiers;
-
-                for event in &i.events {
-                    // 只有当按下的键是 Key 枚举中的成员（即普通按键）时才触发
-                    // repeat: false 防止长按重复触发
-                    if let egui::Event::Key { key, pressed: true, repeat: false, .. } = event {
-                        *hotkey_str = format_hotkey(modifiers, *key);
-                        *recording_state = RecordingState::None;
-                        break; // 捕获到按键后停止处理
-                    }
-                }
-            });
-        }
-    });
+            }
+        });
+    }
+    ui.end_row();
 }
 
-/// [修复] 格式化热键字符串
+/// 格式化热键字符串
 fn format_hotkey(modifiers: Modifiers, key: Key) -> String {
     let mut parts = Vec::new();
 
