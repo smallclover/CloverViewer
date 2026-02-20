@@ -5,7 +5,7 @@ use global_hotkey::{
     hotkey::{Code, HotKey, Modifiers},
 };
 use crate::model::config::Config; // 确保引入 Config
-use crate::ui::components::ui_mode::UiMode;
+use crate::ui::mode::UiMode;
 
 pub enum HotkeyAction {
     SetScreenshotMode,

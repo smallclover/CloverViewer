@@ -14,14 +14,12 @@ use crate::{
 };
 use crate::model::config::update_context_config;
 use crate::ui::{
-    components::{
-        context_menu::handle_context_menu_action,
-        modal::ModalAction,
-        properties_panel::draw_properties_panel,
-        resources::APP_FONT,
-        screenshot::{handle_screenshot_system},
-        ui_mode::UiMode,
-    },
+    menus::context_menu::handle_context_menu_action,
+    widgets::modal::ModalAction,
+    panels::properties_panel::draw_properties_panel,
+    resources::APP_FONT,
+    screenshot::capture::handle_screenshot_system,
+    mode::UiMode,
     viewer
 };
 

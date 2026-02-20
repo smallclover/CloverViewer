@@ -6,12 +6,12 @@ use std::thread;
 use std::path::PathBuf;
 use xcap::Monitor;
 use crate::model::state::ViewState;
-use crate::ui::components::screenshot_toolbar::draw_screenshot_toolbar;
-use crate::ui::components::ui_mode::UiMode;
+use crate::ui::screenshot::toolbar::draw_screenshot_toolbar;
+use crate::ui::mode::UiMode;
 use arboard::{Clipboard, ImageData};
 use std::borrow::Cow;
-use crate::ui::components::color_picker::ColorPicker;
-use crate::ui::components::magnifier::draw_magnifier;
+use crate::ui::widgets::color_picker::ColorPicker;
+use crate::ui::view::magnifier::draw_magnifier;
 
 // --- 类型定义 ---
 

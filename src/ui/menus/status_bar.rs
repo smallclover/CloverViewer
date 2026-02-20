@@ -1,7 +1,7 @@
 use egui::{Context, TopBottomPanel};
 use crate::i18n::lang::{get_i18n_text};
 use crate::model::state::{ViewState, ViewMode};
-use crate::ui::components::icons::{draw_icon_button, IconType};
+use crate::ui::widgets::icons::{draw_icon_button, IconType};
 
 pub fn draw_status_bar(
     ctx: &Context,

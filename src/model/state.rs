@@ -5,10 +5,10 @@ use eframe::egui::Context;
 // 引入 Config，因为初始化热键和重载热键都需要读取配置
 use crate::model::config::Config;
 use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
-use crate::ui::components::{
-    toast::{ToastManager, ToastSystem},
-    ui_mode::UiMode,
-    screenshot::ScreenshotState
+use crate::ui::{
+    widgets::toast::{ToastManager, ToastSystem},
+    mode::UiMode,
+    screenshot::capture::ScreenshotState
 };
 
 #[derive(Clone, PartialEq, Debug)]

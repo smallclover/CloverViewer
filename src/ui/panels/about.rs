@@ -1,6 +1,6 @@
 use egui::Context;
 use crate::i18n::lang::get_i18n_text;
-use crate::ui::components::modal::{ModalAction, ModalFrame};
+use crate::ui::widgets::modal::{ModalAction, ModalFrame};
 ///关于窗口
 pub fn render_about_window(ctx: &Context, open: &mut bool) {
 

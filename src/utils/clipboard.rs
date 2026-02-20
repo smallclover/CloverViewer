@@ -7,7 +7,7 @@ use std::{
 };
 use egui::{Color32, Context};
 use crate::{
-    ui::components::toast::ToastManager,
+    ui::widgets::toast::ToastManager,
     i18n::lang::get_i18n_text
 };
 

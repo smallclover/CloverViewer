@@ -31,9 +31,11 @@ pub struct TextBundle {
     pub menu_open_file: &'static str,
     pub menu_open_folder: &'static str,
     pub menu_edit: &'static str,
+    pub menu_help: &'static str,
     pub menu_screenshot: &'static str,
     pub menu_settings: &'static str,
     pub menu_about: &'static str,
+    pub menu_exit: &'static str,
 
     // Context Menu
     pub context_menu_copy: &'static str,
@@ -96,9 +98,11 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     menu_open_file: "打开文件…",
     menu_open_folder: "打开文件夹…",
     menu_edit: "编辑",
+    menu_help: "帮助",
     menu_screenshot: "截图",
     menu_settings: "设置",
     menu_about: "关于",
+    menu_exit: "退出",
 
     context_menu_copy: "复制",
     context_menu_copy_path: "复制路径",
@@ -150,9 +154,11 @@ pub const EN_TEXT: TextBundle = TextBundle {
     menu_open_file: "Open File...",
     menu_open_folder: "Open Folder...",
     menu_edit: "Edit",
+    menu_help: "Help",
     menu_screenshot: "Screenshot",
     menu_settings: "Settings",
     menu_about: "About",
+    menu_exit: "Exit",
 
     context_menu_copy: "Copy",
     context_menu_copy_path: "Copy Path",
@@ -204,9 +210,11 @@ pub const JA_TEXT: TextBundle = TextBundle {
     menu_open_file: "ファイルを開く...",
     menu_open_folder: "フォルダを開く...",
     menu_edit: "編集",
+    menu_help: "ヘルプ",
     menu_screenshot: "スクリーンショット",
     menu_settings: "設定",
     menu_about: "について",
+    menu_exit: "終了",
 
     context_menu_copy: "コピー",
     context_menu_copy_path: "パスコピー",

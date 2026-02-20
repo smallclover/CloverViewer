@@ -10,19 +10,25 @@ use crate::{
         state::{ViewMode, ViewState},
         constants::SUPPORTED_IMAGE_EXTENSIONS
     },
-    ui::components::{
-        about::render_about_window,
-        context_menu::{render_context_menu, ContextMenuAction},
-        loading::global_loading,
-        menu::draw_menu,
-        modal::ModalAction,
-        settings::render_settings_window,
-        status_bar::draw_status_bar,
-        ui_mode::UiMode,
+    ui::{
+        panels::{
+            about::render_about_window,
+            settings::render_settings_window,
+        },
+        menus::{
+            menu::draw_menu,
+            context_menu::{render_context_menu, ContextMenuAction},
+            status_bar::draw_status_bar,
+        },
+        widgets::{
+            loading::global_loading,
+            modal::ModalAction,
+        },
+        mode::UiMode,
     },
 };
 use crate::i18n::lang::get_i18n_text;
-use crate::ui::components::{
+use crate::ui::view::{
     grid_view::draw_grid_view,
     single_view::draw_single_view
 };

@@ -6,11 +6,11 @@ use egui::{
 use crate::{
     core::business::BusinessData,
     model::state::{ViewState},
-    ui::components::{
+    ui::widgets::{
         arrows::{draw_arrows, Nav},
-        preview::show_preview_window,
-        ui_mode::UiMode,
     },
+    ui::view::preview::show_preview_window,
+    ui::mode::UiMode,
 };
 use crate::i18n::lang::get_i18n_text;
 

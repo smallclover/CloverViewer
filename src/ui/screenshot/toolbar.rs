@@ -1,8 +1,8 @@
 use eframe::egui::{self, Color32, Rect, Vec2, Ui, Painter, Layout, Align, Stroke, StrokeKind};
 use egui::{Response, UiBuilder};
 use crate::i18n::lang::{get_i18n_text};
-use crate::ui::components::icons::{draw_icon_button, IconType};
-use super::screenshot::{ScreenshotState, ScreenshotTool, ScreenshotAction};
+use crate::ui::widgets::icons::{draw_icon_button, IconType};
+use super::capture::{ScreenshotState, ScreenshotTool, ScreenshotAction};
 
 pub fn draw_screenshot_toolbar(
     ui: &mut Ui,

@@ -3,7 +3,7 @@ use egui::{Align, Button, ComboBox, Context, Id, Key, Layout, Modifiers, ScrollA
 use crate::{
     i18n::lang::{get_i18n_text, Language, TextBundle},
     model::config::Config,
-    ui::components::modal::{ModalAction, ModalFrame}
+    ui::widgets::modal::{ModalAction, ModalFrame}
 };
 
 #[derive(PartialEq, Clone, Copy, Hash)]

@@ -2,7 +2,7 @@ use egui::{Align, Context, Layout, Ui, CursorIcon};
 use crate::core::business::BusinessData;
 use crate::i18n::lang::{get_i18n_text, TextBundle};
 use crate::model::image_meta::ImageProperties;
-use crate::ui::components::ui_mode::UiMode;
+use crate::ui::mode::UiMode;
 use crate::model::state::ViewState;
 
 pub fn draw_properties_panel(

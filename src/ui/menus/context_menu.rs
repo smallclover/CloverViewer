@@ -5,7 +5,7 @@ use crate::{
         state::ViewState
     },
     utils::clipboard::{copy_image_path_to_clipboard, copy_image_to_clipboard_async},
-    ui::components::ui_mode::UiMode,
+    ui::mode::UiMode,
     i18n::lang::{get_i18n_text},
     core::business::BusinessData
 };
