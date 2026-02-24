@@ -1,17 +1,23 @@
 use eframe::egui::{self, ColorImage, Rect, TextureHandle, Color32, Stroke, Pos2, StrokeKind, ViewportBuilder, ViewportId, ViewportClass, ViewportCommand, Context, Ui};
 use image::{RgbaImage, GenericImage};
-use std::sync::Arc;
-use std::sync::mpsc::{channel, Receiver, TryRecvError};
-use std::thread;
-use std::path::PathBuf;
+use std::{
+    thread,
+    path::PathBuf,
+    borrow::Cow,
+    sync::{
+        Arc,
+        mpsc::{channel, Receiver, TryRecvError},
+    }
+};
 use xcap::Monitor;
 use crate::model::state::ViewState;
-use crate::ui::screenshot::toolbar::draw_screenshot_toolbar;
-use crate::ui::mode::UiMode;
+use crate::ui::{
+    mode::UiMode,
+    screenshot::toolbar::draw_screenshot_toolbar,
+    widgets::color_picker::ColorPicker,
+    view::magnifier::draw_magnifier
+};
 use arboard::{Clipboard, ImageData};
-use std::borrow::Cow;
-use crate::ui::widgets::color_picker::ColorPicker;
-use crate::ui::view::magnifier::draw_magnifier;
 
 // --- 类型定义 ---
 
@@ -108,7 +114,6 @@ pub struct CapturedScreen {
 
 // --- Main System Logic ---
 
-// [注意] 这里增加了 frame 参数，请确保在 app.rs 中调用时传入
 pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, frame: &eframe::Frame) {
     if state.ui_mode != UiMode::Screenshot {
         return;
