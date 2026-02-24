@@ -2,7 +2,7 @@ use egui::Context;
 use serde::{Deserialize, Serialize};
 use crate::model::config::get_context_config;
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Language {
     Zh,
     En,

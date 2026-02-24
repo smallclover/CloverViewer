@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 /// 图片EXIF信息
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ImageProperties {
     pub path: PathBuf,
     pub width: u32,

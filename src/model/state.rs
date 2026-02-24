@@ -11,7 +11,7 @@ use crate::ui::{
     screenshot::capture::ScreenshotState
 };
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq)]
 pub enum ViewMode {
     Single,
     Grid,

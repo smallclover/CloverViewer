@@ -21,7 +21,7 @@ use arboard::{Clipboard, ImageData};
 
 // --- 类型定义 ---
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum ScreenshotAction {
     None,
     Close,
@@ -29,13 +29,13 @@ pub enum ScreenshotAction {
     SaveToClipboard,
 }
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum ScreenshotTool {
     Rect,
     Circle,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct DrawnShape {
     pub tool: ScreenshotTool,
     pub start: Pos2, // 全局物理坐标
@@ -649,7 +649,6 @@ fn handle_capture_process(
 
 fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut ScreenshotState) {
     if final_action == ScreenshotAction::SaveAndClose || final_action == ScreenshotAction::SaveToClipboard {
-        println!("[DEBUG] Save action triggered: {:?}", final_action);
 
         if let Some(selection_phys) = screenshot_state.selection {
             if selection_phys.is_positive() {

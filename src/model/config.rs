@@ -8,7 +8,7 @@ use std::sync::Arc;
 use egui::{Context, Id};
 use crate::i18n::lang::Language;
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct HotkeysConfig {
     pub show_screenshot: String,
     pub copy_screenshot: String,
@@ -23,7 +23,7 @@ impl Default for HotkeysConfig {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Config {
     pub language: Language,
     #[serde(default = "default_zoom_sensitivity")]
