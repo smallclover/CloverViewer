@@ -52,6 +52,12 @@ pub fn draw_magnifier(
     let img_width = image.width() as isize;
     let img_height = image.height() as isize;
 
+    // 使用底层 Mesh 一次性渲染所有像素格，避免 3721 次 UI 绘制调用导致的卡顿
+    let mut mesh = eframe::egui::Mesh::default();
+    // 提前分配内存，防止循环中频繁扩容
+    mesh.reserve_triangles(3721 * 2);
+    mesh.reserve_vertices(3721 * 4);
+
     for dy in -half_grid..=half_grid {
         for dx in -half_grid..=half_grid {
             let src_x = center_phys_x + dx;
@@ -62,15 +68,28 @@ pub fn draw_magnifier(
             } else {
                 Color32::BLACK
             };
+
             let grid_x = (dx + half_grid) as f32;
             let grid_y = (dy + half_grid) as f32;
             let pixel_rect = Rect::from_min_size(
                 card_pos + Vec2::new(grid_x * zoom_pixel_size, grid_y * zoom_pixel_size),
                 Vec2::new(zoom_pixel_size, zoom_pixel_size)
             );
-            painter.rect_filled(pixel_rect, 0.0, color);
+
+            // 手动将矩形顶点推入 Mesh，一次 Draw Call 解决几千个方块
+            let idx = mesh.vertices.len() as u32;
+            mesh.add_triangle(idx, idx + 1, idx + 2);
+            mesh.add_triangle(idx, idx + 2, idx + 3);
+
+            use eframe::egui::epaint::Vertex;
+            mesh.vertices.push(Vertex { pos: pixel_rect.left_top(), uv: Pos2::ZERO, color });
+            mesh.vertices.push(Vertex { pos: pixel_rect.right_top(), uv: Pos2::ZERO, color });
+            mesh.vertices.push(Vertex { pos: pixel_rect.right_bottom(), uv: Pos2::ZERO, color });
+            mesh.vertices.push(Vertex { pos: pixel_rect.left_bottom(), uv: Pos2::ZERO, color });
         }
     }
+    // 将一整个网格添加到画板
+    painter.add(egui::Shape::mesh(mesh));
 
     // --- 5. 绘制十字准星 ---
     let center_grid_idx = half_grid as f32;
@@ -102,11 +121,11 @@ pub fn draw_magnifier(
         card_rect.max
     );
 
-    // // [修改] 白底上的分割线，改成极浅的灰色
-    // painter.line_segment(
-    //     [info_rect.left_top(), info_rect.right_top()],
-    //     Stroke::new(1.0, Color32::from_gray(230))
-    // );
+    // [修改] 白底上的分割线，改成极浅的灰色
+    painter.line_segment(
+        [info_rect.left_top(), info_rect.right_top()],
+        Stroke::new(1.0, Color32::from_gray(230))
+    );
 
     let coord_text = format!("({}, {})", center_phys_x, center_phys_y);
     let hex_text = format!("#{:02X}{:02X}{:02X}", center_color.r(), center_color.g(), center_color.b());
