@@ -7,7 +7,8 @@ use std::{
     sync::{
         Arc,
         mpsc::{channel, Receiver, TryRecvError},
-    }
+    },
+    time::Duration
 };
 use xcap::Monitor;
 use crate::model::state::ViewState;
@@ -634,7 +635,10 @@ fn handle_capture_process(
 
                 ctx.request_repaint();
             }
-            Err(TryRecvError::Empty) => { ctx.request_repaint(); }
+            Err(TryRecvError::Empty) => {
+                // 16ms 定时刷新，减轻GPU压力
+                ctx.request_repaint_after(Duration::from_millis(16));
+            }
             Err(TryRecvError::Disconnected) => {
                 screenshot_state.is_capturing = false;
                 screenshot_state.capture_receiver = None;
@@ -670,6 +674,7 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
 
                     let mut final_image = RgbaImage::new(final_width, final_height);
 
+                    // 1. 拼接底层截图图像
                     for (_, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
                         let intersection = selection_phys.intersect(*monitor_rect_phys);
                         if !intersection.is_positive() { continue; }
@@ -689,63 +694,60 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
                         let _ = final_image.copy_from(&cropped_part, paste_x, paste_y);
                     }
 
-                    for shape in shapes {
-                        let start_x = shape.start.x - selection_phys.min.x;
-                        let start_y = shape.start.y - selection_phys.min.y;
-                        let end_x = shape.end.x - selection_phys.min.x;
-                        let end_y = shape.end.y - selection_phys.min.y;
-                        let rect = Rect::from_two_pos(Pos2::new(start_x, start_y), Pos2::new(end_x, end_y));
+                    // 2. 绘制标注图形 (使用 tiny-skia 进行完美抗锯齿渲染)
+                    // 将 image 的底层缓冲区直接包装为 tiny-skia 的画布
+                    if let Some(mut pixmap) = tiny_skia::PixmapMut::from_bytes(
+                        &mut final_image,
+                        final_width,
+                        final_height,
+                    ) {
+                        for shape in shapes {
+                            let start_x = shape.start.x - selection_phys.min.x;
+                            let start_y = shape.start.y - selection_phys.min.y;
+                            let end_x = shape.end.x - selection_phys.min.x;
+                            let end_y = shape.end.y - selection_phys.min.y;
 
-                        let x0 = rect.min.x.round() as i32;
-                        let y0 = rect.min.y.round() as i32;
-                        let x1 = rect.max.x.round() as i32;
-                        let y1 = rect.max.y.round() as i32;
-                        let color = image::Rgba([shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a()]);
-                        let thickness = shape.stroke_width.round() as i32;
+                            // 确定图形边界，处理反向拖动的情况
+                            let x0 = start_x.min(end_x);
+                            let y0 = start_y.min(end_y);
+                            let width = (start_x - end_x).abs();
+                            let height = (start_y - end_y).abs();
 
-                        match shape.tool {
-                            ScreenshotTool::Rect => {
-                                for x in x0..=x1 {
-                                    for t in 0..thickness {
-                                        if x >= 0 && x < final_width as i32 {
-                                            if y0 + t >= 0 && y0 + t < final_height as i32 { final_image.put_pixel(x as u32, (y0 + t) as u32, color); }
-                                            if y1 - t >= 0 && y1 - t < final_height as i32 { final_image.put_pixel(x as u32, (y1 - t) as u32, color); }
-                                        }
+                            if width <= 0.0 || height <= 0.0 { continue; }
+
+                            // 配置画笔
+                            let mut paint = tiny_skia::Paint::default();
+                            // 注意：egui 颜色和 tiny-skia 的接收方式对应
+                            paint.set_color_rgba8(shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a());
+                            paint.anti_alias = true; // 开启抗锯齿
+
+                            // 配置笔触 (描边粗细)
+                            let stroke = tiny_skia::Stroke {
+                                width: shape.stroke_width,
+                                line_cap: tiny_skia::LineCap::Round,
+                                line_join: tiny_skia::LineJoin::Round,
+                                ..Default::default()
+                            };
+
+                            let transform = tiny_skia::Transform::identity();
+
+                            // 仅当能正确构建有效矩形时才进行绘制
+                            if let Some(rect) = tiny_skia::Rect::from_xywh(x0, y0, width, height) {
+                                match shape.tool {
+                                    ScreenshotTool::Rect => {
+                                        let path = tiny_skia::PathBuilder::from_rect(rect);
+                                        pixmap.stroke_path(&path, &paint, &stroke, transform, None);
                                     }
-                                }
-                                for y in y0..=y1 {
-                                    for t in 0..thickness {
-                                        if y >= 0 && y < final_height as i32 {
-                                            if x0 + t >= 0 && x0 + t < final_width as i32 { final_image.put_pixel((x0 + t) as u32, y as u32, color); }
-                                            if x1 - t >= 0 && x1 - t < final_width as i32 { final_image.put_pixel((x1 - t) as u32, y as u32, color); }
-                                        }
-                                    }
-                                }
-                            }
-                            ScreenshotTool::Circle => {
-                                let center_x = (x0 + x1) as f32 / 2.0;
-                                let center_y = (y0 + y1) as f32 / 2.0;
-                                let a = (x1 - x0).abs() as f32 / 2.0;
-                                let b = (y1 - y0).abs() as f32 / 2.0;
-                                if a > 0.0 && b > 0.0 {
-                                    for x in x0..=x1 {
-                                        for y in y0..=y1 {
-                                            let dx = x as f32 - center_x;
-                                            let dy = y as f32 - center_y;
-                                            let dist = (dx * dx) / (a * a) + (dy * dy) / (b * b);
-                                            let a_in = a - thickness as f32;
-                                            let b_in = b - thickness as f32;
-                                            let dist_in = if a_in > 0.0 && b_in > 0.0 { (dx * dx) / (a_in * a_in) + (dy * dy) / (b_in * b_in) } else { 2.0 };
-                                            if dist <= 1.0 && dist_in >= 1.0 {
-                                                if x >= 0 && x < final_width as i32 && y >= 0 && y < final_height as i32 { final_image.put_pixel(x as u32, y as u32, color); }
-                                            }
-                                        }
+                                    ScreenshotTool::Circle => {
+                                        let path = tiny_skia::PathBuilder::from_oval(rect).unwrap();
+                                        pixmap.stroke_path(&path, &paint, &stroke, transform, None);
                                     }
                                 }
                             }
                         }
                     }
 
+                    // 3. 执行保存或复制动作
                     if final_action == ScreenshotAction::SaveAndClose {
                         if let Ok(profile) = std::env::var("USERPROFILE") {
                             let desktop = PathBuf::from(profile).join("Desktop");
