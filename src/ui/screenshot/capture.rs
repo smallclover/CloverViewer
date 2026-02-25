@@ -1,25 +1,24 @@
-use eframe::egui::{self, ColorImage, Rect, TextureHandle, Color32, Stroke, Pos2, StrokeKind, ViewportBuilder, ViewportId, ViewportClass, ViewportCommand, Context, Ui};
-use image::{RgbaImage, GenericImage};
+use eframe::egui::{self, Color32, ColorImage, Context, Pos2, Rect, Stroke, StrokeKind, TextureHandle, Ui, ViewportBuilder, ViewportClass, ViewportCommand, ViewportId};
+use image::{GenericImage, RgbaImage};
 use std::{
-    thread,
-    path::PathBuf,
     borrow::Cow,
+    path::PathBuf,
     sync::{
-        Arc,
         mpsc::{channel, Receiver, TryRecvError},
+        Arc,
     },
+    thread,
     time::Duration
 };
 use xcap::Monitor;
 use crate::model::state::ViewState;
 use crate::ui::{
     mode::UiMode,
-    screenshot::toolbar::draw_screenshot_toolbar,
-    widgets::color_picker::ColorPicker,
-    view::magnifier::draw_magnifier
+    screenshot::toolbar::draw_screenshot_toolbar
 };
 use arboard::{Clipboard, ImageData};
-
+use crate::ui::screenshot::color_picker::ColorPicker;
+use crate::ui::screenshot::magnifier::draw_magnifier;
 // --- 类型定义 ---
 
 #[derive(PartialEq, Clone, Copy)]
@@ -52,9 +51,14 @@ pub struct ScreenshotState {
     pub drag_start: Option<Pos2>,
     pub toolbar_pos: Option<Pos2>,
 
+    // [新增] 用于窗口自动吸附
+    pub window_rects: Vec<Rect>,
+    pub hovered_window: Option<Rect>,
+
     // Async capture state
     pub is_capturing: bool,
-    pub capture_receiver: Option<Receiver<Vec<CapturedScreen>>>,
+    // [修改] 管道类型加上 Vec<Rect> 来接收窗口数据
+    pub capture_receiver: Option<Receiver<(Vec<CapturedScreen>, Vec<Rect>)>>,
 
     // Toolbar state
     pub current_tool: Option<ScreenshotTool>,
@@ -80,6 +84,8 @@ impl Default for ScreenshotState {
             selection: None,
             drag_start: None,
             toolbar_pos: None,
+            window_rects: Vec::new(),
+            hovered_window: None,
             is_capturing: false,
             capture_receiver: None,
             current_tool: None,
@@ -228,8 +234,34 @@ pub fn draw_screenshot_ui(
             let screen_offset_phys = Pos2::new(screen_info.x as f32, screen_info.y as f32);
             let ppp = ctx.pixels_per_point();
 
+            // [新增] 3. 动态计算当前悬停的窗口
+            state.hovered_window = None; // 每一帧重置
+            let is_hovered = ui.rect_contains_pointer(ui.max_rect());
+
+            if is_hovered && state.selection.is_none() && state.drag_start.is_none() {
+                if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
+                    let global_pointer_phys = screen_offset_phys + (pointer_pos.to_vec2() * ppp);
+
+                    // 遍历所有窗口 (通常是按 Z-order 从顶到底)
+                    for rect in &state.window_rects {
+                        if rect.contains(global_pointer_phys) {
+                            // 检查是否为全屏/桌面 (如果接近显示器大小，就不视为特殊窗口)
+                            let is_fullscreen = (rect.width() - screen_info.width as f32).abs() < 5.0
+                                && (rect.height() - screen_info.height as f32).abs() < 5.0;
+                            if !is_fullscreen {
+                                state.hovered_window = Some(*rect);
+                            }
+                            break; // 找到最顶层包含鼠标的窗口即跳出
+                        }
+                    }
+                }
+            }
+            if state.selection.is_none() && state.drag_start.is_none() { needs_repaint = true; }
+
             // 3. 预先计算工具栏位置
             let local_toolbar_rect = calculate_toolbar_rect(state, screen_offset_phys, ppp);
+
+
 
             // 4. 处理交互
             if handle_interaction(ui, state, screen_offset_phys, ppp, local_toolbar_rect) {
@@ -237,7 +269,7 @@ pub fn draw_screenshot_ui(
             }
 
             // 5. 渲染画布元素
-            render_canvas_elements(ui, state, screen_offset_phys, ppp);
+            render_canvas_elements(ui, state, screen_offset_phys, ppp, is_hovered);
 
             // 6. 渲染工具栏
             if let Some(rect) = local_toolbar_rect {
@@ -327,7 +359,20 @@ fn handle_interaction(
     toolbar_rect: Option<Rect>,
 ) -> bool {
     let mut needs_repaint = false;
-    let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::drag());
+    let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::click_and_drag());
+
+    // [新增] 处理单击事件：直接将悬停窗口转换为选区
+    if response.clicked() {
+        if state.current_tool.is_none() && state.hovered_window.is_some() {
+            state.selection = state.hovered_window;
+            // 将工具栏放在窗口右下角
+            if let Some(sel) = state.selection {
+                state.toolbar_pos = Some(sel.right_bottom());
+            }
+            needs_repaint = true;
+            return needs_repaint; // 点击后直接返回，不走拖拽逻辑
+        }
+    }
 
     if let Some(press_pos) = response.interact_pointer_pos() {
         let is_clicking_toolbar = toolbar_rect.map_or(false, |r| r.contains(press_pos));
@@ -406,6 +451,7 @@ fn render_canvas_elements(
     state: &ScreenshotState,
     screen_offset_phys: Pos2,
     ppp: f32,
+    is_hovered: bool,
 ) {
     let painter = ui.painter();
     let viewport_rect = ui.ctx().viewport_rect();
@@ -499,9 +545,44 @@ fn render_canvas_elements(
         }
     }
 
-    if state.selection.is_none() && state.current_shape_start.is_none() {
-        let inset_rect = full_rect.shrink(4.0);
-        paint_style_box(painter, inset_rect, 3.0);
+    // [修改最末尾的部分] 当没有形成选区，也没有正在拖拽绘制时
+    if state.selection.is_none() && state.current_shape_start.is_none() && state.drag_start.is_none() {
+        if is_hovered {
+            if let Some(hover_phys_rect) = state.hovered_window {
+                // 鼠标在具体的小窗口上，周围打上灰色遮罩，窗口亮起并加上绿框
+                let vec_min = hover_phys_rect.min - screen_offset_phys;
+                let vec_max = hover_phys_rect.max - screen_offset_phys;
+
+                let local_logical_rect = Rect::from_min_max(
+                    Pos2::ZERO + (vec_min / ppp),
+                    Pos2::ZERO + (vec_max / ppp),
+                );
+
+                let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
+                let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
+
+                if clipped_local_sel.is_positive() {
+                    let top = Rect::from_min_max(screen_rect_local.min, Pos2::new(screen_rect_local.max.x, clipped_local_sel.min.y));
+                    let bottom = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.max.y), screen_rect_local.max);
+                    let left = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.min.y), Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y));
+                    let right = Rect::from_min_max(Pos2::new(clipped_local_sel.max.x, clipped_local_sel.min.y), Pos2::new(screen_rect_local.max.x, clipped_local_sel.max.y));
+
+                    painter.rect_filled(top, 0.0, overlay_color);
+                    painter.rect_filled(bottom, 0.0, overlay_color);
+                    painter.rect_filled(left, 0.0, overlay_color);
+                    painter.rect_filled(right, 0.0, overlay_color);
+
+                    paint_style_box(painter, clipped_local_sel, 2.0);
+                }
+            } else {
+                // 鼠标在桌面上或全屏窗口上：没有遮罩，整个显示器边缘绿框
+                let inset_rect = full_rect.shrink(4.0);
+                paint_style_box(painter, inset_rect, 3.0);
+            }
+        } else {
+            // 鼠标不在当前屏幕：全屏半透明灰色遮罩
+            painter.rect_filled(viewport_rect, 0.0, overlay_color);
+        }
     }
 }
 
@@ -618,15 +699,41 @@ fn handle_capture_process(
                 handles.into_iter().filter_map(|h| h.join().unwrap_or(None)).collect()
             });
 
-            let _ = tx.send(captures);
+            // [新增] 捕获当前所有可见窗口的物理边界
+            let mut window_rects = Vec::new();
+            if let Ok(windows) = xcap::Window::all() {
+                for w in windows {
+                    // 只记录可见、未最小化的窗口
+                    if !w.is_minimized().unwrap() {
+                        let app_name = w.app_name().unwrap_or_default().to_lowercase();
+
+                        // 过滤掉我们自己的程序 "CloverViewer" (避免悬停在自己生成的透明蒙版上)
+                        if app_name.contains("cloverviewer") || app_name.contains("screenshot") {
+                            continue;
+                        }
+
+                        let rect = Rect::from_min_size(
+                            Pos2::new(w.x().unwrap() as f32, w.y().unwrap() as f32),
+                            egui::vec2(w.width().unwrap() as f32, w.height().unwrap() as f32)
+                        );
+                        // 忽略尺寸太小的幽灵窗口
+                        if rect.width() > 50.0 && rect.height() > 50.0 {
+                            window_rects.push(rect);
+                        }
+                    }
+                }
+            }
+
+            let _ = tx.send((captures, window_rects));
             ctx_clone.request_repaint();
         });
     }
 
     if let Some(rx) = &screenshot_state.capture_receiver {
         match rx.try_recv() {
-            Ok(captures) => {
+            Ok((captures, window_rects)) => {
                 screenshot_state.captures = captures;
+                screenshot_state.window_rects = window_rects; // 保存窗口边界
                 screenshot_state.is_capturing = false;
                 screenshot_state.capture_receiver = None;
 

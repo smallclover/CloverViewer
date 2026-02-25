@@ -5,14 +5,13 @@ use egui::{
 
 use crate::{
     core::business::BusinessData,
-    model::state::{ViewState},
-    ui::widgets::{
-        arrows::{draw_arrows, Nav},
-    },
-    ui::view::preview::show_preview_window,
+    model::state::ViewState
+    ,
     ui::mode::UiMode,
+    ui::view::preview::show_preview_window,
 };
 use crate::i18n::lang::get_i18n_text;
+use crate::ui::view::arrows::{draw_arrows, Nav};
 
 pub fn draw_single_view(
     ctx: &Context,

@@ -12,18 +12,12 @@ pub fn draw_magnifier(
 ) {
     let text = get_i18n_text(ui.ctx());
     // --- 1. 参数调整 ---
-    // 下面的参数可以调节放大倍率和显示状态
-    //>>
-    let pixel_grid_size = 60;
-    //<<
+    let pixel_grid_size = 61;
     let zoom_pixel_size = 3.0;
-    let half_grid = pixel_grid_size / 2;
+    let half_grid = pixel_grid_size / 2; // 61 / 2 还是 30
 
     let magnifier_size = pixel_grid_size as f32 * zoom_pixel_size;
-
-    // [修改点 1] 增加信息栏高度，以容纳提示文字 (46.0 -> 64.0)
     let info_bar_height = 64.0;
-
     let card_size = Vec2::new(magnifier_size, magnifier_size + info_bar_height);
 
     // --- 2. 计算卡片位置 ---
@@ -41,16 +35,17 @@ pub fn draw_magnifier(
     let card_rect = Rect::from_min_size(card_pos, card_size);
 
     // --- 3. 绘制卡片背景和边框 ---
-    painter.rect_filled(card_rect, 4.0, Color32::from_rgb(30, 30, 30));
+    // [修改] 背景改成纯白
+    painter.rect_filled(card_rect, 4.0, Color32::WHITE);
+    // [修改] 边框改成一点点灰色 (由深灰改为了浅灰 200)
     painter.rect_stroke(
         card_rect,
         4.0,
-        Stroke::new(1.0, Color32::from_gray(100)),
-        StrokeKind::Inside
+        Stroke::new(1.0, Color32::from_gray(200)),
+        StrokeKind::Outside
     );
 
     // --- 4. 绘制上半部分：像素放大镜 ---
-    // ... (这部分像素绘制逻辑保持不变，为了节省篇幅省略，请保留原有的网格遍历代码) ...
     let magnifier_rect = Rect::from_min_size(card_pos, Vec2::new(magnifier_size, magnifier_size));
     let center_phys_x = (pointer_pos.x * ppp).round() as isize;
     let center_phys_y = (pointer_pos.y * ppp).round() as isize;
@@ -107,21 +102,21 @@ pub fn draw_magnifier(
         card_rect.max
     );
 
-    painter.line_segment(
-        [info_rect.left_top(), info_rect.right_top()],
-        Stroke::new(1.0, Color32::from_gray(60))
-    );
+    // // [修改] 白底上的分割线，改成极浅的灰色
+    // painter.line_segment(
+    //     [info_rect.left_top(), info_rect.right_top()],
+    //     Stroke::new(1.0, Color32::from_gray(230))
+    // );
 
     let coord_text = format!("({}, {})", center_phys_x, center_phys_y);
     let hex_text = format!("#{:02X}{:02X}{:02X}", center_color.r(), center_color.g(), center_color.b());
 
-    let text_color = Color32::WHITE;
-    let hint_color = Color32::from_gray(180); // 提示文字用灰色
+    // [修改] 字体颜色适配白底
+    let text_color = Color32::from_rgb(40, 40, 40); // 深灰色（接近黑）文字
+    let hint_color = Color32::from_gray(150);       // 中灰色提示文字
     let font_id = FontId::proportional(12.0);
-    // 提示文字稍微小一点
     let hint_font_id = FontId::proportional(10.0);
 
-    // 布局计算：将信息栏分为三行 (大概)
     let line_height = info_bar_height / 3.0;
 
     // 第一行：坐标 (POS)
@@ -153,9 +148,10 @@ pub fn draw_magnifier(
         Vec2::new(color_preview_size, color_preview_size)
     );
     painter.rect_filled(color_preview_rect, 2.0, center_color);
-    painter.rect_stroke(color_preview_rect, 2.0, Stroke::new(1.0, Color32::WHITE), StrokeKind::Inside);
+    // [修改] 颜色预览块的边框也改成灰色，防止白色预览块融进白底
+    painter.rect_stroke(color_preview_rect, 2.0, Stroke::new(1.0, Color32::from_gray(200)), StrokeKind::Outside);
 
-    // [修改点 2] 第三行：提示文字
+    // 第三行：提示文字
     painter.text(
         Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 2.5),
         Align2::LEFT_CENTER,
