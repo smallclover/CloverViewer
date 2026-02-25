@@ -256,7 +256,13 @@ pub fn draw_screenshot_ui(
                     }
                 }
             }
-            if state.selection.is_none() && state.drag_start.is_none() { needs_repaint = true; }
+
+            // 仅当鼠标真正移动时才触发重绘，避免 GPU 无限满载发热
+            if state.selection.is_none() && state.drag_start.is_none() {
+                if ui.input(|i| i.pointer.is_moving()) {
+                    needs_repaint = true;
+                }
+            }
 
             // 3. 预先计算工具栏位置
             let local_toolbar_rect = calculate_toolbar_rect(state, screen_offset_phys, ppp);
@@ -657,66 +663,56 @@ fn handle_capture_process(
         let ctx_clone = ctx.clone();
 
         thread::spawn(move || {
-            // 这里只需要极短的等待，甚至不需要 sleep，因为 API 设置是瞬时的
-            // 为了保险起见，给一点点 buffer 时间
-            thread::sleep(std::time::Duration::from_millis(50));
-            println!("[DEBUG] Capturing screens in background...");
+            // 给 API 设置一点生效缓冲
+            thread::sleep(Duration::from_millis(50));
+            println!("[DEBUG] Capturing screens and windows in background...");
 
-            let count = match Monitor::all() {
-                Ok(monitors) => monitors.len(),
-                Err(e) => { eprintln!("Failed to list monitors: {}", e); return; }
-            };
+            // 1. 获取所有显示器画面 (单线程顺序执行)
+            let mut captures = Vec::new();
+            if let Ok(monitors) = Monitor::all() {
+                for monitor in monitors {
+                    if let (Ok(image), Ok(width)) = (monitor.capture_image(), monitor.width()) {
+                        if width == 0 { continue; }
 
-            let captures: Vec<CapturedScreen> = thread::scope(|s| {
-                let mut handles = vec![];
-                for i in 0..count {
-                    handles.push(s.spawn(move || {
-                        let monitors = Monitor::all().ok()?;
-                        if i >= monitors.len() { return None; }
-                        let monitor = &monitors[i];
+                        let color_image = ColorImage::from_rgba_unmultiplied(
+                            [image.width() as usize, image.height() as usize],
+                            &image,
+                        );
 
-                        if let (Ok(image), Ok(width)) = (monitor.capture_image(), monitor.width()) {
-                            if width == 0 { return None; }
-                            let color_image = ColorImage::from_rgba_unmultiplied(
-                                [image.width() as usize, image.height() as usize],
-                                &image,
-                            );
-                            let info = MonitorInfo {
-                                name: monitor.name().unwrap_or_default(),
-                                x: monitor.x().unwrap_or(0),
-                                y: monitor.y().unwrap_or(0),
-                                width: monitor.width().unwrap_or(0),
-                                height: monitor.height().unwrap_or(0),
-                                scale_factor: monitor.scale_factor().unwrap_or(1.0),
-                            };
-                            Some(CapturedScreen { raw_image: Arc::new(image), image: color_image, screen_info: info, texture: None })
-                        } else {
-                            eprintln!("[ERROR] Failed to capture monitor {}", i);
-                            None
-                        }
-                    }));
+                        let info = MonitorInfo {
+                            name: monitor.name().unwrap_or_default(),
+                            x: monitor.x().unwrap_or(0),
+                            y: monitor.y().unwrap_or(0),
+                            width: monitor.width().unwrap_or(0),
+                            height: monitor.height().unwrap_or(0),
+                            scale_factor: monitor.scale_factor().unwrap_or(1.0),
+                        };
+
+                        captures.push(CapturedScreen {
+                            raw_image: Arc::new(image),
+                            image: color_image,
+                            screen_info: info,
+                            texture: None
+                        });
+                    }
                 }
-                handles.into_iter().filter_map(|h| h.join().unwrap_or(None)).collect()
-            });
+            }
 
-            // [新增] 捕获当前所有可见窗口的物理边界
+            // 2. 捕获当前所有可见窗口的物理边界
             let mut window_rects = Vec::new();
             if let Ok(windows) = xcap::Window::all() {
                 for w in windows {
-                    // 只记录可见、未最小化的窗口
-                    if !w.is_minimized().unwrap() {
+                    if !w.is_minimized().unwrap_or(true) {
                         let app_name = w.app_name().unwrap_or_default().to_lowercase();
-
-                        // 过滤掉我们自己的程序 "CloverViewer" (避免悬停在自己生成的透明蒙版上)
+                        // 过滤掉我们自己
                         if app_name.contains("cloverviewer") || app_name.contains("screenshot") {
                             continue;
                         }
 
                         let rect = Rect::from_min_size(
-                            Pos2::new(w.x().unwrap() as f32, w.y().unwrap() as f32),
-                            egui::vec2(w.width().unwrap() as f32, w.height().unwrap() as f32)
+                            Pos2::new(w.x().unwrap_or(0) as f32, w.y().unwrap_or(0) as f32),
+                            egui::vec2(w.width().unwrap_or(0) as f32, w.height().unwrap_or(0) as f32)
                         );
-                        // 忽略尺寸太小的幽灵窗口
                         if rect.width() > 50.0 && rect.height() > 50.0 {
                             window_rects.push(rect);
                         }
@@ -724,6 +720,7 @@ fn handle_capture_process(
                 }
             }
 
+            // 发送数据并请求主线程重绘
             let _ = tx.send((captures, window_rects));
             ctx_clone.request_repaint();
         });
