@@ -72,15 +72,9 @@ impl CloverApp {
 
 
         let tray_menu = Menu::new();
-        // 2. 创建常规的菜单项
-        let item_show = MenuItem::new("显示主界面", true, None);
-        let item_show_id = item_show.id().clone();
-        let item_hidden = MenuItem::new("隐藏主界面", true, None);
-        let item_hidden_id = item_hidden.id().clone();
+        // 创建常规的菜单项
         let item_exit = MenuItem::new("退出", true, None);
-        tray_menu.append(&item_show).unwrap();
-        tray_menu.append(&PredefinedMenuItem::separator()).unwrap(); // 添加一条分割线
-        tray_menu.append(&item_hidden).unwrap();
+        let item_exit_id = item_exit.id().clone();
         tray_menu.append(&PredefinedMenuItem::separator()).unwrap(); // 添加一条分割线
         tray_menu.append(&item_exit).unwrap();
 
@@ -88,6 +82,7 @@ impl CloverApp {
             .with_icon(load_tray_icon())
             .with_tooltip("CloverViewer")
             .with_menu(Box::new(tray_menu))
+            .with_menu_on_left_click(false)
             .build()
             .expect("Failed to build tray icon");
 
@@ -105,42 +100,23 @@ impl CloverApp {
         };
         let hwnd_isize = handle.hwnd.get();
 
-        // TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-        //     if let TrayIconEvent::Click { button: MouseButton::Right, button_state: MouseButtonState::Up, .. } = event {
-        //
-        //         // 3. 在闭包内使用克隆的 Arc
-        //         let mut vis = visible_for_tray.lock().unwrap();
-        //         let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
-        //         if *vis {
-        //             unsafe { ShowWindow(window_handle, SW_HIDE); }
-        //             *vis = false;
-        //         } else {
-        //             unsafe { ShowWindow(window_handle, SW_RESTORE); }
-        //             *vis = true;
-        //         }
-        //     }
-        // }));
-
-
-        MenuEvent::set_event_handler(Some(move |event: MenuEvent|{
-            if event.id == item_show_id {
-                let mut vis = visible_for_tray_menu.lock().unwrap();
+        // 托盘图标处理
+        TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
+            if let TrayIconEvent::Click { button:MouseButton::Left, button_state:MouseButtonState::Up, .. } = event {
+                let mut vis = visible_for_tray.lock().unwrap();
                 let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
                 if !*vis {
                     unsafe { ShowWindow(window_handle, SW_RESTORE); }
                     *vis = true;
                 }
             }
+        }));
 
-            if event.id == item_hidden_id {
-                let mut vis = visible_for_tray_menu.lock().unwrap();
-                let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
-                if *vis {
-                    unsafe { ShowWindow(window_handle, SW_HIDE); }
-                    *vis = false;
-                }
+        let ctx = cc.egui_ctx.clone();
+        MenuEvent::set_event_handler(Some(move |event: MenuEvent|{
+            if event.id == item_exit_id {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }
-
         }));
 
         // 2. 加载配置
