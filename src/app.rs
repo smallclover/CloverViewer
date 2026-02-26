@@ -5,6 +5,12 @@ use std::{
     sync::Arc,
     env
 };
+use std::sync::Mutex;
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent, TrayIcon, MouseButton};
+use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_RESTORE};
 use crate::{
     core::{business::BusinessData},
     model::{
@@ -23,7 +29,7 @@ use crate::ui::{
     viewer
 };
 
-use crate::utils::image::load_icon;
+use crate::utils::image::{load_icon, load_tray_icon};
 
 pub fn run() -> eframe::Result<()> {
     let mut options = eframe::NativeOptions {
@@ -50,6 +56,7 @@ pub struct CloverApp {
     data: BusinessData,
     state: ViewState,
     config: Arc<Config>,
+    _tray_icon: TrayIcon,// 持有托盘实例
 }
 
 impl CloverApp {
@@ -63,12 +70,84 @@ impl CloverApp {
         fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "my_font".to_owned());
         cc.egui_ctx.set_fonts(fonts);
 
+
+        let tray_menu = Menu::new();
+        // 2. 创建常规的菜单项
+        let item_show = MenuItem::new("显示主界面", true, None);
+        let item_show_id = item_show.id().clone();
+        let item_hidden = MenuItem::new("隐藏主界面", true, None);
+        let item_hidden_id = item_hidden.id().clone();
+        let item_exit = MenuItem::new("退出", true, None);
+        tray_menu.append(&item_show).unwrap();
+        tray_menu.append(&PredefinedMenuItem::separator()).unwrap(); // 添加一条分割线
+        tray_menu.append(&item_hidden).unwrap();
+        tray_menu.append(&PredefinedMenuItem::separator()).unwrap(); // 添加一条分割线
+        tray_menu.append(&item_exit).unwrap();
+
+        let tray_icon = TrayIconBuilder::new()
+            .with_icon(load_tray_icon())
+            .with_tooltip("CloverViewer")
+            .with_menu(Box::new(tray_menu))
+            .build()
+            .expect("Failed to build tray icon");
+
+        // 1. 用 let 声明一个 Arc 包装的 Mutex
+        let visible = Arc::new(Mutex::new(true));
+
+        // 2. 克隆给托盘和快捷键回调闭包使用
+        let visible_for_tray = Arc::clone(&visible);
+        let visible_for_tray_menu = Arc::clone(&visible);
+        let visible_for_hotkey = Arc::clone(&visible);
+
+        // 获取原生句柄并转为 isize 以支持跨线程
+        let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
+            panic!("Unsupported platform");
+        };
+        let hwnd_isize = handle.hwnd.get();
+
+        // TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
+        //     if let TrayIconEvent::Click { button: MouseButton::Right, button_state: MouseButtonState::Up, .. } = event {
+        //
+        //         // 3. 在闭包内使用克隆的 Arc
+        //         let mut vis = visible_for_tray.lock().unwrap();
+        //         let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
+        //         if *vis {
+        //             unsafe { ShowWindow(window_handle, SW_HIDE); }
+        //             *vis = false;
+        //         } else {
+        //             unsafe { ShowWindow(window_handle, SW_RESTORE); }
+        //             *vis = true;
+        //         }
+        //     }
+        // }));
+
+
+        MenuEvent::set_event_handler(Some(move |event: MenuEvent|{
+            if event.id == item_show_id {
+                let mut vis = visible_for_tray_menu.lock().unwrap();
+                let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
+                if !*vis {
+                    unsafe { ShowWindow(window_handle, SW_RESTORE); }
+                    *vis = true;
+                }
+            }
+
+            if event.id == item_hidden_id {
+                let mut vis = visible_for_tray_menu.lock().unwrap();
+                let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
+                if *vis {
+                    unsafe { ShowWindow(window_handle, SW_HIDE); }
+                    *vis = false;
+                }
+            }
+
+        }));
+
         // 2. 加载配置
         let config = load_config(); // 先加载为普通 Config 结构体
 
         // 3. 初始化 State (现在需要传入 config 来注册初始热键)
-        // [修改点 1] ViewState::new 现在接受 &Config
-        let state = ViewState::new(&cc.egui_ctx, &config);
+        let state = ViewState::new(&cc.egui_ctx, &config, visible_for_hotkey, hwnd_isize);
 
         // 将 Config 转为 Arc 以便在 App 中共享
         let config_arc = Arc::new(config);
@@ -79,6 +158,7 @@ impl CloverApp {
             data: BusinessData::new(),
             state, // 使用上面初始化的 state
             config: config_arc,
+            _tray_icon: tray_icon,           // 赋值给结构体持有
         };
 
         if let Some(path) = start_path {

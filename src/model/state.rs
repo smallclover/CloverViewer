@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use eframe::egui::Context;
-
 // 引入 Config，因为初始化热键和重载热键都需要读取配置
 use crate::model::config::Config;
 use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
@@ -34,12 +34,13 @@ pub struct ViewState {
 
     // 热键管理器 (私有，通过 ViewState 的方法操作)
     hotkey_manager: HotkeyManager,
+
 }
 
 impl ViewState {
     /// 初始化 ViewState
     /// 注意：这里增加了 `config` 参数，用于初始化 HotkeyManager
-    pub fn new(ctx: &Context, config: &Config) -> Self {
+    pub fn new(ctx: &Context, config: &Config, is_visible: Arc<Mutex<bool>>, hwnd: isize) -> Self {
         let toast_system = ToastSystem::new();
         let toast_manager = toast_system.manager();
         let (path_sender, path_receiver) = mpsc::channel();
@@ -53,7 +54,7 @@ impl ViewState {
             toast_manager,
             screenshot_state: ScreenshotState::default(),
             // 使用 config 初始化 hotkey_manager，注册初始快捷键
-            hotkey_manager: HotkeyManager::new(ctx, config),
+            hotkey_manager: HotkeyManager::new(ctx, config, is_visible, hwnd),
         }
     }
 

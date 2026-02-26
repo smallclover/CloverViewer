@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 use rayon::prelude::*;
+use tray_icon::Icon;
 use crate::model::constants;
 use crate::ui::resources::APP_IMG;
 
@@ -36,4 +37,16 @@ pub fn load_icon()-> egui::IconData {
         width: w,
         height: h,
     }
+}
+
+pub fn load_tray_icon() -> Icon {
+    let img = image::load_from_memory(APP_IMG)
+        .expect("无法读取内嵌图标")
+        .resize_exact(16, 16, image::imageops::FilterType::Lanczos3)
+        .into_rgba8();
+
+    let (w, h) = img.dimensions();
+
+    Icon::from_rgba(img.into_raw(), w, h)
+        .expect("Failed to create tray icon")
 }

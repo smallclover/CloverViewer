@@ -1,9 +1,8 @@
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, Mutex};
 use eframe::egui::Context;
-use global_hotkey::{
-    GlobalHotKeyEvent, GlobalHotKeyManager,
-    hotkey::{Code, HotKey, Modifiers},
-};
+use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}, HotKeyState};
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_MINIMIZE, SW_RESTORE};
 use crate::model::config::Config; // 确保引入 Config
 use crate::ui::mode::UiMode;
 
@@ -24,7 +23,7 @@ pub struct HotkeyManager {
 }
 
 impl HotkeyManager {
-    pub fn new(ctx: &Context, config: &Config) -> Self {
+    pub fn new(ctx: &Context, config: &Config, is_visible: Arc<Mutex<bool>>, hwnd: isize) -> Self {
         let hotkeys_manager = GlobalHotKeyManager::new().unwrap();
 
         // 初始化时直接从 Config 解析
@@ -42,10 +41,22 @@ impl HotkeyManager {
 
         // 能够通过 ID 发送事件
         GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
-            // 我们只发送 ID，因为 HotKey 结构体没法跨线程简单传递，
-            // 且我们在 update 中通过比较 ID 来判断是哪个键
-            let _ = tx.send(event.id);
-            ctx_clone.request_repaint();
+            // 响应截图
+            if event.id == show_hotkey.id() && event.state == HotKeyState::Released {
+                let mut visible = is_visible.lock().unwrap();
+                let window_handle = HWND(hwnd as *mut std::ffi::c_void);
+                // SW_RESTORE 是 恢复窗口
+                // 如果当前是托盘状态
+                // 唤起主窗口导最小化
+                // 然后开始截图
+                if !*visible {
+                    unsafe { ShowWindow(window_handle, SW_MINIMIZE); }
+                    *visible = true;
+                }
+                // 无论是否隐藏都要开启截图
+                let _ = tx.send(event.id);
+                ctx_clone.request_repaint();
+            }
         })));
 
         Self {
