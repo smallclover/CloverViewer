@@ -53,7 +53,7 @@ pub struct CloverApp {
     data: BusinessData,
     state: ViewState,
     config: Arc<Config>,
-    _tray_icon: TrayIcon,// 持有托盘实例
+    _tray_icon: TrayIcon,// 持有托盘实例，必须持有，否则无法显示托盘图标
 }
 
 impl CloverApp {

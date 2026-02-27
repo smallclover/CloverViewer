@@ -20,8 +20,7 @@ use rayon::{
 use zune_jpeg::JpegDecoder;
 use exif::Tag;
 use crate::model::image_meta::ImageProperties;
-#[cfg(target_os = "windows")]
-use crate::utils::win_thumbnail::load_thumbnail_windows;
+use crate::os::window::load_thumbnail_windows;
 
 pub struct LoadSuccess {
     pub texture: TextureHandle,

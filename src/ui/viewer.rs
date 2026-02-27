@@ -159,7 +159,7 @@ pub fn draw_overlays(
 pub fn handle_input_events(ctx: &Context, data: &mut BusinessData, window_state: &WindowState) {
 
     if ctx.input(|i| i.viewport().close_requested()){
-        let mut aq = window_state.allow_quit.lock().unwrap();
+        let aq = window_state.allow_quit.lock().unwrap();
         let mut vis = window_state.visible.lock().unwrap();
         eprintln!("取消关闭程序1{}",*aq);
         if !*aq {

@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use crate::os::window::{get_hwnd_isize, show_window_mini, show_window_restore};
+use crate::os::window::{show_window_mini, show_window_restore};
 use crate::utils::image::load_tray_icon;
 
 pub fn create_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_isize: isize) -> TrayIcon {
@@ -40,7 +40,7 @@ pub fn create_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>,
             }else{
                 // 最小化状态下恢复
                 let info = ctx.input(|i| i.viewport().clone());
-                if let Some(mini) = info.minimized {
+                if let Some(_mini) = info.minimized {
                     // 发送取消最小化指令
                     ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
                     // 通常还需要聚焦窗口
