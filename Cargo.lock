@@ -26,7 +26,6 @@ dependencies = [
  "tracing-subscriber",
  "tray-icon",
  "windows 0.62.2",
- "winit",
  "winres",
  "xcap",
  "zune-jpeg 0.5.12",
