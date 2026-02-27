@@ -30,10 +30,16 @@ pub struct Config {
     pub zoom_sensitivity: f32,
     #[serde(default)]
     pub hotkeys: HotkeysConfig,
+    #[serde(default = "default_minimize_on_close")]
+    pub minimize_on_close: bool,
 }
 
 fn default_zoom_sensitivity() -> f32 {
     1.0
+}
+
+fn default_minimize_on_close() -> bool {
+    true
 }
 
 impl Default for Config {
@@ -42,6 +48,7 @@ impl Default for Config {
             language: Language::default(),
             zoom_sensitivity: default_zoom_sensitivity(),
             hotkeys: HotkeysConfig::default(),
+            minimize_on_close: default_minimize_on_close(),
         }
     }
 }

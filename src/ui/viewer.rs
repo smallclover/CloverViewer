@@ -28,6 +28,7 @@ use crate::{
     },
 };
 use crate::i18n::lang::get_i18n_text;
+use crate::model::config::get_context_config;
 use crate::os::window::show_window_hide;
 use crate::state::custom_window::WindowState;
 use crate::ui::view::{
@@ -159,18 +160,19 @@ pub fn draw_overlays(
 pub fn handle_input_events(ctx: &Context, data: &mut BusinessData, window_state: &WindowState) {
 
     if ctx.input(|i| i.viewport().close_requested()){
-        let aq = window_state.allow_quit.lock().unwrap();
-        let mut vis = window_state.visible.lock().unwrap();
-        eprintln!("取消关闭程序1{}",*aq);
-        if !*aq {
-            eprintln!("取消关闭程序2");
-            *vis = false;
-            // 隐藏程序
-            show_window_hide(window_state.hwnd_isize);
+        let config = get_context_config(ctx);
+        // 设置：允许最小化到托盘
+        if config.minimize_on_close {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-        }else{
-            //关闭程序
-            eprintln!("关闭程序2");
+            let aq = window_state.allow_quit.lock().unwrap();
+            let mut vis = window_state.visible.lock().unwrap();
+            if !*aq {
+                *vis = false;
+                // 隐藏程序
+                show_window_hide(window_state.hwnd_isize);
+            }else{
+                //关闭程序
+            }
         }
     }
 

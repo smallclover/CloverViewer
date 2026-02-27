@@ -120,6 +120,8 @@ fn render_content_body(
                         });
                     if selected != config.language { config.language = selected; }
                 });
+                ui.add_space(10.0);
+                ui.checkbox(&mut config.minimize_on_close, text.settings_minimize_on_close);
             }
             SettingsTab::Hotkeys => {
                 ui.heading(text.settings_shortcut_key);

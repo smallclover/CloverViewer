@@ -46,6 +46,7 @@ pub struct TextBundle {
     pub settings_title: &'static str,
     pub settings_general: &'static str,
     pub settings_language: &'static str,
+    pub settings_minimize_on_close: &'static str,
     pub settings_close: &'static str,
     pub settings_apply: &'static str,
     pub settings_shortcut_key: &'static str,
@@ -111,6 +112,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     settings_title: "设置",
     settings_general: "常规",
     settings_language: "语言",
+    settings_minimize_on_close: "关闭窗口时最小化到托盘",
     settings_close: "关闭",
     settings_apply: "应用",
 
@@ -167,6 +169,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
     settings_title: "Settings",
     settings_general: "General",
     settings_language: "Language",
+    settings_minimize_on_close: "Minimize to tray on close",
     settings_close: "Close",
     settings_apply: "Apply",
 
@@ -223,6 +226,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
     settings_title: "設定",
     settings_general: "一般",
     settings_language: "言語",
+    settings_minimize_on_close: "閉じるときにトレイに最小化",
     settings_close: "閉じる",
     settings_apply: "設定",
 

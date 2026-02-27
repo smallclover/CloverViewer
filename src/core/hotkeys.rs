@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 use eframe::egui::Context;
-use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}, HotKeyState};
+use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
 use crate::model::config::Config;
 use crate::os::window::show_window_mini;
 use crate::state::custom_window::WindowState;
@@ -84,7 +84,7 @@ impl HotkeyManager {
         if let Some(new_copy) = parse_hotkey_str(&config.hotkeys.copy_screenshot) {
             self.copy_hotkey = new_copy;
         }
-        eprintln!("当前新的快捷键：{}", self.show_hotkey);
+
         // 3. 重新注册 "显示截图" 的快捷键
         if let Err(e) = self.hotkeys_manager.register(self.show_hotkey) {
             eprintln!("Failed to register show hotkey: {:?}", e);
