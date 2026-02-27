@@ -3,6 +3,8 @@ use egui::{
     CentralPanel, Color32, Context, Frame, Key
 };
 use rfd::FileDialog;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
 use crate::{
     core::business::BusinessData,
     model::{
@@ -28,6 +30,7 @@ use crate::{
     },
 };
 use crate::i18n::lang::get_i18n_text;
+use crate::state::custom_window::WindowState;
 use crate::ui::view::{
     grid_view::draw_grid_view,
     single_view::draw_single_view
@@ -154,7 +157,26 @@ pub fn draw_overlays(
     (context_menu_action, modal_action)
 }
 
-pub fn handle_input_events(ctx: &Context, data: &mut BusinessData) {
+pub fn handle_input_events(ctx: &Context, data: &mut BusinessData, window_state: &WindowState) {
+
+    if ctx.input(|i| i.viewport().close_requested()){
+        eprintln!("取消关闭程序");
+        let mut aq = window_state.allow_quit.lock().unwrap();
+        let mut vis = window_state.visible.lock().unwrap();
+        let window_handle = HWND(window_state.hwnd_isize as *mut std::ffi::c_void);
+        eprintln!("取消关闭程序1{}",*aq);
+        if !*aq {
+            eprintln!("取消关闭程序2");
+            *vis = false;
+            // 隐藏程序
+            unsafe { ShowWindow(window_handle, SW_HIDE); }
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+        }else{
+            //关闭程序
+            eprintln!("关闭程序2");
+        }
+    }
+
     if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
         data.prev_image(ctx.clone());
     }

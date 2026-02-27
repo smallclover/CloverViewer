@@ -5,6 +5,7 @@ use eframe::egui::Context;
 // 引入 Config，因为初始化热键和重载热键都需要读取配置
 use crate::model::config::Config;
 use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
+use crate::state::custom_window::WindowState;
 use crate::ui::{
     widgets::toast::{ToastManager, ToastSystem},
     mode::UiMode,
@@ -35,16 +36,18 @@ pub struct ViewState {
     // 热键管理器 (私有，通过 ViewState 的方法操作)
     hotkey_manager: HotkeyManager,
 
+    pub window_state: WindowState
 }
 
 impl ViewState {
     /// 初始化 ViewState
     /// 注意：这里增加了 `config` 参数，用于初始化 HotkeyManager
-    pub fn new(ctx: &Context, config: &Config, is_visible: Arc<Mutex<bool>>, hwnd: isize) -> Self {
+    pub fn new(ctx: &Context, config: &Config, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: isize) -> Self {
         let toast_system = ToastSystem::new();
         let toast_manager = toast_system.manager();
         let (path_sender, path_receiver) = mpsc::channel();
-
+        let win_m = WindowState::new(Arc::clone(&visible_hotkey), Arc::clone(&allow_quit), hwnd);
+        let win_s = WindowState::new(visible_hotkey, allow_quit, hwnd);
         Self {
             ui_mode: UiMode::Normal,
             view_mode: ViewMode::Single, // 默认为单张视图
@@ -54,7 +57,8 @@ impl ViewState {
             toast_manager,
             screenshot_state: ScreenshotState::default(),
             // 使用 config 初始化 hotkey_manager，注册初始快捷键
-            hotkey_manager: HotkeyManager::new(ctx, config, is_visible, hwnd),
+            hotkey_manager: HotkeyManager::new(ctx, config, win_m),
+            window_state: win_s
         }
     }
 

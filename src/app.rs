@@ -7,10 +7,10 @@ use std::{
 };
 use std::sync::Mutex;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent, TrayIcon, MouseButton};
-use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use tray_icon::{MouseButtonState, TrayIconBuilder, TrayIconEvent, TrayIcon, MouseButton};
+use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_RESTORE};
+use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_MINIMIZE, SW_RESTORE};
 use crate::{
     core::{business::BusinessData},
     model::{
@@ -70,7 +70,6 @@ impl CloverApp {
         fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "my_font".to_owned());
         cc.egui_ctx.set_fonts(fonts);
 
-
         let tray_menu = Menu::new();
         // 创建常规的菜单项
         let item_exit = MenuItem::new("退出", true, None);
@@ -88,11 +87,13 @@ impl CloverApp {
 
         // 1. 用 let 声明一个 Arc 包装的 Mutex
         let visible = Arc::new(Mutex::new(true));
+        let allow_quit = Arc::new(Mutex::new(false));
 
         // 2. 克隆给托盘和快捷键回调闭包使用
         let visible_for_tray = Arc::clone(&visible);
         let visible_for_tray_menu = Arc::clone(&visible);
         let visible_for_hotkey = Arc::clone(&visible);
+        let allow_quit_1 = Arc::clone(&allow_quit);
 
         // 获取原生句柄并转为 isize 以支持跨线程
         let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
@@ -115,6 +116,13 @@ impl CloverApp {
         let ctx = cc.egui_ctx.clone();
         MenuEvent::set_event_handler(Some(move |event: MenuEvent|{
             if event.id == item_exit_id {
+                let mut vis = visible_for_tray_menu.lock().unwrap();
+                let mut aq = allow_quit_1.lock().unwrap();
+                let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
+                eprintln!("退出程序");
+                unsafe { ShowWindow(window_handle, SW_MINIMIZE); }
+                *vis = true;
+                *aq = true;
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }
         }));
@@ -123,7 +131,7 @@ impl CloverApp {
         let config = load_config(); // 先加载为普通 Config 结构体
 
         // 3. 初始化 State (现在需要传入 config 来注册初始热键)
-        let state = ViewState::new(&cc.egui_ctx, &config, visible_for_hotkey, hwnd_isize);
+        let state = ViewState::new(&cc.egui_ctx, &config, visible_for_hotkey, allow_quit, hwnd_isize);
 
         // 将 Config 转为 Arc 以便在 App 中共享
         let config_arc = Arc::new(config);
@@ -159,7 +167,7 @@ impl CloverApp {
     }
 
     fn handle_input_events(&mut self, ctx: &Context) {
-        viewer::handle_input_events(ctx, &mut self.data);
+        viewer::handle_input_events(ctx, &mut self.data, &self.state.window_state);
     }
 
     fn draw_ui(&mut self, ctx: &Context) {
