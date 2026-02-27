@@ -161,18 +161,16 @@ pub fn handle_input_events(ctx: &Context, data: &mut BusinessData, window_state:
 
     if ctx.input(|i| i.viewport().close_requested()){
         let config = get_context_config(ctx);
-        // 设置：允许最小化到托盘
-        if config.minimize_on_close {
+        let aq = window_state.allow_quit.lock().unwrap();
+        let mut vis = window_state.visible.lock().unwrap();
+        // 设置：允许最小化到托盘,且不是点击托盘退出
+        if config.minimize_on_close && !*aq {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            let aq = window_state.allow_quit.lock().unwrap();
-            let mut vis = window_state.visible.lock().unwrap();
-            if !*aq {
-                *vis = false;
-                // 隐藏程序
-                show_window_hide(window_state.hwnd_isize);
-            }else{
-                //关闭程序
-            }
+            *vis = false;
+            // 隐藏程序
+            show_window_hide(window_state.hwnd_isize);
+        }else{
+            // 关闭程序
         }
     }
 

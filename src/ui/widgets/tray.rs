@@ -37,15 +37,22 @@ pub fn create_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>,
                 // 隐藏状态下恢复
                 show_window_restore(hwnd_isize);
                 *vis = true;
+
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+
+                ctx.request_repaint();
             }else{
                 // 最小化状态下恢复
                 let info = ctx.input(|i| i.viewport().clone());
-                if let Some(_mini) = info.minimized {
-                    // 发送取消最小化指令
+                if info.minimized == Some(true) {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-                    // 通常还需要聚焦窗口
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                 }
+                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                // 通常还需要聚焦窗口
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+
+                ctx.request_repaint();
             }
         }
     }));
