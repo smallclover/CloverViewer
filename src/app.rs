@@ -6,11 +6,7 @@ use std::{
     env
 };
 use std::sync::Mutex;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use tray_icon::{MouseButtonState, TrayIconBuilder, TrayIconEvent, TrayIcon, MouseButton};
-use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
-use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_MINIMIZE, SW_RESTORE};
+use tray_icon::TrayIcon;
 use crate::{
     core::{business::BusinessData},
     model::{
@@ -19,6 +15,7 @@ use crate::{
     },
 };
 use crate::model::config::update_context_config;
+use crate::os::window::get_hwnd_isize;
 use crate::ui::{
     menus::context_menu::handle_context_menu_action,
     widgets::modal::ModalAction,
@@ -28,8 +25,8 @@ use crate::ui::{
     mode::UiMode,
     viewer
 };
-
-use crate::utils::image::{load_icon, load_tray_icon};
+use crate::ui::widgets::tray::create_tray;
+use crate::utils::image::load_icon;
 
 pub fn run() -> eframe::Result<()> {
     let mut options = eframe::NativeOptions {
@@ -70,68 +67,19 @@ impl CloverApp {
         fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "my_font".to_owned());
         cc.egui_ctx.set_fonts(fonts);
 
-        let tray_menu = Menu::new();
-        // 创建常规的菜单项
-        let item_exit = MenuItem::new("退出", true, None);
-        let item_exit_id = item_exit.id().clone();
-        tray_menu.append(&PredefinedMenuItem::separator()).unwrap(); // 添加一条分割线
-        tray_menu.append(&item_exit).unwrap();
-
-        let tray_icon = TrayIconBuilder::new()
-            .with_icon(load_tray_icon())
-            .with_tooltip("CloverViewer")
-            .with_menu(Box::new(tray_menu))
-            .with_menu_on_left_click(false)
-            .build()
-            .expect("Failed to build tray icon");
-
         // 1. 用 let 声明一个 Arc 包装的 Mutex
+        // 窗口状态
         let visible = Arc::new(Mutex::new(true));
         let allow_quit = Arc::new(Mutex::new(false));
+        let hwnd_isize = get_hwnd_isize(&cc);
 
-        // 2. 克隆给托盘和快捷键回调闭包使用
-        let visible_for_tray = Arc::clone(&visible);
-        let visible_for_tray_menu = Arc::clone(&visible);
-        let visible_for_hotkey = Arc::clone(&visible);
-        let allow_quit_1 = Arc::clone(&allow_quit);
-
-        // 获取原生句柄并转为 isize 以支持跨线程
-        let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
-            panic!("Unsupported platform");
-        };
-        let hwnd_isize = handle.hwnd.get();
-
-        // 托盘图标处理
-        TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-            if let TrayIconEvent::Click { button:MouseButton::Left, button_state:MouseButtonState::Up, .. } = event {
-                let mut vis = visible_for_tray.lock().unwrap();
-                let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
-                if !*vis {
-                    unsafe { ShowWindow(window_handle, SW_RESTORE); }
-                    *vis = true;
-                }
-            }
-        }));
-
-        let ctx = cc.egui_ctx.clone();
-        MenuEvent::set_event_handler(Some(move |event: MenuEvent|{
-            if event.id == item_exit_id {
-                let mut vis = visible_for_tray_menu.lock().unwrap();
-                let mut aq = allow_quit_1.lock().unwrap();
-                let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
-                eprintln!("退出程序");
-                unsafe { ShowWindow(window_handle, SW_MINIMIZE); }
-                *vis = true;
-                *aq = true;
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-            }
-        }));
+        let tray_icon = create_tray(&cc, &visible, &allow_quit, hwnd_isize);
 
         // 2. 加载配置
         let config = load_config(); // 先加载为普通 Config 结构体
 
         // 3. 初始化 State (现在需要传入 config 来注册初始热键)
-        let state = ViewState::new(&cc.egui_ctx, &config, visible_for_hotkey, allow_quit, hwnd_isize);
+        let state = ViewState::new(&cc.egui_ctx, &config, visible, allow_quit, hwnd_isize);
 
         // 将 Config 转为 Arc 以便在 App 中共享
         let config_arc = Arc::new(config);

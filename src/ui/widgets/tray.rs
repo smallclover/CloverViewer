@@ -1,102 +1,67 @@
-use eframe::egui;
-use std::sync::Mutex;
-use tray_icon::{Icon, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-// [新增 1] 引入 global-hotkey 的相关依赖
-use global_hotkey::{hotkey::{Code, HotKey, Modifiers}, GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
+use std::sync::{Arc, Mutex};
+use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
+use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
+use crate::os::window::{get_hwnd_isize, show_window_mini, show_window_restore};
+use crate::utils::image::load_tray_icon;
 
-use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_RESTORE};
-use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+pub fn create_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_isize: isize) -> TrayIcon {
 
-// 测试隐藏托盘文件
-//https://github.com/emilk/egui/discussions/737
-static VISIBLE: Mutex<bool> = Mutex::new(true);
+    let tray_menu = Menu::new();
+    // 创建常规的菜单项
+    let item_exit = MenuItem::new("退出", true, None);
+    let item_exit_id = item_exit.id().clone();
+    tray_menu.append(&PredefinedMenuItem::separator()).unwrap(); // 添加一条分割线
+    tray_menu.append(&item_exit).unwrap();
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // --- 1. 初始化托盘 ---
-    let mut icon_data: Vec<u8> = Vec::with_capacity(16 * 16 * 4);
-    for _ in 0..256 { icon_data.extend_from_slice(&[255, 0, 0, 255]); }
-    let icon = Icon::from_rgba(icon_data, 16, 16)?;
+    let tray_icon = TrayIconBuilder::new()
+        .with_icon(load_tray_icon())
+        .with_tooltip("CloverViewer")
+        .with_menu(Box::new(tray_menu))
+        .with_menu_on_left_click(false)
+        .build()
+        .expect("Failed to build tray icon");
 
-    // 必须用变量持有，保持生命周期
-    let _tray_icon = TrayIconBuilder::new()
-        .with_icon(icon)
-        .with_tooltip("My App")
-        .build()?;
 
-    // --- 2. [新增] 初始化全局快捷键 (Alt + S) ---
-    // 同样必须用变量持有，防止注册失效
-    let hotkey_manager = GlobalHotKeyManager::new()?;
-    let hotkey = HotKey::new(Some(Modifiers::ALT), Code::KeyS);
-    hotkey_manager.register(hotkey)?;
+    // 2. 克隆给托盘和快捷键回调闭包使用
+    let visible_for_tray = Arc::clone(visible);
+    let visible_for_tray_menu = Arc::clone(visible);
+    let allow_quit_1 = Arc::clone(allow_quit);
 
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 240.0]),
-        ..Default::default()
-    };
 
-    let _ = eframe::run_native(
-        "My egui App",
-        options,
-        Box::new(move |cc| {
-            // 获取原生句柄并转为 isize 以支持跨线程
-            let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
-                panic!("Unsupported platform");
-            };
-            let hwnd_isize = handle.hwnd.get() as isize;
-
-            // --- 3. 设置托盘事件处理器 ---
-            TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
-                match event {
-                    TrayIconEvent::Click { button_state: MouseButtonState::Up, .. } => {
-                        let mut visible = VISIBLE.lock().unwrap();
-                        let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
-                        if *visible {
-                            unsafe { ShowWindow(window_handle, SW_HIDE); }
-                            *visible = false;
-                        } else {
-                            unsafe { ShowWindow(window_handle, SW_RESTORE); }
-                            *visible = true;
-                        }
-                    }
-                    _ => return,
+    // 托盘图标处理
+    let ctx = cc.egui_ctx.clone();
+    TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
+        if let TrayIconEvent::Click { button:MouseButton::Left, button_state:MouseButtonState::Up, .. } = event {
+            let mut vis = visible_for_tray.lock().unwrap();
+            if !*vis {
+                // 隐藏状态下恢复
+                show_window_restore(hwnd_isize);
+                *vis = true;
+            }else{
+                // 最小化状态下恢复
+                let info = ctx.input(|i| i.viewport().clone());
+                if let Some(mini) = info.minimized {
+                    // 发送取消最小化指令
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+                    // 通常还需要聚焦窗口
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                 }
-            }));
+            }
+        }
+    }));
 
-            // --- 4. [新增] 设置全局快捷键事件处理器 ---
-            GlobalHotKeyEvent::set_event_handler(Some(move |event: GlobalHotKeyEvent| {
-                // 确保是我们注册的热键，并且是松开状态 (防止长按连发)
-                if event.id == hotkey.id() && event.state == HotKeyState::Released {
-                    let mut visible = VISIBLE.lock().unwrap();
-                    let window_handle = HWND(hwnd_isize as *mut std::ffi::c_void);
-                    if *visible {
-                        unsafe { ShowWindow(window_handle, SW_HIDE); }
-                        *visible = false;
-                    } else {
-                        unsafe { ShowWindow(window_handle, SW_RESTORE); }
-                        *visible = true;
-                    }
-                }
-            }));
+    let ctx_2 = cc.egui_ctx.clone();
+    MenuEvent::set_event_handler(Some(move |event: MenuEvent|{
+        if event.id == item_exit_id {
+            let mut vis = visible_for_tray_menu.lock().unwrap();
+            let mut aq = allow_quit_1.lock().unwrap();
+            // 退出前最小化窗口
+            show_window_mini(hwnd_isize);
+            *vis = true;
+            *aq = true;
+            ctx_2.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+    }));
 
-            Ok(Box::new(MyApp::default()))
-        }),
-    );
-    Ok(())
-}
-
-struct MyApp {}
-
-impl Default for MyApp {
-    fn default() -> Self {
-        Self {}
-    }
-}
-
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("Hello World!");
-        });
-    }
+    tray_icon
 }

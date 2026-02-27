@@ -1,9 +1,8 @@
 use std::sync::mpsc;
 use eframe::egui::Context;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}, HotKeyState};
-use windows::Win32::Foundation::HWND;
-use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_MINIMIZE};
 use crate::model::config::Config;
+use crate::os::window::show_window_mini;
 use crate::state::custom_window::WindowState;
 // 确保引入 Config
 use crate::ui::mode::UiMode;
@@ -45,14 +44,14 @@ impl HotkeyManager {
         GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
             // 响应截图
             if event.id == show_hotkey.id() && event.state == HotKeyState::Released {
+                //TODO 截完图或者取消的时候也应该设置一下visible,现在时最小化截图，最小化的时候点击托盘不会再次放大
                 let mut visible = window_state.visible.lock().unwrap();
-                let window_handle = HWND(window_state.hwnd_isize as *mut std::ffi::c_void);
                 // SW_RESTORE 是 恢复窗口
                 // 如果当前是托盘状态
                 // 唤起主窗口导最小化
                 // 然后开始截图
                 if !*visible {
-                    unsafe { ShowWindow(window_handle, SW_MINIMIZE); }
+                    show_window_mini(window_state.hwnd_isize);
                     *visible = true;
                 }
                 // 无论是否隐藏都要开启截图
