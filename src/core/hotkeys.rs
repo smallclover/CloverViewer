@@ -42,22 +42,20 @@ impl HotkeyManager {
 
         // 能够通过 ID 发送事件
         GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
-            // 响应截图
-            if event.id == show_hotkey.id() && event.state == HotKeyState::Released {
-                //TODO 截完图或者取消的时候也应该设置一下visible,现在时最小化截图，最小化的时候点击托盘不会再次放大
-                let mut visible = window_state.visible.lock().unwrap();
-                // SW_RESTORE 是 恢复窗口
-                // 如果当前是托盘状态
-                // 唤起主窗口导最小化
-                // 然后开始截图
-                if !*visible {
-                    show_window_mini(window_state.hwnd_isize);
-                    *visible = true;
-                }
-                // 无论是否隐藏都要开启截图
-                let _ = tx.send(event.id);
-                ctx_clone.request_repaint();
+            // 热键变更后此时的show_hotkey.id 和 event.id 是不一样的，需要在update中取到最新的id
+            //TODO 截完图或者取消的时候也应该设置一下visible,现在时最小化截图，最小化的时候点击托盘不会再次放大
+            let mut visible = window_state.visible.lock().unwrap();
+            // SW_RESTORE 是 恢复窗口
+            // 如果当前是托盘状态
+            // 唤起主窗口导最小化
+            // 然后开始截图
+            if !*visible {
+                show_window_mini(window_state.hwnd_isize);
+                *visible = true;
             }
+            // 无论是否隐藏都要开启截图
+            let _ = tx.send(event.id);
+            ctx_clone.request_repaint();
         })));
 
         Self {
@@ -86,7 +84,7 @@ impl HotkeyManager {
         if let Some(new_copy) = parse_hotkey_str(&config.hotkeys.copy_screenshot) {
             self.copy_hotkey = new_copy;
         }
-
+        eprintln!("当前新的快捷键：{}", self.show_hotkey);
         // 3. 重新注册 "显示截图" 的快捷键
         if let Err(e) = self.hotkeys_manager.register(self.show_hotkey) {
             eprintln!("Failed to register show hotkey: {:?}", e);
