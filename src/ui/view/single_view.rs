@@ -82,10 +82,21 @@ fn render_image_viewer(
     tex: &TextureHandle,
     data: &mut BusinessData,
 ) {
+    let available_size = ui.available_size();
+    if let Some(last_size) = data.last_view_size {
+        // 使用 .abs() > 1.0 判断，防止由于滚动条出现/消失导致的 1 像素级别微小抖动引发死循环重置
+        if (last_size.x - available_size.x).abs() > 1.0 ||
+            (last_size.y - available_size.y).abs() > 1.0
+        {
+            // 窗口被拉伸或最大化了，重新计算适合当前窗口的 zoom
+            data.zoom = data.calc_fit_zoom(ui.ctx(), tex.size_vec2());
+        }
+    }
+    // 更新记录当前窗口大小
+    data.last_view_size = Some(available_size);
     let zoom = data.zoom;
     let is_loading_high_res = data.loader.is_loading;
     let size = tex.size_vec2() * zoom;
-    let available_size = ui.available_size();
     let is_draggable = size.x > available_size.x || size.y > available_size.y;
 
     // 如果图片可拖拽且鼠标在区域内，设置 Move 光标

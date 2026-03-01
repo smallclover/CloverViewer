@@ -20,6 +20,7 @@ pub struct BusinessData {
     pub current_raw_pixels: Option<Arc<Vec<Color32>>>,
     pub error: Option<String>,
     pub zoom: f32,
+    pub last_view_size: Option<egui::Vec2>,
     pub failed_thumbs: HashSet<PathBuf>,
     pub loading_thumbs: HashSet<PathBuf>,
     pub current_directory: Option<PathBuf>,
@@ -41,6 +42,7 @@ impl BusinessData {
             current_raw_pixels: None,
             error: None,
             zoom: 1.0,
+            last_view_size: None,
             failed_thumbs: HashSet::new(),
             loading_thumbs: HashSet::new(),
             current_directory: None,
@@ -167,11 +169,7 @@ impl BusinessData {
                                 // 存储纹理
                                 self.texture_cache.put(msg.path.clone(), success.texture.clone());
                                 if Some(msg.path) == self.current() {
-                                    let tex_size = success.texture.size_vec2();
-                                    let available = ctx.available_rect().size();
-                                    let scale_v = available.y / tex_size.y;
-                                    let scale_h = (available.x - 120.0) / tex_size.x;
-                                    self.zoom = scale_v.min(scale_h).min(1.0);
+                                    self.zoom = self.calc_fit_zoom(ctx, success.texture.size_vec2());
 
                                     self.current_texture = Some(success.texture);
                                     self.current_properties = Some(success.properties);
@@ -215,7 +213,9 @@ impl BusinessData {
         self.error = None;
         if let Some(path) = self.current() {
             self.trigger_preloads(&ctx);
-            if let Some(tex) = self.texture_cache.get(&path) {
+            let cached_tex = self.texture_cache.get(&path).cloned();
+            if let Some(tex) = cached_tex {
+                self.zoom = self.calc_fit_zoom(&ctx, tex.size_vec2());
                 self.current_texture = Some(tex.clone());
                 self.loader.is_loading = false;
             } else {
@@ -281,5 +281,14 @@ impl BusinessData {
         if delta != 0.0 {
             self.zoom = (self.zoom + delta * 0.001).clamp(0.1, 10.0);
         }
+    }
+    /// 计算自适应屏幕的缩放比例
+    pub(crate) fn calc_fit_zoom(&self, ctx: &Context, tex_size: egui::Vec2) -> f32 {
+        let available = ctx.available_rect().size();
+        let scale_v = available.y / tex_size.y;
+        let scale_h = (available.x - 120.0) / tex_size.x;
+
+        // 留空隙
+        scale_v.min(scale_h).min(1.0) * 0.9
     }
 }
