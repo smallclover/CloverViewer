@@ -47,11 +47,6 @@ pub struct DrawnShape {
 pub struct ScreenshotState {
     pub captures: Vec<CapturedScreen>,
     // 全局物理坐标 (Physical Pixels)
-
-    // [新增] 常驻视口缓存与焦点标记
-    pub resident_viewports: Vec<(ViewportId, MonitorInfo)>,
-    pub needs_focus: bool,
-
     pub selection: Option<Rect>,
     pub drag_start: Option<Pos2>,
     pub toolbar_pos: Option<Pos2>,
@@ -86,8 +81,6 @@ impl Default for ScreenshotState {
         let default_color = Color32::from_rgb(204, 0, 0);
         Self {
             captures: Vec::new(),
-            resident_viewports: Vec::new(),
-            needs_focus: false,
             selection: None,
             drag_start: None,
             toolbar_pos: None,
@@ -108,26 +101,6 @@ impl Default for ScreenshotState {
     }
 }
 
-impl ScreenshotState {
-    pub fn reset_capture_state(&mut self) {
-        self.captures.clear();
-        self.selection = None;
-        self.drag_start = None;
-        self.toolbar_pos = None;
-        self.window_rects.clear();
-        self.hovered_window = None;
-        self.is_capturing = false;
-        self.capture_receiver = None;
-        self.current_tool = None;
-        self.shapes.clear();
-        self.current_shape_start = None;
-        self.current_shape_end = None;
-        self.copy_requested = false;
-        self.color_picker.close();
-        self.needs_focus = false;
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {
     pub name: String,
@@ -136,19 +109,6 @@ pub struct MonitorInfo {
     pub width: u32,
     pub height: u32,
     pub scale_factor: f32,
-}
-
-impl From<&Monitor> for MonitorInfo {
-    fn from(monitor: &Monitor) -> Self {
-        Self {
-            name: monitor.name().unwrap_or_default(),
-            x: monitor.x().unwrap_or(0),
-            y: monitor.y().unwrap_or(0),
-            width: monitor.width().unwrap_or(0),
-            height: monitor.height().unwrap_or(0),
-            scale_factor: monitor.scale_factor().unwrap_or(1.0),
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -160,117 +120,85 @@ pub struct CapturedScreen {
 }
 
 // --- Main System Logic ---
+
 pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, frame: &eframe::Frame) {
-    let screenshot_state = &mut state.screenshot_state;
+    if state.ui_mode != UiMode::Screenshot {
+        return;
+    }
 
-    // 1. 初始化常驻视口（仅在首次运行时构建）
-    if screenshot_state.resident_viewports.is_empty() {
-        if let Ok(monitors) = Monitor::all() {
-            for monitor in &monitors {
-                let info = MonitorInfo::from(monitor);
-                let viewport_id = ViewportId::from_hash_of(format!("screenshot_{}", info.name));
-                screenshot_state.resident_viewports.push((viewport_id, info));
-            }
+    // 1. 初始化捕获
+    if state.screenshot_state.captures.is_empty() {
+        // 将 frame 传递给捕获流程
+        handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot_state, frame);
+    }
+
+    // 如果还没有捕获到内容，或者捕获失败退出了，直接返回
+    if state.screenshot_state.captures.is_empty() {
+        if !state.screenshot_state.is_capturing {
+            state.ui_mode = UiMode::Normal;
         }
-    }
-
-    let is_screenshot_mode = state.ui_mode == UiMode::Screenshot;
-
-    // 2. 处理截图画面捕获（注意：这里必须持续调用，因为里面包含 try_recv 接收逻辑）
-    if is_screenshot_mode && screenshot_state.captures.is_empty() {
-        handle_capture_process(ctx, &mut state.ui_mode, screenshot_state, frame);
-    }
-
-    // 如果在截图模式，但既没有画面也没有在捕获（例如捕获失败），退出截图模式
-    if is_screenshot_mode && screenshot_state.captures.is_empty() && !screenshot_state.is_capturing {
-        state.ui_mode = UiMode::Normal;
+        return;
     }
 
     let mut final_action = ScreenshotAction::None;
     let mut wants_to_close_viewports = false;
 
-    // 决定当前帧子视口是否应该显示
-    let should_show = is_screenshot_mode && !screenshot_state.captures.is_empty();
-    let viewports = screenshot_state.resident_viewports.clone();
+    // 2. 渲染所有视口
+    let screens_info: Vec<_> = state.screenshot_state.captures.iter().map(|c| {
+        (
+            c.screen_info.clone(),
+            ViewportId::from_hash_of(format!("screenshot_{}", c.screen_info.name))
+        )
+    }).collect();
 
-    // 3. 渲染常驻视口
-    for (viewport_id, screen_info) in viewports.clone() {
+    for (i, (screen_info, viewport_id)) in screens_info.into_iter().enumerate() {
         let phys_x = screen_info.x as f32;
         let phys_y = screen_info.y as f32;
         let self_scale = screen_info.scale_factor;
         let logic_x = phys_x / self_scale;
         let logic_y = phys_y / self_scale;
-        let logic_w = screen_info.width as f32 / self_scale;
-        let logic_h = screen_info.height as f32 / self_scale;
-
         let pos = egui::pos2(logic_x, logic_y);
-        let size = egui::vec2(logic_w, logic_h);
-
-        let builder = ViewportBuilder::default()
-            .with_title("Screenshot")
-            .with_inner_size(size)
-            .with_decorations(false)
-            .with_position(pos)
-            .with_visible(should_show)
-            .with_transparent(true);
 
         ctx.show_viewport_immediate(
             viewport_id,
-            builder,
-            |viewport_ctx, class| {
-                if class == ViewportClass::Immediate && should_show {
-                    // [新增] 强制设置视口底色为透明，防止加载前的一瞬间暴露出默认灰底
-                    // [修复] 手动将面板和窗口的默认背景色设为透明
-                    let mut visuals = egui::Visuals::dark();
-                    visuals.panel_fill = egui::Color32::TRANSPARENT;
-                    visuals.window_fill = egui::Color32::TRANSPARENT;
-                    viewport_ctx.set_visuals(visuals);
-
-                    if let Some(capture_idx) = screenshot_state.captures.iter().position(|c| c.screen_info.name == screen_info.name) {
-
-                        // 先执行完整的 UI 绘制（此时因为预加载，Texture 已在 GPU 中，几乎零耗时）
-                        let action = draw_screenshot_ui(viewport_ctx, screenshot_state, capture_idx);
-
-                        // [关键修复] UI 绘制指令已入列！此时再命令系统弹出窗口，就能实现“落地即完美”
-                        if screenshot_state.needs_focus {
-                            viewport_ctx.send_viewport_cmd(ViewportCommand::Visible(true));
-                            viewport_ctx.send_viewport_cmd(ViewportCommand::Focus);
-                            viewport_ctx.send_viewport_cmd(ViewportCommand::WindowLevel(egui::WindowLevel::AlwaysOnTop));
-                        }
-
-                        if action != ScreenshotAction::None {
-                            final_action = action;
-                            wants_to_close_viewports = true;
-                        }
+            ViewportBuilder::default()
+                .with_title("Screenshot")
+                .with_fullscreen(true)
+                .with_decorations(false)
+                .with_position(pos),
+            |ctx, class| {
+                if class == ViewportClass::Immediate {
+                    let action = draw_screenshot_ui(ctx, &mut state.screenshot_state, i);
+                    if action != ScreenshotAction::None {
+                        final_action = action;
+                        wants_to_close_viewports = true;
                     }
+                }
+                if wants_to_close_viewports {
+                    ctx.send_viewport_cmd(ViewportCommand::Close);
                 }
             },
         );
     }
 
-    // [新增] 只有在所有视口都遍历完成并消费掉 focus 指令后，再关闭该标记
-    if screenshot_state.needs_focus && should_show {
-        screenshot_state.needs_focus = false;
-    }
-
-    // 4. 处理退出截图
+    // 3. 处理保存与退出
     if wants_to_close_viewports {
-        // 退出截图时，通知所有子视口潜水并取消强制置顶
-        for (viewport_id, _) in &viewports {
-            ctx.send_viewport_cmd_to(*viewport_id, ViewportCommand::Visible(false));
-            ctx.send_viewport_cmd_to(*viewport_id, ViewportCommand::WindowLevel(egui::WindowLevel::Normal));
-        }
+        let screenshot_state_mut = &mut state.screenshot_state;
+        handle_save_action(final_action, screenshot_state_mut);
 
-        handle_save_action(final_action, screenshot_state);
-
+        // 4. 重置状态
         state.ui_mode = UiMode::Normal;
-        screenshot_state.reset_capture_state();
+        *screenshot_state_mut = ScreenshotState::default();
+
+        // [关键] 退出截图模式时，恢复窗口可被捕获的状态
+        // 这样如果用户在正常模式下录屏，窗口是可见的
         set_window_exclude_from_capture(frame, false);
 
         ctx.send_viewport_cmd(ViewportCommand::Visible(true));
         ctx.send_viewport_cmd(ViewportCommand::Focus);
     }
 }
+
 // --- UI Rendering Main Entry ---
 
 pub fn draw_screenshot_ui(
@@ -742,7 +670,7 @@ fn handle_capture_process(
             // 1. 获取所有显示器画面 (单线程顺序执行)
             let mut captures = Vec::new();
             if let Ok(monitors) = Monitor::all() {
-                for monitor in &monitors {
+                for monitor in monitors {
                     if let (Ok(image), Ok(width)) = (monitor.capture_image(), monitor.width()) {
                         if width == 0 { continue; }
 
@@ -751,7 +679,14 @@ fn handle_capture_process(
                             &image,
                         );
 
-                        let info = MonitorInfo::from(monitor);
+                        let info = MonitorInfo {
+                            name: monitor.name().unwrap_or_default(),
+                            x: monitor.x().unwrap_or(0),
+                            y: monitor.y().unwrap_or(0),
+                            width: monitor.width().unwrap_or(0),
+                            height: monitor.height().unwrap_or(0),
+                            scale_factor: monitor.scale_factor().unwrap_or(1.0),
+                        };
 
                         captures.push(CapturedScreen {
                             raw_image: Arc::new(image),
@@ -793,25 +728,11 @@ fn handle_capture_process(
 
     if let Some(rx) = &screenshot_state.capture_receiver {
         match rx.try_recv() {
-            Ok((mut captures, window_rects)) => {
-
-                // [新增关键修复]：在画面显示前，提前把所有屏幕的截图上传到 GPU
-                for capture in &mut captures {
-                    let texture = ctx.load_texture(
-                        format!("screenshot_{}", capture.screen_info.name),
-                        capture.image.clone(),
-                        Default::default(),
-                    );
-                    capture.texture = Some(texture);
-                }
-
+            Ok((captures, window_rects)) => {
                 screenshot_state.captures = captures;
                 screenshot_state.window_rects = window_rects; // 保存窗口边界
                 screenshot_state.is_capturing = false;
                 screenshot_state.capture_receiver = None;
-
-                // [新增] 通知渲染系统，在下一帧将后台窗口弹出并索要焦点
-                screenshot_state.needs_focus = true;
 
                 // [关键] 截图完成，恢复窗口正常属性
                 set_window_exclude_from_capture(frame, false);
