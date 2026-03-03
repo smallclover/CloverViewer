@@ -17,6 +17,7 @@ use crate::ui::{
     screenshot::toolbar::draw_screenshot_toolbar
 };
 use arboard::{Clipboard, ImageData};
+use crate::model::config::get_context_config;
 use crate::ui::screenshot::color_picker::ColorPicker;
 use crate::ui::screenshot::magnifier::draw_magnifier;
 // --- 类型定义 ---
@@ -286,48 +287,53 @@ pub fn draw_screenshot_ui(
                     }
                 }
             }
+            
+            let config = get_context_config(ctx);
+            // 设置开启的情况下启用
+            if config.magnifier_enabled {
+                // 7. 鼠标放大镜 & 取色
+                if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
+                    let is_over_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(pointer_pos));
+                    let is_interacting_popup = state.color_picker.is_open && ui.ctx().is_pointer_over_area();
 
-            // 7. 鼠标放大镜 & 取色
-            if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-                let is_over_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(pointer_pos));
-                let is_interacting_popup = state.color_picker.is_open && ui.ctx().is_pointer_over_area();
+                    if !is_over_toolbar && !is_interacting_popup {
+                        let screen = &state.captures[screen_index];
 
-                if !is_over_toolbar && !is_interacting_popup {
-                    let screen = &state.captures[screen_index];
+                        // 绘制放大镜
+                        draw_magnifier(
+                            ui,
+                            ui.painter(),
+                            &screen.image,
+                            pointer_pos,
+                            ppp
+                        );
 
-                    // 绘制放大镜
-                    draw_magnifier(
-                        ui,
-                        ui.painter(),
-                        &screen.image,
-                        pointer_pos,
-                        ppp
-                    );
+                        // Ctrl + C 复制颜色
+                        if state.copy_requested || ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::C)) {
+                            state.copy_requested = false;
+                            let center_phys_x = (pointer_pos.x * ppp).round() as isize;
+                            let center_phys_y = (pointer_pos.y * ppp).round() as isize;
+                            let img_width = screen.image.width() as isize;
+                            let img_height = screen.image.height() as isize;
 
-                    // Ctrl + C 复制颜色
-                    if state.copy_requested || ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::C)) {
-                        state.copy_requested = false;
-                        let center_phys_x = (pointer_pos.x * ppp).round() as isize;
-                        let center_phys_y = (pointer_pos.y * ppp).round() as isize;
-                        let img_width = screen.image.width() as isize;
-                        let img_height = screen.image.height() as isize;
+                            if center_phys_x >= 0 && center_phys_x < img_width && center_phys_y >= 0 && center_phys_y < img_height {
+                                let idx = center_phys_y as usize * screen.image.width() + center_phys_x as usize;
+                                let color = screen.image.pixels[idx];
+                                let hex_text = format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b());
 
-                        if center_phys_x >= 0 && center_phys_x < img_width && center_phys_y >= 0 && center_phys_y < img_height {
-                            let idx = center_phys_y as usize * screen.image.width() + center_phys_x as usize;
-                            let color = screen.image.pixels[idx];
-                            let hex_text = format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b());
-
-                            if let Ok(mut clipboard) = Clipboard::new() {
-                                if let Err(e) = clipboard.set_text(hex_text.clone()) {
-                                    eprintln!("[ERROR] Failed to set clipboard text: {}", e);
-                                } else {
-                                    println!("[SUCCESS] Color {} copied to clipboard", hex_text);
+                                if let Ok(mut clipboard) = Clipboard::new() {
+                                    if let Err(e) = clipboard.set_text(hex_text.clone()) {
+                                        eprintln!("[ERROR] Failed to set clipboard text: {}", e);
+                                    } else {
+                                        println!("[SUCCESS] Color {} copied to clipboard", hex_text);
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+
 
             // ESC 退出
             if ui.input(|i| i.key_pressed(egui::Key::Escape)) {

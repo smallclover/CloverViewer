@@ -5,6 +5,7 @@ use crate::{
     model::config::Config,
     ui::widgets::modal::{ModalAction, ModalFrame}
 };
+use crate::ui::widgets::toggle::{toggle};
 
 #[derive(PartialEq, Clone, Copy, Hash)]
 enum SettingsTab {
@@ -121,7 +122,15 @@ fn render_content_body(
                     if selected != config.language { config.language = selected; }
                 });
                 ui.add_space(10.0);
-                ui.checkbox(&mut config.minimize_on_close, text.settings_minimize_on_close);
+                ui.horizontal(|ui|{
+                    ui.label(format!("{}:", text.settings_minimize_on_close));
+                    ui.add(toggle(&mut config.minimize_on_close));
+                });
+                ui.add_space(10.0);
+                ui.horizontal(|ui|{
+                    ui.label(format!("{}:", text.settings_magnifier_enabled));
+                    ui.add(toggle(&mut config.magnifier_enabled));
+                });
             }
             SettingsTab::Hotkeys => {
                 ui.heading(text.settings_shortcut_key);

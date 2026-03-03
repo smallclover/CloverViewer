@@ -47,6 +47,7 @@ pub struct TextBundle {
     pub settings_general: &'static str,
     pub settings_language: &'static str,
     pub settings_minimize_on_close: &'static str,
+    pub settings_magnifier_enabled: &'static str,
     pub settings_close: &'static str,
     pub settings_apply: &'static str,
     pub settings_shortcut_key: &'static str,
@@ -113,6 +114,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     settings_general: "常规",
     settings_language: "语言",
     settings_minimize_on_close: "关闭窗口时最小化到托盘",
+    settings_magnifier_enabled: "启用放大镜",
     settings_close: "关闭",
     settings_apply: "应用",
 
@@ -170,6 +172,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
     settings_general: "General",
     settings_language: "Language",
     settings_minimize_on_close: "Minimize to tray on close",
+    settings_magnifier_enabled: "Enable Magnifier",
     settings_close: "Close",
     settings_apply: "Apply",
 
@@ -203,7 +206,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
     tooltip_draw_rect: "Rectangle",
     tooltip_draw_circle: "Circle",
     tooltip_cancel: "Cancel",
-    tooltip_save: "Save to Desktop",
+tooltip_save: "Save to Desktop",
     tooltip_save_to_clipboard: "Copy to Clipboard",
     tooltip_mouse_copy_color: "Press Ctrl + C Copy Color",
 };
@@ -227,6 +230,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
     settings_general: "一般",
     settings_language: "言語",
     settings_minimize_on_close: "閉じるときにトレイに最小化",
+    settings_magnifier_enabled: "虫眼鏡を有効にする",
     settings_close: "閉じる",
     settings_apply: "設定",
 
