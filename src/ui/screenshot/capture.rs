@@ -10,6 +10,7 @@ use std::{
     thread,
     time::Duration
 };
+use std::collections::HashMap;
 use xcap::Monitor;
 use crate::model::state::ViewState;
 use crate::ui::{
@@ -75,6 +76,8 @@ pub struct ScreenshotState {
     pub current_shape_end: Option<Pos2>,
 
     pub copy_requested: bool,
+
+    pub texture_pool: HashMap<String, TextureHandle>,
 }
 
 impl Default for ScreenshotState {
@@ -98,6 +101,8 @@ impl Default for ScreenshotState {
             current_shape_start: None,
             current_shape_end: None,
             copy_requested: false,
+
+            texture_pool: HashMap::new()
         }
     }
 }
@@ -117,7 +122,6 @@ pub struct CapturedScreen {
     pub raw_image: Arc<RgbaImage>,
     pub image: ColorImage,
     pub screen_info: MonitorInfo,
-    pub texture: Option<TextureHandle>,
 }
 
 // --- Main System Logic ---
@@ -206,17 +210,10 @@ pub fn draw_screenshot_ui(
     let mut action = ScreenshotAction::None;
 
     // 准备纹理
-    let (img_src, screen_info) = {
-        let screen = &mut state.captures[screen_index];
-        let texture = screen.texture.get_or_insert_with(|| {
-            ctx.load_texture(
-                format!("screenshot_{}", screen.screen_info.name),
-                screen.image.clone(),
-                Default::default(),
-            )
-        });
-        ((texture.id(), texture.size_vec2()), screen.screen_info.clone())
-    };
+    let screen_info = state.captures[screen_index].screen_info.clone();
+    // 直接从 HashMap 中获取准备好的纹理句柄
+    let texture = state.texture_pool.get(&screen_info.name).expect("Texture must exist at this point");
+    let img_src = (texture.id(), texture.size_vec2());
 
     let mut needs_repaint = false;
 
@@ -689,7 +686,6 @@ fn handle_capture_process(
                             raw_image: Arc::new(image),
                             image: color_image,
                             screen_info: info,
-                            texture: None
                         });
                     }
                 }
@@ -726,8 +722,27 @@ fn handle_capture_process(
     if let Some(rx) = &screenshot_state.capture_receiver {
         match rx.try_recv() {
             Ok((captures, window_rects)) => {
+
+                // 遍历捕获的屏幕，更新或初始化纹理
+                for cap in &captures {
+                    let monitor_name = &cap.screen_info.name;
+
+                    if let Some(texture) = screenshot_state.texture_pool.get_mut(monitor_name) {
+                        // 核心优化：如果该显示器的纹理已存在，直接将新图像数据推入原有 GPU 内存
+                        texture.set(cap.image.clone(), Default::default());
+                    } else {
+                        // 如果是第一次运行，或者接入了新显示器，才 load_texture
+                        let texture = ctx.load_texture(
+                            format!("screenshot_{}", monitor_name),
+                            cap.image.clone(),
+                            Default::default(),
+                        );
+                        screenshot_state.texture_pool.insert(monitor_name.clone(), texture);
+                    }
+                }
+
                 screenshot_state.captures = captures;
-                screenshot_state.window_rects = window_rects; // 保存窗口边界
+                screenshot_state.window_rects = window_rects;
                 screenshot_state.is_capturing = false;
                 screenshot_state.capture_receiver = None;
                 ctx.request_repaint();
