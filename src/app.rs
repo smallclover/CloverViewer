@@ -160,7 +160,7 @@ impl CloverApp {
 }
 
 impl eframe::App for CloverApp {
-    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         update_context_config(ctx, &self.config);
         // 定要区分“每帧检测按键”和“配置变更重载按键”这两个概念。
         self.state.process_hotkey_events();
@@ -171,6 +171,6 @@ impl eframe::App for CloverApp {
 
         self.draw_ui(ctx);
         self.handle_ui_interactions(ctx);
-        handle_screenshot_system(ctx, &mut self.state, frame);
+        handle_screenshot_system(ctx, &mut self.state);
     }
 }

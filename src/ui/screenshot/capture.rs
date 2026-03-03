@@ -122,7 +122,7 @@ pub struct CapturedScreen {
 
 // --- Main System Logic ---
 
-pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, frame: &eframe::Frame) {
+pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
     if state.ui_mode != UiMode::Screenshot {
         return;
     }
@@ -130,7 +130,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, frame: &ef
     // 1. 初始化捕获
     if state.screenshot_state.captures.is_empty() {
         // 将 frame 传递给捕获流程
-        handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot_state, frame);
+        handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot_state);
     }
 
     // 如果还没有捕获到内容，或者捕获失败退出了，直接返回
@@ -190,10 +190,6 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState, frame: &ef
         // 4. 重置状态
         state.ui_mode = UiMode::Normal;
         *screenshot_state_mut = ScreenshotState::default();
-
-        // [关键] 退出截图模式时，恢复窗口可被捕获的状态
-        // 这样如果用户在正常模式下录屏，窗口是可见的
-        set_window_exclude_from_capture(frame, false);
 
         ctx.send_viewport_cmd(ViewportCommand::Visible(true));
         ctx.send_viewport_cmd(ViewportCommand::Focus);
@@ -287,7 +283,7 @@ pub fn draw_screenshot_ui(
                     }
                 }
             }
-            
+
             let config = get_context_config(ctx);
             // 设置开启的情况下启用
             if config.magnifier_enabled {
@@ -653,14 +649,9 @@ fn handle_capture_process(
     ctx: &Context,
     ui_mode: &mut UiMode,
     screenshot_state: &mut ScreenshotState,
-    frame: &eframe::Frame // [关键] 传入 frame 以获取句柄
 ) {
     if !screenshot_state.is_capturing {
         screenshot_state.is_capturing = true;
-
-        // [关键] 调用 Windows API，设置窗口为“截图透明”
-        // 这样窗口可以一直显示，不会挂起，但截不下来
-        set_window_exclude_from_capture(frame, true);
 
         ctx.request_repaint();
 
@@ -739,10 +730,6 @@ fn handle_capture_process(
                 screenshot_state.window_rects = window_rects; // 保存窗口边界
                 screenshot_state.is_capturing = false;
                 screenshot_state.capture_receiver = None;
-
-                // [关键] 截图完成，恢复窗口正常属性
-                set_window_exclude_from_capture(frame, false);
-
                 ctx.request_repaint();
             }
             Err(TryRecvError::Empty) => {
@@ -753,9 +740,6 @@ fn handle_capture_process(
                 screenshot_state.is_capturing = false;
                 screenshot_state.capture_receiver = None;
                 *ui_mode = UiMode::Normal;
-
-                // 失败也要恢复
-                set_window_exclude_from_capture(frame, false);
             }
         }
     }
@@ -875,34 +859,4 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
             }
         }
     }
-}
-
-// --- Windows API Helper ---
-
-#[cfg(target_os = "windows")]
-pub fn set_window_exclude_from_capture(frame: &eframe::Frame, exclude: bool) {
-    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-    use windows::Win32::Foundation::HWND;
-    use windows::Win32::UI::WindowsAndMessaging::{SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE, WDA_NONE};
-
-    // 1. 获取 WindowHandle
-    if let Ok(handle) = frame.window_handle() {
-        // 2. [修复] 使用 .as_raw() 获取 RawWindowHandle 枚举 (raw-window-handle 0.6)
-        if let RawWindowHandle::Win32(win32) = handle.as_raw() {
-            // 3. [修复] 类型转换：win32.hwnd (NonZeroIsize) -> isize -> *mut c_void
-            // windows 0.52 的 HWND 包装的是 *mut c_void
-            let hwnd_ptr = win32.hwnd.get() as *mut std::ffi::c_void;
-            let hwnd = HWND(hwnd_ptr);
-
-            let affinity = if exclude { WDA_EXCLUDEFROMCAPTURE } else { WDA_NONE };
-            unsafe {
-                let _ = SetWindowDisplayAffinity(hwnd, affinity);
-            }
-        }
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-pub fn set_window_exclude_from_capture(_frame: &eframe::Frame, _exclude: bool) {
-    // Non-Windows fallback (不做任何操作，或者使用 Visible 方案回退)
 }
