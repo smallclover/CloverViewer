@@ -1,4 +1,7 @@
-use eframe::egui::{self, Color32, ColorImage, Context, Pos2, Rect, Stroke, StrokeKind, TextureHandle, Ui, ViewportBuilder, ViewportClass, ViewportCommand, ViewportId};
+use eframe::egui::{
+    Color32, ColorImage, Context,
+    Pos2, Rect, Stroke, StrokeKind, TextureHandle,
+    Ui, ViewportBuilder, ViewportClass, ViewportCommand, ViewportId};
 use image::{GenericImage, RgbaImage};
 use std::{
     borrow::Cow,
@@ -12,17 +15,19 @@ use std::{
 };
 use std::collections::HashMap;
 use xcap::Monitor;
-use crate::model::state::ViewState;
+use arboard::{Clipboard, ImageData};
 use crate::ui::{
     mode::UiMode,
-    screenshot::toolbar::draw_screenshot_toolbar
-};
-use arboard::{Clipboard, ImageData};
-use crate::model::config::get_context_config;
-use crate::model::device::{DeviceInfo, MonitorInfo};
-use crate::ui::screenshot::color_picker::ColorPicker;
-use crate::ui::screenshot::magnifier::draw_magnifier;
+    screenshot::toolbar::draw_screenshot_toolbar,
+    screenshot::color_picker::ColorPicker,
+    screenshot::magnifier::handle_magnifier
 
+};
+use crate::model::{
+    config::get_context_config,
+    device::{DeviceInfo, MonitorInfo},
+    state::ViewState
+};
 // --- 类型定义 ---
 
 #[derive(PartialEq, Clone, Copy)]
@@ -266,70 +271,22 @@ pub fn draw_screenshot_ui(
                 }
             }
 
+            // 7. 鼠标放大镜 & 取色
             let config = get_context_config(ctx);
             if config.magnifier_enabled {
-                // 7. 鼠标放大镜 & 取色 (需要判断鼠标在哪个物理屏幕上)
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
                     let is_over_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(pointer_pos));
                     let is_interacting_popup = state.color_picker.is_open && ui.ctx().is_pointer_over_area();
 
                     if !is_over_toolbar && !is_interacting_popup {
-                        let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
-
-                        // 寻找鼠标当前所在的具体屏幕
-                        let mut target_screen = None;
-                        for cap in &state.captures {
-                            let rect = Rect::from_min_size(
-                                Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
-                                egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32)
-                            );
-                            if rect.contains(global_pointer_phys) {
-                                target_screen = Some(cap);
-                                break;
-                            }
-                        }
-
-                        if let Some(screen) = target_screen {
-                            // 计算在该屏幕内的局部逻辑坐标，以供放大镜正确裁切
-                            let screen_local_pointer_pos = device_info.pointer_local_logical(
-                                global_pointer_phys,
-                                &screen.screen_info,
-                                ppp
-                            );
-
-                            draw_magnifier(
-                                ui,
-                                ui.painter(),
-                                &screen.image,
-                                pointer_pos,
-                                screen_local_pointer_pos,
-                                ppp
-                            );
-
-                            // Ctrl + C 复制颜色
-                            if state.copy_requested || ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::C)) {
-                                state.copy_requested = false;
-
-                                let center_phys_x = (global_pointer_phys.x - screen.screen_info.x as f32).round() as isize;
-                                let center_phys_y = (global_pointer_phys.y - screen.screen_info.y as f32).round() as isize;
-                                let img_width = screen.image.width() as isize;
-                                let img_height = screen.image.height() as isize;
-
-                                if center_phys_x >= 0 && center_phys_x < img_width && center_phys_y >= 0 && center_phys_y < img_height {
-                                    let idx = center_phys_y as usize * screen.image.width() + center_phys_x as usize;
-                                    let color = screen.image.pixels[idx];
-                                    let hex_text = format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b());
-
-                                    if let Ok(mut clipboard) = Clipboard::new() {
-                                        if let Err(e) = clipboard.set_text(hex_text.clone()) {
-                                            eprintln!("[ERROR] Failed to set clipboard text: {}", e);
-                                        } else {
-                                            println!("[SUCCESS] Color {} copied to clipboard", hex_text);
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        // 所有计算和复制逻辑都已被提取到 magnifier.rs 内
+                        handle_magnifier(
+                            ui,
+                            state,
+                            global_offset_phys,
+                            ppp,
+                            pointer_pos
+                        );
                     }
                 }
             }
@@ -774,8 +731,7 @@ fn handle_capture_process(
 
 fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut ScreenshotState) {
     if final_action == ScreenshotAction::SaveAndClose || final_action == ScreenshotAction::SaveToClipboard {
-        // [核心保留] 这里的保存裁剪逻辑本来就是基于绝对的物理坐标来运算的，
-        // 单画布架构下完美继承了这一数学性质，因此保存逻辑完全不需要修改，即可跨屏框选保存！
+        // 基于绝对的物理坐标来运算的，
         if let Some(selection_phys) = screenshot_state.selection {
             if selection_phys.is_positive() {
                 let captures_data: Vec<_> = screenshot_state.captures.iter().map(|c| {

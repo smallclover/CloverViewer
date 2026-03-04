@@ -1,9 +1,76 @@
 use eframe::egui::{Color32, Painter, Pos2, Rect, Stroke, Ui, Vec2, FontId, Align2, StrokeKind};
 use eframe::egui::ColorImage;
-use crate::i18n::lang::{get_i18n_text};
+use arboard::Clipboard;
+use crate::i18n::lang::get_i18n_text;
+use crate::ui::screenshot::capture::ScreenshotState;
 
-/// 绘制放大镜组件
-pub fn draw_magnifier(
+/// 处理放大镜和取色器的核心入口
+pub fn handle_magnifier(
+    ui: &mut Ui,
+    state: &mut ScreenshotState,
+    global_offset_phys: Pos2,
+    ppp: f32,
+    pointer_pos: Pos2,
+) {
+    let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
+
+    // 1. 寻找鼠标当前所在的具体屏幕
+    let mut target_screen = None;
+    for cap in &state.captures {
+        let rect = Rect::from_min_size(
+            Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
+            eframe::egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32)
+        );
+        if rect.contains(global_pointer_phys) {
+            target_screen = Some(cap);
+            break;
+        }
+    }
+
+    if let Some(screen) = target_screen {
+        // 2. 计算放大镜裁剪所需的局部逻辑坐标
+        let screen_local_logical_x = (global_pointer_phys.x - screen.screen_info.x as f32) / ppp;
+        let screen_local_logical_y = (global_pointer_phys.y - screen.screen_info.y as f32) / ppp;
+        let screen_local_pointer_pos = Pos2::new(screen_local_logical_x, screen_local_logical_y);
+
+        // 3. 绘制放大镜 UI
+        draw_magnifier_ui(
+            ui,
+            ui.painter(),
+            &screen.image,
+            pointer_pos,
+            screen_local_pointer_pos,
+            ppp
+        );
+
+        // 4. 处理颜色复制 (Ctrl + C 或按钮请求)
+        if state.copy_requested || ui.input(|i| i.modifiers.ctrl && i.key_pressed(eframe::egui::Key::C)) {
+            state.copy_requested = false;
+
+            let center_phys_x = (global_pointer_phys.x - screen.screen_info.x as f32).round() as isize;
+            let center_phys_y = (global_pointer_phys.y - screen.screen_info.y as f32).round() as isize;
+            let img_width = screen.image.width() as isize;
+            let img_height = screen.image.height() as isize;
+
+            if center_phys_x >= 0 && center_phys_x < img_width && center_phys_y >= 0 && center_phys_y < img_height {
+                let idx = center_phys_y as usize * screen.image.width() + center_phys_x as usize;
+                let color = screen.image.pixels[idx];
+                let hex_text = format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b());
+
+                if let Ok(mut clipboard) = Clipboard::new() {
+                    if let Err(e) = clipboard.set_text(hex_text.clone()) {
+                        eprintln!("[ERROR] Failed to set clipboard text: {}", e);
+                    } else {
+                        println!("[SUCCESS] Color {} copied to clipboard", hex_text);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 内部绘制放大镜组件的逻辑
+fn draw_magnifier_ui(
     ui: &Ui,
     painter: &Painter,
     image: &ColorImage,
@@ -15,7 +82,7 @@ pub fn draw_magnifier(
     // --- 1. 参数调整 ---
     let pixel_grid_size = 61;
     let zoom_pixel_size = 3.0;
-    let half_grid = pixel_grid_size / 2; // 61 / 2 还是 30
+    let half_grid = pixel_grid_size / 2;
 
     let magnifier_size = pixel_grid_size as f32 * zoom_pixel_size;
     let info_bar_height = 64.0;
@@ -36,9 +103,7 @@ pub fn draw_magnifier(
     let card_rect = Rect::from_min_size(card_pos, card_size);
 
     // --- 3. 绘制卡片背景和边框 ---
-    // [修改] 背景改成纯白
     painter.rect_filled(card_rect, 4.0, Color32::WHITE);
-    // [修改] 边框改成一点点灰色 (由深灰改为了浅灰 200)
     painter.rect_stroke(
         card_rect,
         4.0,
@@ -53,9 +118,7 @@ pub fn draw_magnifier(
     let img_width = image.width() as isize;
     let img_height = image.height() as isize;
 
-    // 使用底层 Mesh 一次性渲染所有像素格，避免 3721 次 UI 绘制调用导致的卡顿
     let mut mesh = eframe::egui::Mesh::default();
-    // 提前分配内存，防止循环中频繁扩容
     mesh.reserve_triangles(3721 * 2);
     mesh.reserve_vertices(3721 * 4);
 
@@ -77,7 +140,6 @@ pub fn draw_magnifier(
                 Vec2::new(zoom_pixel_size, zoom_pixel_size)
             );
 
-            // 手动将矩形顶点推入 Mesh，一次 Draw Call 解决几千个方块
             let idx = mesh.vertices.len() as u32;
             mesh.add_triangle(idx, idx + 1, idx + 2);
             mesh.add_triangle(idx, idx + 2, idx + 3);
@@ -89,8 +151,7 @@ pub fn draw_magnifier(
             mesh.vertices.push(Vertex { pos: pixel_rect.left_bottom(), uv: Pos2::ZERO, color });
         }
     }
-    // 将一整个网格添加到画板
-    painter.add(egui::Shape::mesh(mesh));
+    painter.add(eframe::egui::Shape::mesh(mesh));
 
     // --- 5. 绘制十字准星 ---
     let center_grid_idx = half_grid as f32;
@@ -108,7 +169,6 @@ pub fn draw_magnifier(
     painter.line_segment([magnifier_rect.center_top(), magnifier_rect.center_bottom()], Stroke::new(1.0, center_line_color));
     painter.line_segment([magnifier_rect.left_center(), magnifier_rect.right_center()], Stroke::new(1.0, center_line_color));
 
-
     // --- 6. 绘制下半部分：信息文本 ---
     let center_idx = if center_phys_x >= 0 && center_phys_x < img_width && center_phys_y >= 0 && center_phys_y < img_height {
         center_phys_y as usize * image.width() + center_phys_x as usize
@@ -122,7 +182,6 @@ pub fn draw_magnifier(
         card_rect.max
     );
 
-    // [修改] 白底上的分割线，改成极浅的灰色
     painter.line_segment(
         [info_rect.left_top(), info_rect.right_top()],
         Stroke::new(1.0, Color32::from_gray(230))
@@ -131,15 +190,13 @@ pub fn draw_magnifier(
     let coord_text = format!("({}, {})", center_phys_x, center_phys_y);
     let hex_text = format!("#{:02X}{:02X}{:02X}", center_color.r(), center_color.g(), center_color.b());
 
-    // [修改] 字体颜色适配白底
-    let text_color = Color32::from_rgb(40, 40, 40); // 深灰色（接近黑）文字
-    let hint_color = Color32::from_gray(150);       // 中灰色提示文字
+    let text_color = Color32::from_rgb(40, 40, 40);
+    let hint_color = Color32::from_gray(150);
     let font_id = FontId::proportional(12.0);
     let hint_font_id = FontId::proportional(10.0);
 
     let line_height = info_bar_height / 3.0;
 
-    // 第一行：坐标 (POS)
     painter.text(
         Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 0.5 + 2.0),
         Align2::LEFT_CENTER,
@@ -148,7 +205,6 @@ pub fn draw_magnifier(
         text_color,
     );
 
-    // 第二行：HEX值 + 颜色块
     let row2_y = info_rect.min.y + line_height * 1.5 + 2.0;
     let hex_galley = painter.layout_no_wrap(format!("HEX: {}", hex_text), font_id.clone(), text_color);
     let hex_text_width = hex_galley.size().x;
@@ -168,10 +224,8 @@ pub fn draw_magnifier(
         Vec2::new(color_preview_size, color_preview_size)
     );
     painter.rect_filled(color_preview_rect, 2.0, center_color);
-    // [修改] 颜色预览块的边框也改成灰色，防止白色预览块融进白底
     painter.rect_stroke(color_preview_rect, 2.0, Stroke::new(1.0, Color32::from_gray(200)), StrokeKind::Outside);
 
-    // 第三行：提示文字
     painter.text(
         Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 2.5),
         Align2::LEFT_CENTER,
