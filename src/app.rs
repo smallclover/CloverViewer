@@ -22,7 +22,6 @@ use crate::ui::{
     panels::properties_panel::draw_properties_panel,
     resources::APP_FONT,
     screenshot::capture::handle_screenshot_system,
-    mode::UiMode,
     viewer
 };
 use crate::ui::widgets::tray::create_tray;
@@ -119,7 +118,6 @@ impl CloverApp {
     }
 
     fn draw_ui(&mut self, ctx: &Context) {
-        if self.state.ui_mode != UiMode::Screenshot {
             viewer::draw_top_panel(
                 ctx,
                 &mut self.state,
@@ -128,11 +126,9 @@ impl CloverApp {
             viewer::draw_central_panel(ctx, &mut self.data, &mut self.state);
             draw_properties_panel(ctx, &mut self.state, &self.data);
             self.state.toast_system.update(ctx);
-        }
     }
 
     fn handle_ui_interactions(&mut self, ctx: &Context) {
-        if self.state.ui_mode != UiMode::Screenshot {
             // 这里 temp_config 是从 Settings 窗口修改后返回的副本
             let mut temp_config = (*self.config).clone();
 
@@ -155,7 +151,6 @@ impl CloverApp {
                 // 在这里重新设置 Context 中的 config 数据，确保其他组件也能拿到最新配置
                 update_context_config(ctx, &self.config);
             }
-        }
     }
 }
 
