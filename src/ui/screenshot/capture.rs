@@ -19,6 +19,7 @@ use crate::ui::{
 };
 use arboard::{Clipboard, ImageData};
 use crate::model::config::get_context_config;
+use crate::model::device::{DeviceInfo, MonitorInfo};
 use crate::ui::screenshot::color_picker::ColorPicker;
 use crate::ui::screenshot::magnifier::draw_magnifier;
 
@@ -49,12 +50,6 @@ pub struct DrawnShape {
 
 pub struct ScreenshotState {
     pub captures: Vec<CapturedScreen>,
-
-    // [新增] 全局大画布的物理边界
-    pub phys_min_x: i32,
-    pub phys_min_y: i32,
-    pub phys_max_x: i32,
-    pub phys_max_y: i32,
 
     // 全局物理坐标 (Physical Pixels)
     pub selection: Option<Rect>,
@@ -90,10 +85,6 @@ impl Default for ScreenshotState {
         let default_color = Color32::from_rgb(204, 0, 0);
         Self {
             captures: Vec::new(),
-            phys_min_x: 0,
-            phys_min_y: 0,
-            phys_max_x: 0,
-            phys_max_y: 0,
             selection: None,
             drag_start: None,
             toolbar_pos: None,
@@ -113,16 +104,6 @@ impl Default for ScreenshotState {
             texture_pool: HashMap::new()
         }
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct MonitorInfo {
-    pub name: String,
-    pub x: i32,
-    pub y: i32,
-    pub width: u32,
-    pub height: u32,
-    pub scale_factor: f32,
 }
 
 #[derive(Clone)]
@@ -153,18 +134,8 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
 
     let mut final_action = ScreenshotAction::None;
     let mut wants_to_close_viewports = false;
-
-    // [核心修改] 2. 计算大画布全局逻辑尺寸并只启动一个 Viewport
-    let phys_min_x = state.screenshot_state.phys_min_x as f32;
-    let phys_min_y = state.screenshot_state.phys_min_y as f32;
-    let phys_total_w = (state.screenshot_state.phys_max_x - state.screenshot_state.phys_min_x) as f32;
-    let phys_total_h = (state.screenshot_state.phys_max_y - state.screenshot_state.phys_min_y) as f32;
-
-    let startup_scale = 1.0;
-    let logic_x = phys_min_x / startup_scale;
-    let logic_y = phys_min_y / startup_scale;
-    let logic_w = phys_total_w / startup_scale;
-    let logic_h = phys_total_h / startup_scale;
+    // 拿到启动画布需要的坐标和尺寸
+    let (pos, size) = state.device_info.global_logical_rect(1.0);
 
     let viewport_id = ViewportId::from_hash_of("screenshot_global_canvas");
 
@@ -172,15 +143,15 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
         viewport_id,
         ViewportBuilder::default()
             .with_title("Global Screenshot Canvas")
-            .with_position(Pos2::new(logic_x, logic_y))
-            .with_min_inner_size(egui::vec2(logic_w, logic_h))
+            .with_position(pos)
+            .with_min_inner_size(size)
             .with_decorations(false)
             .with_transparent(true)
             .with_always_on_top(),
         |ctx, class| {
             if class == ViewportClass::Immediate {
                 // 整个大画布的绘制逻辑入口，不再传递 screen_index
-                let action = draw_screenshot_ui(ctx, &mut state.screenshot_state);
+                let action = draw_screenshot_ui(ctx, &mut state.screenshot_state, &state.device_info);
                 if action != ScreenshotAction::None {
                     final_action = action;
                     wants_to_close_viewports = true;
@@ -210,12 +181,13 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
 pub fn draw_screenshot_ui(
     ctx: &Context,
     state: &mut ScreenshotState,
+    device_info: &DeviceInfo,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
     let mut needs_repaint = false;
 
     // 大画布全局左上角的物理坐标
-    let global_offset_phys = Pos2::new(state.phys_min_x as f32, state.phys_min_y as f32);
+    let global_offset_phys = Pos2::new(device_info.phys_min_x as f32, device_info.phys_min_y as f32);
     let ppp = ctx.pixels_per_point();
 
     egui::CentralPanel::default()
@@ -227,18 +199,7 @@ pub fn draw_screenshot_ui(
             // 1. 绘制所有底图纹理 (基于物理偏移除以缩放率映射)
             for cap in &state.captures {
                 if let Some(texture) = state.texture_pool.get(&cap.screen_info.name) {
-                    let phys_rel_x = cap.screen_info.x as f32 - state.phys_min_x as f32;
-                    let phys_rel_y = cap.screen_info.y as f32 - state.phys_min_y as f32;
-
-                    let logic_x = phys_rel_x / ppp;
-                    let logic_y = phys_rel_y / ppp;
-                    let logic_w = cap.screen_info.width as f32 / ppp;
-                    let logic_h = cap.screen_info.height as f32 / ppp;
-
-                    let rect = Rect::from_min_size(
-                        Pos2::new(logic_x, logic_y),
-                        egui::vec2(logic_w, logic_h)
-                    );
+                    let rect = device_info.screen_logical_rect(&cap.screen_info, ppp);
 
                     painter.image(
                         texture.id(),
@@ -330,9 +291,11 @@ pub fn draw_screenshot_ui(
 
                         if let Some(screen) = target_screen {
                             // 计算在该屏幕内的局部逻辑坐标，以供放大镜正确裁切
-                            let screen_local_logical_x = (global_pointer_phys.x - screen.screen_info.x as f32) / ppp;
-                            let screen_local_logical_y = (global_pointer_phys.y - screen.screen_info.y as f32) / ppp;
-                            let screen_local_pointer_pos = Pos2::new(screen_local_logical_x, screen_local_logical_y);
+                            let screen_local_pointer_pos = device_info.pointer_local_logical(
+                                global_pointer_phys,
+                                &screen.screen_info,
+                                ppp
+                            );
 
                             draw_magnifier(
                                 ui,
@@ -499,7 +462,6 @@ fn render_canvas_elements(
     let painter = ui.painter();
     let viewport_rect = ui.ctx().viewport_rect();
     let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
-    let full_rect = ui.max_rect();
 
     if let Some(global_sel_phys) = state.selection {
         let vec_min = global_sel_phys.min - global_offset_phys;
@@ -776,28 +738,6 @@ fn handle_capture_process(
     if let Some(rx) = &screenshot_state.capture_receiver {
         match rx.try_recv() {
             Ok((captures, window_rects)) => {
-                // [新增] 计算捕获到的所有屏幕的物理边界
-                let mut min_x = i32::MAX;
-                let mut min_y = i32::MAX;
-                let mut max_x = i32::MIN;
-                let mut max_y = i32::MIN;
-
-                for cap in &captures {
-                    let x = cap.screen_info.x;
-                    let y = cap.screen_info.y;
-                    let w = cap.screen_info.width as i32;
-                    let h = cap.screen_info.height as i32;
-
-                    if x < min_x { min_x = x; }
-                    if y < min_y { min_y = y; }
-                    if x + w > max_x { max_x = x + w; }
-                    if y + h > max_y { max_y = y + h; }
-                }
-
-                screenshot_state.phys_min_x = min_x;
-                screenshot_state.phys_min_y = min_y;
-                screenshot_state.phys_max_x = max_x;
-                screenshot_state.phys_max_y = max_y;
 
                 // 纹理处理
                 for cap in &captures {

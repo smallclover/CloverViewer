@@ -5,6 +5,7 @@ use eframe::egui::Context;
 // 引入 Config，因为初始化热键和重载热键都需要读取配置
 use crate::model::config::Config;
 use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
+use crate::model::device::DeviceInfo;
 use crate::state::custom_window::WindowState;
 use crate::ui::{
     widgets::toast::{ToastManager, ToastSystem},
@@ -36,7 +37,10 @@ pub struct ViewState {
     // 热键管理器 (私有，通过 ViewState 的方法操作)
     hotkey_manager: HotkeyManager,
 
-    pub window_state: WindowState
+    pub window_state: WindowState,
+
+    pub device_info: DeviceInfo,
+
 }
 
 impl ViewState {
@@ -58,7 +62,8 @@ impl ViewState {
             screenshot_state: ScreenshotState::default(),
             // 使用 config 初始化 hotkey_manager，注册初始快捷键
             hotkey_manager: HotkeyManager::new(ctx, config, win_m),
-            window_state: win_s
+            window_state: win_s,
+            device_info: DeviceInfo::load()
         }
     }
 
