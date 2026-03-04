@@ -189,7 +189,6 @@ pub fn draw_screenshot_ui(
     device_info: &DeviceInfo,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
-    let mut needs_repaint = false;
 
     // 大画布全局左上角的物理坐标
     let global_offset_phys = Pos2::new(device_info.phys_min_x as f32, device_info.phys_min_y as f32);
@@ -244,19 +243,11 @@ pub fn draw_screenshot_ui(
                 }
             }
 
-            if state.selection.is_none() && state.drag_start.is_none() {
-                if ui.input(|i| i.pointer.is_moving()) {
-                    needs_repaint = true;
-                }
-            }
-
             // 3. 预先计算工具栏位置
             let local_toolbar_rect = calculate_toolbar_rect(state, global_offset_phys, ppp);
 
             // 4. 处理交互
-            if handle_interaction(ui, state, global_offset_phys, ppp, local_toolbar_rect) {
-                needs_repaint = true;
-            }
+            handle_interaction(ui, state, global_offset_phys, ppp, local_toolbar_rect);
 
             // 5. 渲染画布元素 (遮罩、边框、绘制的图形)
             render_canvas_elements(ui, state, global_offset_phys, ppp, is_hovered);
@@ -296,9 +287,8 @@ pub fn draw_screenshot_ui(
             }
         });
 
-    if needs_repaint {
-        ctx.request_repaint();
-    }
+    // 强制每一帧都重绘，确保极致丝滑
+    ctx.request_repaint();
 
     action
 }
@@ -309,8 +299,7 @@ fn handle_interaction(
     global_offset_phys: Pos2,
     ppp: f32,
     toolbar_rect: Option<Rect>,
-) -> bool {
-    let mut needs_repaint = false;
+) {
     let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::click_and_drag());
 
     if response.clicked() {
@@ -319,8 +308,7 @@ fn handle_interaction(
             if let Some(sel) = state.selection {
                 state.toolbar_pos = Some(sel.right_bottom());
             }
-            needs_repaint = true;
-            return needs_repaint;
+            return;
         }
     }
 
@@ -338,27 +326,23 @@ fn handle_interaction(
                         if selection.contains(global_phys) {
                             state.current_shape_start = Some(global_phys);
                             state.current_shape_end = Some(global_phys);
-                            needs_repaint = true;
                         }
                     }
                 } else {
                     state.drag_start = Some(global_phys);
                     state.toolbar_pos = None;
                     state.color_picker.close();
-                    needs_repaint = true;
                 }
             }
 
             if response.dragged() {
                 if let Some(_) = state.current_shape_start {
                     state.current_shape_end = Some(global_phys);
-                    needs_repaint = true;
                 } else if let Some(drag_start_phys) = state.drag_start {
                     let rect = Rect::from_two_pos(drag_start_phys, global_phys);
                     if state.selection.map_or(true, |s| s != rect) {
                         state.selection = Some(rect);
                     }
-                    needs_repaint = true;
                 }
             }
 
@@ -375,7 +359,6 @@ fn handle_interaction(
                     }
                     state.current_shape_start = None;
                     state.current_shape_end = None;
-                    needs_repaint = true;
                 } else if state.drag_start.is_some() {
                     state.drag_start = None;
                     if let Some(sel) = state.selection {
@@ -385,13 +368,11 @@ fn handle_interaction(
                             state.selection = None;
                             state.toolbar_pos = None;
                         }
-                        needs_repaint = true;
                     }
                 }
             }
         }
     }
-    needs_repaint
 }
 
 fn render_canvas_elements(
