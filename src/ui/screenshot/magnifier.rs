@@ -7,8 +7,8 @@ pub fn draw_magnifier(
     ui: &Ui,
     painter: &Painter,
     image: &ColorImage,
-    draw_pos: Pos2,
-    sample_pos: Pos2,
+    draw_pos: Pos2, // 决定 UI 画在哪
+    sample_pos: Pos2, // 决定从图片哪里取色
     ppp: f32,
 ) {
     let text = get_i18n_text(ui.ctx());
