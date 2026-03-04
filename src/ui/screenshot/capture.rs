@@ -27,6 +27,7 @@ use crate::model::{
     device::{DeviceInfo, MonitorInfo},
     state::ViewState
 };
+use crate::ui::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
 use crate::ui::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 // --- 类型定义 ---
 
@@ -443,14 +444,7 @@ fn render_canvas_elements(
         let rect = Rect::from_two_pos(start_local, end_local);
 
         if viewport_rect.intersects(rect) {
-            match shape.tool {
-                ScreenshotTool::Rect => {
-                    painter.rect_stroke(rect, 0.0, Stroke::new(shape.stroke_width, shape.color), StrokeKind::Outside);
-                }
-                ScreenshotTool::Circle => {
-                    painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(shape.stroke_width, shape.color)));
-                }
-            }
+            draw_egui_shape(painter, shape.tool, rect, shape.stroke_width, shape.color);
         }
     }
 
@@ -461,14 +455,7 @@ fn render_canvas_elements(
 
         if viewport_rect.intersects(rect) {
             if let Some(tool) = state.current_tool {
-                match tool {
-                    ScreenshotTool::Rect => {
-                        painter.rect_stroke(rect, 0.0, Stroke::new(state.stroke_width, state.active_color), StrokeKind::Outside);
-                    }
-                    ScreenshotTool::Circle => {
-                        painter.add(egui::Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(state.stroke_width, state.active_color)));
-                    }
-                }
+                draw_egui_shape(painter, tool, rect, state.stroke_width, state.active_color);
             }
         }
     }
@@ -719,51 +706,7 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
                     }
 
                     // 2. 绘制标注图形 (使用 tiny-skia 进行完美抗锯齿渲染)
-                    if let Some(mut pixmap) = tiny_skia::PixmapMut::from_bytes(
-                        &mut final_image,
-                        final_width,
-                        final_height,
-                    ) {
-                        for shape in shapes {
-                            let start_x = shape.start.x - selection_phys.min.x;
-                            let start_y = shape.start.y - selection_phys.min.y;
-                            let end_x = shape.end.x - selection_phys.min.x;
-                            let end_y = shape.end.y - selection_phys.min.y;
-
-                            let x0 = start_x.min(end_x);
-                            let y0 = start_y.min(end_y);
-                            let width = (start_x - end_x).abs();
-                            let height = (start_y - end_y).abs();
-
-                            if width <= 0.0 || height <= 0.0 { continue; }
-
-                            let mut paint = tiny_skia::Paint::default();
-                            paint.set_color_rgba8(shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a());
-                            paint.anti_alias = true;
-
-                            let stroke = tiny_skia::Stroke {
-                                width: shape.stroke_width,
-                                line_cap: tiny_skia::LineCap::Round,
-                                line_join: tiny_skia::LineJoin::Round,
-                                ..Default::default()
-                            };
-
-                            let transform = tiny_skia::Transform::identity();
-
-                            if let Some(rect) = tiny_skia::Rect::from_xywh(x0, y0, width, height) {
-                                match shape.tool {
-                                    ScreenshotTool::Rect => {
-                                        let path = tiny_skia::PathBuilder::from_rect(rect);
-                                        pixmap.stroke_path(&path, &paint, &stroke, transform, None);
-                                    }
-                                    ScreenshotTool::Circle => {
-                                        let path = tiny_skia::PathBuilder::from_oval(rect).unwrap();
-                                        pixmap.stroke_path(&path, &paint, &stroke, transform, None);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    draw_skia_shapes_on_image(&mut final_image, &shapes, selection_phys);
 
                     // 3. 执行保存或复制动作
                     if final_action == ScreenshotAction::SaveAndClose {
