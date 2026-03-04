@@ -140,7 +140,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
     let mut final_action = ScreenshotAction::None;
     let mut wants_to_close_viewports = false;
     // 拿到启动画布需要的坐标和尺寸
-    let (pos, size) = state.device_info.global_logical_rect(1.0);
+    let (pos, size) = state.device_info.global_logical_rect();
 
     let viewport_id = ViewportId::from_hash_of("screenshot_global_canvas");
 
@@ -543,7 +543,7 @@ fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
     let anchor_stroke = Stroke::new(1.0, green);
     let anchor_fill = green;
 
-    painter.rect_stroke(rect, 0.0, main_stroke, StrokeKind::Outside);
+    painter.rect_stroke(rect, 0.0, main_stroke, StrokeKind::Middle);
 
     if rect.width() > anchor_size * 3.0 && rect.height() > anchor_size * 3.0 {
         let min = rect.min;
@@ -559,7 +559,7 @@ fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
         for anchor_pos in anchors {
             let anchor_rect = Rect::from_center_size(anchor_pos, egui::vec2(anchor_size, anchor_size));
             painter.rect_filled(anchor_rect, 0.0, anchor_fill);
-            painter.rect_stroke(anchor_rect, 0.0, anchor_stroke, StrokeKind::Outside);
+            painter.rect_stroke(anchor_rect, 0.0, anchor_stroke, StrokeKind::Middle);
         }
     }
 }
