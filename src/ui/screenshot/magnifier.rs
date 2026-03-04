@@ -7,7 +7,8 @@ pub fn draw_magnifier(
     ui: &Ui,
     painter: &Painter,
     image: &ColorImage,
-    pointer_pos: Pos2,
+    draw_pos: Pos2,
+    sample_pos: Pos2,
     ppp: f32,
 ) {
     let text = get_i18n_text(ui.ctx());
@@ -22,14 +23,14 @@ pub fn draw_magnifier(
 
     // --- 2. 计算卡片位置 ---
     let offset = Vec2::new(20.0, 20.0);
-    let mut card_pos = pointer_pos + offset;
+    let mut card_pos = draw_pos + offset;
 
     let screen_rect = ui.ctx().viewport_rect();
     if card_pos.x + card_size.x > screen_rect.max.x {
-        card_pos.x = pointer_pos.x - offset.x - card_size.x;
+        card_pos.x = draw_pos.x - offset.x - card_size.x;
     }
     if card_pos.y + card_size.y > screen_rect.max.y {
-        card_pos.y = pointer_pos.y - offset.y - card_size.y;
+        card_pos.y = draw_pos.y - offset.y - card_size.y;
     }
 
     let card_rect = Rect::from_min_size(card_pos, card_size);
@@ -47,8 +48,8 @@ pub fn draw_magnifier(
 
     // --- 4. 绘制上半部分：像素放大镜 ---
     let magnifier_rect = Rect::from_min_size(card_pos, Vec2::new(magnifier_size, magnifier_size));
-    let center_phys_x = (pointer_pos.x * ppp).round() as isize;
-    let center_phys_y = (pointer_pos.y * ppp).round() as isize;
+    let center_phys_x = (sample_pos.x * ppp).round() as isize;
+    let center_phys_y = (sample_pos.y * ppp).round() as isize;
     let img_width = image.width() as isize;
     let img_height = image.height() as isize;
 
