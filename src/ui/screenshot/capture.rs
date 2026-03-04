@@ -616,8 +616,33 @@ fn render_canvas_elements(
                     paint_style_box(painter, clipped_local_sel, 2.0);
                 }
             } else {
-                let inset_rect = full_rect.shrink(4.0);
-                paint_style_box(painter, inset_rect, 3.0);
+                // 我们通过鼠标的全局物理坐标，找出它当前所在的那个具体显示器
+                if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
+                    let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
+
+                    for cap in &state.captures {
+                        let cap_phys_rect = Rect::from_min_size(
+                            Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
+                            egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32)
+                        );
+
+                        if cap_phys_rect.contains(global_pointer_phys) {
+                            // 找到了鼠标当前所在的显示器，将它的物理边界映射回逻辑边界
+                            let vec_min = cap_phys_rect.min - global_offset_phys;
+                            let vec_max = cap_phys_rect.max - global_offset_phys;
+
+                            let local_logical_rect = Rect::from_min_max(
+                                Pos2::ZERO + (vec_min / ppp),
+                                Pos2::ZERO + (vec_max / ppp),
+                            );
+
+                            // 往内缩 4 个像素画绿框，完美贴合单块屏幕边缘
+                            let inset_rect = local_logical_rect.shrink(4.0);
+                            paint_style_box(painter, inset_rect, 3.0);
+                            break;
+                        }
+                    }
+                }
             }
         } else {
             painter.rect_filled(viewport_rect, 0.0, overlay_color);
