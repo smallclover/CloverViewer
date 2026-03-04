@@ -1,10 +1,52 @@
-use eframe::egui::{self, Color32, Rect, Vec2, Ui, Painter, Layout, Align, Stroke, StrokeKind};
+use eframe::egui::{self, Color32, Pos2, Rect, Vec2, Ui, Painter, Layout, Align, Stroke, StrokeKind};
 use egui::{Response, UiBuilder};
 use crate::i18n::lang::{get_i18n_text};
 use crate::ui::widgets::icons::{draw_icon_button, IconType};
 use super::capture::{ScreenshotState, ScreenshotTool, ScreenshotAction};
 
-pub fn draw_screenshot_toolbar(
+/// 预先计算工具栏应该显示的位置和尺寸
+pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2, ppp: f32) -> Option<Rect> {
+    if let Some(global_toolbar_pos_phys) = state.toolbar_pos {
+        let vec_phys = global_toolbar_pos_phys - global_offset_phys;
+        let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
+
+        let toolbar_width = 217.0;
+        let toolbar_height = 48.0;
+
+        // 工具栏定位在选区右下角，向下偏移 10 个像素，向左偏移自身宽度
+        let toolbar_min_pos = Pos2::new(local_pos_logical.x - toolbar_width, local_pos_logical.y + 10.0);
+        Some(Rect::from_min_size(toolbar_min_pos, egui::vec2(toolbar_width, toolbar_height)))
+    } else {
+        None
+    }
+}
+
+/// 渲染工具栏以及关联的浮层（如颜色选择器）
+pub fn render_toolbar_and_overlays(
+    ui: &mut Ui,
+    state: &mut ScreenshotState,
+    toolbar_rect: Rect,
+) -> ScreenshotAction {
+    let mut action = ScreenshotAction::None;
+    let painter = ui.painter().clone();
+
+    // 1. 绘制工具栏主体
+    let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect);
+    if toolbar_action != ScreenshotAction::None {
+        action = toolbar_action;
+    }
+
+    // 2. 绘制颜色选择器浮层
+    if state.color_picker.show(ui, state.color_picker_anchor, &mut state.stroke_width) {
+        state.active_color = state.color_picker.selected_color;
+        ui.ctx().request_repaint();
+    }
+
+    action
+}
+
+/// 内部函数：绘制工具栏本体
+fn draw_screenshot_toolbar(
     ui: &mut Ui,
     painter: &Painter,
     state: &mut ScreenshotState,
@@ -39,13 +81,7 @@ pub fn draw_screenshot_toolbar(
                 if rect_button.clicked() {
                     state.current_tool = Some(ScreenshotTool::Rect);
                 }
-                // 长按矩形 - 传入 rect_button 本身作为定位锚点
-                handle_tool_interaction(
-                    ui,
-                    &rect_button, // 传入 Response
-                    ScreenshotTool::Rect,
-                    state,
-                );
+                handle_tool_interaction(ui, &rect_button, ScreenshotTool::Rect, state);
 
                 // === 2. 圆形工具 ===
                 let is_circle = state.current_tool == Some(ScreenshotTool::Circle);
@@ -53,14 +89,7 @@ pub fn draw_screenshot_toolbar(
                 if circle_button.clicked() {
                     state.current_tool = Some(ScreenshotTool::Circle);
                 }
-
-                // 长按圆形 - 传入 circle_button 本身作为定位锚点
-                handle_tool_interaction(
-                    ui,
-                    &circle_button, // 传入 Response
-                    ScreenshotTool::Circle,
-                    state,
-                );
+                handle_tool_interaction(ui, &circle_button, ScreenshotTool::Circle, state);
 
                 let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(1.0, 16.0), egui::Sense::hover());
                 ui.painter().line_segment(
@@ -85,6 +114,8 @@ pub fn draw_screenshot_toolbar(
 
     action
 }
+
+/// 内部函数：处理工具图标的交互逻辑 (长按打开调色盘等)
 fn handle_tool_interaction(
     ui: &mut Ui,
     response: &Response,
@@ -92,15 +123,11 @@ fn handle_tool_interaction(
     state: &mut ScreenshotState,
 ) {
     let button_id = response.id;
-
-    // [关键] 获取长按触发标记 (在 reset 之前获取)
     let long_press_triggered = ui.data(|d| d.get_temp::<bool>(button_id).unwrap_or(false));
 
-    // --- 1. 处理点击 (选中工具 或 关闭调色盘) ---
+    // --- 1. 处理点击 ---
     if response.clicked() {
         state.current_tool = Some(target_tool);
-
-        // 只有当这次点击 不是 长按触发后的松手动作时，才执行关闭逻辑
         if !long_press_triggered {
             if state.color_picker.is_open {
                 state.color_picker.close();
@@ -123,8 +150,6 @@ fn handle_tool_interaction(
                         state.color_picker.open();
                         state.color_picker_anchor = Some(response.rect);
                         state.current_tool = Some(target_tool);
-
-                        // 标记已触发，防止 clicked 在松手时误判
                         ui.data_mut(|d| d.insert_temp(button_id, true));
                     }
                 }

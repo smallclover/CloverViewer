@@ -18,7 +18,6 @@ use xcap::Monitor;
 use arboard::{Clipboard, ImageData};
 use crate::ui::{
     mode::UiMode,
-    screenshot::toolbar::draw_screenshot_toolbar,
     screenshot::color_picker::ColorPicker,
     screenshot::magnifier::handle_magnifier
 
@@ -28,6 +27,7 @@ use crate::model::{
     device::{DeviceInfo, MonitorInfo},
     state::ViewState
 };
+use crate::ui::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 // --- 类型定义 ---
 
 #[derive(PartialEq, Clone, Copy)]
@@ -303,21 +303,6 @@ pub fn draw_screenshot_ui(
     action
 }
 
-// --- Sub-functions ---
-
-fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2, ppp: f32) -> Option<Rect> {
-    if let Some(global_toolbar_pos_phys) = state.toolbar_pos {
-        let vec_phys = global_toolbar_pos_phys - global_offset_phys;
-        let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
-        let toolbar_width = 217.0;
-        let toolbar_height = 48.0;
-        let toolbar_min_pos = Pos2::new(local_pos_logical.x - toolbar_width, local_pos_logical.y + 10.0);
-        Some(Rect::from_min_size(toolbar_min_pos, egui::vec2(toolbar_width, toolbar_height)))
-    } else {
-        None
-    }
-}
-
 fn handle_interaction(
     ui: &mut Ui,
     state: &mut ScreenshotState,
@@ -569,26 +554,6 @@ fn render_canvas_elements(
     }
 }
 
-fn render_toolbar_and_overlays(
-    ui: &mut Ui,
-    state: &mut ScreenshotState,
-    toolbar_rect: Rect,
-) -> ScreenshotAction {
-    let mut action = ScreenshotAction::None;
-    let painter = ui.painter().clone();
-
-    let toolbar_action = draw_screenshot_toolbar(ui, &painter, state, toolbar_rect);
-    if toolbar_action != ScreenshotAction::None {
-        action = toolbar_action;
-    }
-
-    if state.color_picker.show(ui, state.color_picker_anchor, &mut state.stroke_width) {
-        state.active_color = state.color_picker.selected_color;
-        ui.ctx().request_repaint();
-    }
-
-    action
-}
 
 fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
     let anchor_size = 6.0;
