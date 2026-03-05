@@ -90,3 +90,7 @@ pub fn update_context_config(ctx:&Context, config: &Arc<Config>){
     // 保持 Config 在 context 中更新
     ctx.data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(config)));
 }
+
+pub fn init_config_arc(ctx:&Context, config: &Arc<Config>){
+    ctx.data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(config)));
+}

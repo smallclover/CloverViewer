@@ -119,8 +119,7 @@ pub struct CapturedScreen {
     pub screen_info: MonitorInfo,
 }
 
-// --- Main System Logic ---
-
+/// 截图主逻辑入口
 pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
     if state.ui_mode != UiMode::Screenshot {
         return;
@@ -148,7 +147,6 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
     ctx.show_viewport_immediate(
         viewport_id,
         ViewportBuilder::default()
-            .with_title("Global Screenshot Canvas")
             .with_position(pos)
             .with_min_inner_size(size)
             .with_decorations(false)
@@ -156,7 +154,6 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
             .with_always_on_top(),
         |ctx, class| {
             if class == ViewportClass::Immediate {
-                // 整个大画布的绘制逻辑入口，不再传递 screen_index
                 let action = draw_screenshot_ui(ctx, &mut state.screenshot_state, &state.device_info);
                 if action != ScreenshotAction::None {
                     final_action = action;

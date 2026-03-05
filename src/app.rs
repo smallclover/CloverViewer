@@ -1,31 +1,32 @@
 use eframe::egui;
+use tray_icon::TrayIcon;
 use egui::{Context, FontData, FontDefinitions, FontFamily, ViewportBuilder, Id};
 use std::{
     path::PathBuf,
-    sync::Arc,
+    sync::{Arc, Mutex},
     env
 };
-use std::sync::Mutex;
-use tray_icon::TrayIcon;
 use crate::{
     core::{business::BusinessData},
     model::{
-        config::{load_config, save_config, Config},
+        config::{load_config, save_config, update_context_config, Config},
         state::{ViewMode, ViewState},
     },
+    os::window::get_hwnd_isize,
+    utils::image::load_icon,
+    ui::{
+        menus::context_menu::handle_context_menu_action,
+        widgets::{
+            modal::ModalAction,
+            tray::init_tray
+        },
+        panels::properties_panel::draw_properties_panel,
+        resources::APP_FONT,
+        screenshot::capture::handle_screenshot_system,
+        viewer
+    }
 };
-use crate::model::config::update_context_config;
-use crate::os::window::get_hwnd_isize;
-use crate::ui::{
-    menus::context_menu::handle_context_menu_action,
-    widgets::modal::ModalAction,
-    panels::properties_panel::draw_properties_panel,
-    resources::APP_FONT,
-    screenshot::capture::handle_screenshot_system,
-    viewer
-};
-use crate::ui::widgets::tray::create_tray;
-use crate::utils::image::load_icon;
+use crate::model::config::init_config_arc;
 
 pub fn run() -> eframe::Result<()> {
     let mut options = eframe::NativeOptions {
@@ -52,7 +53,7 @@ pub struct CloverApp {
     data: BusinessData,
     state: ViewState,
     config: Arc<Config>,
-    _tray_icon: TrayIcon,// 持有托盘实例，必须持有，否则无法显示托盘图标
+    _tray: TrayIcon,// 持有托盘实例，必须持有，否则无法显示托盘图标
 }
 
 impl CloverApp {
@@ -61,35 +62,33 @@ impl CloverApp {
         start_path: Option<PathBuf>,
     ) -> Self {
         // 1. 设置字体
-        let mut fonts = FontDefinitions::default();
-        fonts.font_data.insert("my_font".to_owned(), Arc::new(FontData::from_static(APP_FONT)));
-        fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "my_font".to_owned());
-        cc.egui_ctx.set_fonts(fonts);
+        Self::init_fonts(cc);
 
-        // 1. 用 let 声明一个 Arc 包装的 Mutex
-        // 窗口状态
+        // 控制窗口可见的全局变量
         let visible = Arc::new(Mutex::new(true));
+        // 是否运行退出应用
         let allow_quit = Arc::new(Mutex::new(false));
+        // 获得窗口原生句柄
         let hwnd_isize = get_hwnd_isize(&cc);
 
-        let tray_icon = create_tray(&cc, &visible, &allow_quit, hwnd_isize);
+        // 2. 初始化托盘
+        let tray = init_tray(&cc, &visible, &allow_quit, hwnd_isize);
 
-        // 2. 加载配置
-        let config = load_config(); // 先加载为普通 Config 结构体
-
-        // 3. 初始化 State (现在需要传入 config 来注册初始热键)
-        let state = ViewState::new(&cc.egui_ctx, &config, visible, allow_quit, hwnd_isize);
-
+        // 3. 加载配置
+        // 先加载为普通 Config 结构体
+        let config = load_config();
         // 将 Config 转为 Arc 以便在 App 中共享
         let config_arc = Arc::new(config);
-        cc.egui_ctx
-            .data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(&config_arc)));
+        init_config_arc(&cc.egui_ctx, &Arc::clone(&config_arc));
+
+        // 4. 初始化 State (现在需要传入 config 来注册初始热键)
+        let state = ViewState::new(&cc.egui_ctx, visible, allow_quit, hwnd_isize);
 
         let mut app = Self {
             data: BusinessData::new(),
-            state, // 使用上面初始化的 state
+            state,
             config: config_arc,
-            _tray_icon: tray_icon,           // 赋值给结构体持有
+            _tray: tray,
         };
 
         if let Some(path) = start_path {
@@ -97,6 +96,13 @@ impl CloverApp {
         }
 
         app
+    }
+
+    fn init_fonts(cc: &eframe::CreationContext<'_>){
+        let mut fonts = FontDefinitions::default();
+        fonts.font_data.insert("my_font".to_owned(), Arc::new(FontData::from_static(APP_FONT)));
+        fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "my_font".to_owned());
+        cc.egui_ctx.set_fonts(fonts);
     }
 
     fn handle_background_tasks(&mut self, ctx: &Context) {
@@ -118,14 +124,14 @@ impl CloverApp {
     }
 
     fn draw_ui(&mut self, ctx: &Context) {
-            viewer::draw_top_panel(
-                ctx,
-                &mut self.state,
-            );
-            viewer::draw_bottom_panel(ctx, &mut self.state);
-            viewer::draw_central_panel(ctx, &mut self.data, &mut self.state);
-            draw_properties_panel(ctx, &mut self.state, &self.data);
-            self.state.toast_system.update(ctx);
+        viewer::draw_top_panel(
+            ctx,
+            &mut self.state,
+        );
+        viewer::draw_bottom_panel(ctx, &mut self.state);
+        viewer::draw_central_panel(ctx, &mut self.data, &mut self.state);
+        draw_properties_panel(ctx, &mut self.state, &self.data);
+        self.state.toast_system.update(ctx);
     }
 
     fn handle_ui_interactions(&mut self, ctx: &Context) {

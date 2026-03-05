@@ -4,7 +4,7 @@ use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIc
 use crate::os::window::{show_window_mini, show_window_restore};
 use crate::utils::image::load_tray_icon;
 /// 创建托盘
-pub fn create_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_isize: isize) -> TrayIcon {
+pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_isize: isize) -> TrayIcon {
 
     let tray_menu = Menu::new();
     // 创建常规的菜单项

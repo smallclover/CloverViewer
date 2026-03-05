@@ -1,7 +1,7 @@
 use std::sync::mpsc;
 use eframe::egui::Context;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
-use crate::model::config::Config;
+use crate::model::config::{get_context_config, Config};
 use crate::os::window::show_window_mini;
 use crate::state::custom_window::WindowState;
 // 确保引入 Config
@@ -24,9 +24,9 @@ pub struct HotkeyManager {
 }
 
 impl HotkeyManager {
-    pub fn new(ctx: &Context, config: &Config, window_state: WindowState) -> Self {
+    pub fn new(ctx: &Context, window_state: WindowState) -> Self {
         let hotkeys_manager = GlobalHotKeyManager::new().unwrap();
-
+        let config = get_context_config(ctx);
         // 初始化时直接从 Config 解析
         let show_hotkey = parse_hotkey_str(&config.hotkeys.show_screenshot)
             .unwrap_or(HotKey::new(Some(Modifiers::ALT), Code::KeyS));

@@ -46,7 +46,7 @@ pub struct ViewState {
 impl ViewState {
     /// 初始化 ViewState
     /// 注意：这里增加了 `config` 参数，用于初始化 HotkeyManager
-    pub fn new(ctx: &Context, config: &Config, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: isize) -> Self {
+    pub fn new(ctx: &Context, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: isize) -> Self {
         let toast_system = ToastSystem::new();
         let toast_manager = toast_system.manager();
         let (path_sender, path_receiver) = mpsc::channel();
@@ -61,7 +61,7 @@ impl ViewState {
             toast_manager,
             screenshot_state: ScreenshotState::default(),
             // 使用 config 初始化 hotkey_manager，注册初始快捷键
-            hotkey_manager: HotkeyManager::new(ctx, config, win_m),
+            hotkey_manager: HotkeyManager::new(ctx, win_m),
             window_state: win_s,
             device_info: DeviceInfo::load()
         }
