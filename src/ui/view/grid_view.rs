@@ -1,19 +1,17 @@
 use eframe::egui;
 use egui::{Context, ScrollArea, Ui, Color32, Frame, Stroke, Sense, Align2, FontId, Vec2, Grid, Rect, Pos2};
 use crate::{
-    core::business::BusinessData,
-    model::{state::{ViewState, ViewMode}},
+    core::business::{ViewerState, ViewMode},
     i18n::lang::get_i18n_text
 };
 
 pub fn draw_grid_view(
     ctx: &Context,
     ui: &mut Ui,
-    data: &mut BusinessData,
-    state: &mut ViewState,
+    viewer: &mut ViewerState,
 ) {
 
-    if data.list.is_empty() {
+    if viewer.list.is_empty() {
         let text = get_i18n_text(ctx);
         ui.centered_and_justified(|ui| {
             ui.label(text.viewer_no_images);
@@ -24,7 +22,6 @@ pub fn draw_grid_view(
     let item_size = Vec2::new(150.0, 150.0);
     let padding = 10.0;
     let frame_margin = 4.0;
-    // 统一边框宽度，避免选中时布局抖动
     let border_width = 2.0;
     let cell_width = item_size.x + frame_margin * 2.0;
 
@@ -35,15 +32,13 @@ pub fn draw_grid_view(
     let mut clicked_index = None;
     let mut double_clicked_index = None;
 
-    // 分离借用
-    let list = &data.list;
-    let current_index = data.index;
-    let thumb_cache = &mut data.thumb_cache;
-    let loading_thumbs = &mut data.loading_thumbs;
-    let failed_thumbs = &data.failed_thumbs;
-    let loader = &mut data.loader;
+    let list = &viewer.list;
+    let current_index = viewer.index;
+    let thumb_cache = &mut viewer.thumb_cache;
+    let loading_thumbs = &mut viewer.loading_thumbs;
+    let failed_thumbs = &viewer.failed_thumbs;
+    let loader = &mut viewer.loader;
 
-    // 获取可见区域并扩大用于预加载
     let visible_rect = ui.clip_rect();
     let preload_rect = visible_rect.expand(500.0);
 
@@ -74,8 +69,6 @@ pub fn draw_grid_view(
                     frame.show(ui, |ui| {
                         let (rect, response) = ui.allocate_exact_size(item_size, Sense::click());
 
-                        // 预加载逻辑：在预加载范围内且未加载过
-                        // 注意：visible_rect 包含在 preload_rect 中，所以可见元素也会触发这里的加载检查
                         if preload_rect.intersects(rect) {
                              if !thumb_cache.contains(path) && !failed_thumbs.contains(path) && !loading_thumbs.contains(path) {
                                 loading_thumbs.insert(path.clone());
@@ -83,9 +76,7 @@ pub fn draw_grid_view(
                             }
                         }
 
-                        // 绘制逻辑：仅在严格可见范围内
                         if ui.is_rect_visible(rect) {
-                            // 仅当可见时才调用 get，这会更新 LRU 缓存的顺序，保证可见元素不被淘汰
                             if let Some(t) = thumb_cache.get(path) {
                                 let tex_size = t.size_vec2();
                                 let scale = (rect.width() / tex_size.x).min(rect.height() / tex_size.y);
@@ -120,10 +111,10 @@ pub fn draw_grid_view(
     });
 
     if let Some(index) = double_clicked_index {
-        data.set_index(index);
-        state.view_mode = ViewMode::Single;
-        data.load_current(ctx.clone());
+        viewer.set_index(index);
+        viewer.view_mode = ViewMode::Single;
+        viewer.load_current(ctx.clone());
     } else if let Some(index) = clicked_index {
-        data.set_index(index);
+        viewer.set_index(index);
     }
 }

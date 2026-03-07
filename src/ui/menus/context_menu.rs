@@ -1,16 +1,13 @@
 use eframe::emath::Pos2;
 use egui::{Area, Context, Frame, Id, Order, Sense, Layout, Align};
 use crate::{
-    model::{
-        state::ViewState
-    },
     utils::clipboard::{copy_image_path_to_clipboard, copy_image_to_clipboard_async},
     ui::mode::UiMode,
     i18n::lang::{get_i18n_text},
-    core::business::BusinessData
+    core::business::ViewerState,
+    ui::widgets::toast::ToastManager
 };
 
-/// 右键菜单中的操作
 pub enum ContextMenuAction {
     Copy,
     CopyPath,
@@ -26,7 +23,6 @@ pub fn render_context_menu(
     if let Some(position) = pos {
         let mut close_menu = false;
 
-        // 一个全屏的遮罩，用于响应点击事件
         Area::new(Id::new("context_menu_mask"))
             .order(Order::Middle)
             .fixed_pos(Pos2::ZERO)
@@ -38,7 +34,6 @@ pub fn render_context_menu(
                 }
             });
 
-        // 实际菜单
         Area::new(Id::new("context_menu"))
             .order(Order::Foreground)
             .fixed_pos(*position)
@@ -73,15 +68,16 @@ pub fn render_context_menu(
 pub fn handle_context_menu_action(
     ctx: &Context,
     action: ContextMenuAction,
-    data: &BusinessData,
-    state: &mut ViewState,
+    viewer: &ViewerState,
+    ui_mode: &mut UiMode,
+    toast_manager: &ToastManager,
 ) {
 
     match action {
         ContextMenuAction::Copy => {
             if let (Some(tex), Some(pixels)) = (
-                data.current_texture.as_ref(),
-                data.current_raw_pixels.clone(),
+                viewer.current_texture.as_ref(),
+                viewer.current_raw_pixels.clone(),
             ) {
                 let [w, h] = tex.size();
                 copy_image_to_clipboard_async(
@@ -89,17 +85,17 @@ pub fn handle_context_menu_action(
                     pixels,
                     w,
                     h,
-                    &state.toast_manager,
+                    toast_manager,
                 );
             }
         }
         ContextMenuAction::CopyPath => {
-            if let Some(path) = data.current() {
-                copy_image_path_to_clipboard(ctx,path, &state.toast_manager);
+            if let Some(path) = viewer.current() {
+                copy_image_path_to_clipboard(ctx,path, toast_manager);
             }
         }
         ContextMenuAction::ShowProperties => {
-            state.ui_mode = UiMode::Properties;
+            *ui_mode = UiMode::Properties;
         }
     }
 }

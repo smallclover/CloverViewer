@@ -25,11 +25,10 @@ use crate::ui::{
 use crate::model::{
     config::get_context_config,
     device::{DeviceInfo, MonitorInfo},
-    state::ViewState
+    state::AppState
 };
 use crate::ui::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
 use crate::ui::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
-// --- 类型定义 ---
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ScreenshotAction {
@@ -48,40 +47,29 @@ pub enum ScreenshotTool {
 #[derive(Clone)]
 pub struct DrawnShape {
     pub tool: ScreenshotTool,
-    pub start: Pos2, // 全局物理坐标
-    pub end: Pos2,   // 全局物理坐标
+    pub start: Pos2,
+    pub end: Pos2,
     pub color: Color32,
     pub stroke_width: f32,
 }
 
 pub struct ScreenshotState {
     pub captures: Vec<CapturedScreen>,
-
-    // 全局物理坐标 (Physical Pixels)
     pub selection: Option<Rect>,
     pub drag_start: Option<Pos2>,
     pub toolbar_pos: Option<Pos2>,
-
-    // 用于窗口自动吸附
     pub window_rects: Vec<Rect>,
     pub hovered_window: Option<Rect>,
-
-    // Async capture state
     pub is_capturing: bool,
     pub capture_receiver: Option<Receiver<(Vec<CapturedScreen>, Vec<Rect>)>>,
-
-    // Toolbar state
     pub current_tool: Option<ScreenshotTool>,
     pub active_color: Color32,
     pub stroke_width: f32,
     pub color_picker: ColorPicker,
     pub color_picker_anchor: Option<Rect>,
-
-    // Drawing state
     pub shapes: Vec<DrawnShape>,
-    pub current_shape_start: Option<Pos2>, // 正在绘制的形状起始点
+    pub current_shape_start: Option<Pos2>,
     pub current_shape_end: Option<Pos2>,
-
     pub copy_requested: bool,
     pub texture_pool: HashMap<String, TextureHandle>,
 }
@@ -119,13 +107,11 @@ pub struct CapturedScreen {
     pub screen_info: MonitorInfo,
 }
 
-/// 截图主逻辑入口
-pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
+pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
     if state.ui_mode != UiMode::Screenshot {
         return;
     }
 
-    // 1. 初始化捕获
     if state.screenshot_state.captures.is_empty() {
         handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot_state);
     }
@@ -139,7 +125,6 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
 
     let mut final_action = ScreenshotAction::None;
     let mut wants_to_close_viewports = false;
-    // 拿到启动画布需要的坐标和尺寸
     let (pos, size) = state.device_info.global_logical_rect();
 
     let viewport_id = ViewportId::from_hash_of("screenshot_global_canvas");
@@ -166,7 +151,6 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
         },
     );
 
-    // 3. 处理保存与退出
     if wants_to_close_viewports {
         let screenshot_state_mut = &mut state.screenshot_state;
         handle_save_action(final_action, screenshot_state_mut);
@@ -179,8 +163,6 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut ViewState) {
     }
 }
 
-// --- UI Rendering Main Entry ---
-
 pub fn draw_screenshot_ui(
     ctx: &Context,
     state: &mut ScreenshotState,
@@ -188,17 +170,14 @@ pub fn draw_screenshot_ui(
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
 
-    // 大画布全局左上角的物理坐标
     let global_offset_phys = Pos2::new(device_info.phys_min_x as f32, device_info.phys_min_y as f32);
     let ppp = ctx.pixels_per_point();
 
     egui::CentralPanel::default()
-        // 确保底图透明
         .frame(egui::Frame::NONE.fill(Color32::TRANSPARENT))
         .show(ctx, |ui| {
             let painter = ui.painter();
 
-            // 1. 绘制所有底图纹理 (基于物理偏移除以缩放率映射)
             for cap in &state.captures {
                 if let Some(texture) = state.texture_pool.get(&cap.screen_info.name) {
                     let rect = device_info.screen_logical_rect(&cap.screen_info, ppp);
@@ -212,7 +191,6 @@ pub fn draw_screenshot_ui(
                 }
             }
 
-            // 2. 动态计算当前悬停的窗口
             state.hovered_window = None;
             let is_hovered = ui.rect_contains_pointer(ui.max_rect());
 
@@ -222,7 +200,6 @@ pub fn draw_screenshot_ui(
 
                     for rect in &state.window_rects {
                         if rect.contains(global_pointer_phys) {
-                            // 判断是否为全屏窗口 (允许存在一点点误差)
                             let mut is_fullscreen = false;
                             for cap in &state.captures {
                                 if (rect.width() - cap.screen_info.width as f32).abs() < 5.0
@@ -241,16 +218,12 @@ pub fn draw_screenshot_ui(
                 }
             }
 
-            // 3. 预先计算工具栏位置
             let local_toolbar_rect = calculate_toolbar_rect(state, global_offset_phys, ppp);
 
-            // 4. 处理交互
             handle_interaction(ui, state, global_offset_phys, ppp, local_toolbar_rect);
 
-            // 5. 渲染画布元素 (遮罩、边框、绘制的图形)
             render_canvas_elements(ui, state, global_offset_phys, ppp, is_hovered);
 
-            // 6. 渲染工具栏
             if let Some(rect) = local_toolbar_rect {
                 if ui.clip_rect().intersects(rect) {
                     let toolbar_act = render_toolbar_and_overlays(ui, state, rect);
@@ -260,7 +233,6 @@ pub fn draw_screenshot_ui(
                 }
             }
 
-            // 7. 鼠标放大镜 & 取色
             let config = get_context_config(ctx);
             if config.magnifier_enabled {
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
@@ -268,7 +240,6 @@ pub fn draw_screenshot_ui(
                     let is_interacting_popup = state.color_picker.is_open && ui.ctx().is_pointer_over_area();
 
                     if !is_over_toolbar && !is_interacting_popup {
-                        // 所有计算和复制逻辑都已被提取到 magnifier.rs 内
                         handle_magnifier(
                             ui,
                             state,
@@ -285,7 +256,6 @@ pub fn draw_screenshot_ui(
             }
         });
 
-    // 强制每一帧都重绘，确保极致丝滑
     ctx.request_repaint();
 
     action
@@ -485,7 +455,6 @@ fn render_canvas_elements(
                     paint_style_box(painter, clipped_local_sel, 2.0);
                 }
             } else {
-                // 我们通过鼠标的全局物理坐标，找出它当前所在的那个具体显示器
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
                     let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
 
@@ -496,7 +465,6 @@ fn render_canvas_elements(
                         );
 
                         if cap_phys_rect.contains(global_pointer_phys) {
-                            // 找到了鼠标当前所在的显示器，将它的物理边界映射回逻辑边界
                             let vec_min = cap_phys_rect.min - global_offset_phys;
                             let vec_max = cap_phys_rect.max - global_offset_phys;
 
@@ -505,7 +473,6 @@ fn render_canvas_elements(
                                 Pos2::ZERO + (vec_max / ppp),
                             );
 
-                            // 往内缩 4 个像素画绿框，完美贴合单块屏幕边缘
                             let inset_rect = local_logical_rect.shrink(4.0);
                             paint_style_box(painter, inset_rect, 3.0);
                             break;
@@ -547,8 +514,6 @@ fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
         }
     }
 }
-
-// --- Helpers for System Logic (Capture, Save) ---
 
 fn handle_capture_process(
     ctx: &Context,
@@ -626,7 +591,6 @@ fn handle_capture_process(
         match rx.try_recv() {
             Ok((captures, window_rects)) => {
 
-                // 纹理处理
                 for cap in &captures {
                     let monitor_name = &cap.screen_info.name;
                     if let Some(texture) = screenshot_state.texture_pool.get_mut(monitor_name) {
@@ -661,7 +625,6 @@ fn handle_capture_process(
 
 fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut ScreenshotState) {
     if final_action == ScreenshotAction::SaveAndClose || final_action == ScreenshotAction::SaveToClipboard {
-        // 基于绝对的物理坐标来运算的，
         if let Some(selection_phys) = screenshot_state.selection {
             if selection_phys.is_positive() {
                 let captures_data: Vec<_> = screenshot_state.captures.iter().map(|c| {
@@ -682,7 +645,6 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
 
                     let mut final_image = RgbaImage::new(final_width, final_height);
 
-                    // 1. 拼接底层截图图像
                     for (_, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
                         let intersection = selection_phys.intersect(*monitor_rect_phys);
                         if !intersection.is_positive() { continue; }
@@ -702,10 +664,8 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
                         let _ = final_image.copy_from(&cropped_part, paste_x, paste_y);
                     }
 
-                    // 2. 绘制标注图形 (使用 tiny-skia 进行完美抗锯齿渲染)
                     draw_skia_shapes_on_image(&mut final_image, &shapes, selection_phys);
 
-                    // 3. 执行保存或复制动作
                     if final_action == ScreenshotAction::SaveAndClose {
                         if let Ok(profile) = std::env::var("USERPROFILE") {
                             let desktop = PathBuf::from(profile).join("Desktop");

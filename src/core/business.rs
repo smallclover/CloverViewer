@@ -8,7 +8,13 @@ use crate::core::image_loader::{ImageLoader, LoadResult};
 use crate::model::image_meta::ImageProperties;
 use crate::utils::image::{is_image, collect_images};
 
-pub struct BusinessData {
+#[derive(Clone, PartialEq)]
+pub enum ViewMode {
+    Single,
+    Grid,
+}
+
+pub struct ViewerState {
     pub loader: ImageLoader,
     pub list: Vec<PathBuf>,
     pub index: usize,
@@ -16,7 +22,6 @@ pub struct BusinessData {
     pub thumb_cache: LruCache<PathBuf, TextureHandle>,
     pub current_texture: Option<TextureHandle>,
     pub current_properties: Option<ImageProperties>,
-    /// 保存当前高清图的原始像素，用于极速复制
     pub current_raw_pixels: Option<Arc<Vec<Color32>>>,
     pub error: Option<String>,
     pub zoom: f32,
@@ -27,9 +32,10 @@ pub struct BusinessData {
     pub previous_texture: Option<TextureHandle>,
     pub transition_start_time: Option<f64>,
     pub transition_direction: i8,
+    pub view_mode: ViewMode,
 }
 
-impl BusinessData {
+impl ViewerState {
     pub fn new() -> Self {
         Self {
             loader: ImageLoader::new(),
@@ -49,6 +55,7 @@ impl BusinessData {
             previous_texture: None,
             transition_start_time: None,
             transition_direction: 0,
+            view_mode: ViewMode::Single,
         }
     }
 
@@ -94,7 +101,6 @@ impl BusinessData {
         self.list.get(self.index).cloned()
     }
 
-    /// 获取当前索引及其前后的 5 个路径和索引
     pub fn get_preview_window(&self) -> Vec<(usize, PathBuf)> {
         if self.list.is_empty() {
             return Vec::new();
@@ -103,7 +109,6 @@ impl BusinessData {
         let len = self.list.len();
         let mut result = Vec::new();
 
-        // 取偏移量为 -2, -1, 0, 1, 2 的五张图
         for offset in -2..=2 {
             let idx = (self.index as isize + offset).rem_euclid(len as isize) as usize;
             if let Some(path) = self.list.get(idx) {
@@ -114,7 +119,6 @@ impl BusinessData {
         result
     }
 
-    /// 跳转到指定索引
     pub fn set_index(&mut self, index: usize) -> Option<PathBuf> {
         if index < self.list.len() {
             self.index = index;
@@ -127,19 +131,18 @@ impl BusinessData {
     pub fn open_new_context(&mut self, ctx: Context, path: PathBuf) {
         if path.is_dir() {
             self.f_folder(&path);
+            self.view_mode = ViewMode::Grid;
         } else {
             self.f_image(&path);
+            self.view_mode = ViewMode::Single;
         }
         self.load_current(ctx);
     }
 
     pub fn process_load_results(&mut self, ctx: &Context) -> bool {
-        // 如果正在进行动画，暂停处理高清图加载，优先保证动画流畅
         if let Some(start_time) = self.transition_start_time {
             let now = ctx.input(|i| i.time);
-            // 动画持续时间假设为 0.25s，这里给一点余量 0.3s
             if now - start_time < 0.3 {
-                // 动画进行中，暂停处理加载结果
                 return false;
             }
         }
@@ -154,7 +157,6 @@ impl BusinessData {
                     received_any = true;
                     match msg.result {
                         LoadResult::Ok(success) => {
-                            // 如果有缩略图加载缩略图，没有加载原图
                             if msg.is_thumbnail {
                                 self.loading_thumbs.remove(&msg.path);
                                 self.thumb_cache.put(msg.path.clone(), success.texture.clone());
@@ -164,9 +166,7 @@ impl BusinessData {
                                     }
                                 }
                             } else {
-                                // 存储用于复制的高清原始像素
                                 self.current_raw_pixels = Some(success.raw_pixels);
-                                // 存储纹理
                                 self.texture_cache.put(msg.path.clone(), success.texture.clone());
                                 if Some(msg.path) == self.current() {
                                     self.zoom = self.calc_fit_zoom(ctx, success.texture.size_vec2());
@@ -229,7 +229,6 @@ impl BusinessData {
                 }
             }
         } else {
-            // No images in the list, clear texture
             self.current_texture = None;
         }
     }
@@ -255,16 +254,11 @@ impl BusinessData {
     pub fn jump_to_index(&mut self, ctx: Context, index: usize) {
         if index != self.index && index < self.list.len() {
             self.previous_texture = self.current_texture.clone();
-            // Determine direction
             if index > self.index {
                 self.transition_direction = 1;
             } else {
                 self.transition_direction = -1;
             }
-            // Handle wrap-around case if needed, but simple comparison is usually fine for jump
-            // Or if you want "shortest path" logic, that's more complex.
-            // For now, let's stick to simple index comparison.
-
             self.transition_start_time = Some(ctx.input(|i| i.time));
             self.set_index(index);
             self.load_current(ctx);
@@ -282,13 +276,12 @@ impl BusinessData {
             self.zoom = (self.zoom + delta * 0.001).clamp(0.1, 10.0);
         }
     }
-    /// 计算自适应屏幕的缩放比例
+
     pub(crate) fn calc_fit_zoom(&self, ctx: &Context, tex_size: egui::Vec2) -> f32 {
         let available = ctx.available_rect().size();
         let scale_v = available.y / tex_size.y;
         let scale_h = (available.x - 120.0) / tex_size.x;
 
-        // 留空隙
         scale_v.min(scale_h).min(1.0) * 0.9
     }
 }

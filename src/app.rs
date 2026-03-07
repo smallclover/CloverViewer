@@ -1,16 +1,15 @@
 use eframe::egui;
 use tray_icon::TrayIcon;
-use egui::{Context, FontData, FontDefinitions, FontFamily, ViewportBuilder, Id};
+use egui::{Context, FontData, FontDefinitions, FontFamily, ViewportBuilder};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
     env
 };
 use crate::{
-    core::{business::BusinessData},
     model::{
         config::{load_config, save_config, update_context_config, Config},
-        state::{ViewMode, ViewState},
+        state::{AppState},
     },
     os::window::get_hwnd_isize,
     utils::image::load_icon,
@@ -50,10 +49,9 @@ pub fn run() -> eframe::Result<()> {
 }
 
 pub struct CloverApp {
-    data: BusinessData,
-    state: ViewState,
+    state: AppState,
     config: Arc<Config>,
-    _tray: TrayIcon,// 持有托盘实例，必须持有，否则无法显示托盘图标
+    _tray: TrayIcon,
 }
 
 impl CloverApp {
@@ -61,41 +59,29 @@ impl CloverApp {
         cc: &eframe::CreationContext<'_>,
         start_path: Option<PathBuf>,
     ) -> Self {
-        // 1. 设置字体
         Self::init_fonts(cc);
 
-        // 控制窗口可见的全局变量
         let visible = Arc::new(Mutex::new(true));
-        // 是否运行退出应用
         let allow_quit = Arc::new(Mutex::new(false));
-        // 获得窗口原生句柄
         let hwnd_isize = get_hwnd_isize(&cc);
 
-        // 2. 初始化托盘
         let tray = init_tray(&cc, &visible, &allow_quit, hwnd_isize);
 
-        // 3. 加载配置
-        // 先加载为普通 Config 结构体
         let config = load_config();
-        // 将 Config 转为 Arc 以便在 App 中共享
         let config_arc = Arc::new(config);
         init_config_arc(&cc.egui_ctx, &Arc::clone(&config_arc));
 
-        // 4. 初始化 State (现在需要传入 config 来注册初始热键)
-        let state = ViewState::new(&cc.egui_ctx, visible, allow_quit, hwnd_isize);
+        let mut state = AppState::new(&cc.egui_ctx, visible, allow_quit, hwnd_isize);
 
-        let mut app = Self {
-            data: BusinessData::new(),
+        if let Some(path) = start_path {
+            state.viewer.open_new_context(cc.egui_ctx.clone(), path);
+        }
+
+        Self {
             state,
             config: config_arc,
             _tray: tray,
-        };
-
-        if let Some(path) = start_path {
-            app.data.open_new_context(cc.egui_ctx.clone(), path);
         }
-
-        app
     }
 
     fn init_fonts(cc: &eframe::CreationContext<'_>){
@@ -106,68 +92,51 @@ impl CloverApp {
     }
 
     fn handle_background_tasks(&mut self, ctx: &Context) {
-        if self.data.process_load_results(ctx) {
+        if self.state.viewer.process_load_results(ctx) {
             ctx.request_repaint();
         }
         if let Ok(path) = self.state.path_receiver.try_recv() {
-            if path.is_dir() {
-                self.state.view_mode = ViewMode::Grid;
-            } else {
-                self.state.view_mode = ViewMode::Single;
-            }
-            self.data.open_new_context(ctx.clone(), path);
+            self.state.viewer.open_new_context(ctx.clone(), path);
         }
     }
 
     fn handle_input_events(&mut self, ctx: &Context) {
-        viewer::handle_input_events(ctx, &mut self.data, &self.state.window_state);
+        viewer::handle_input_events(ctx, &mut self.state.viewer, &self.state.window_state);
     }
 
     fn draw_ui(&mut self, ctx: &Context) {
-        viewer::draw_top_panel(
-            ctx,
-            &mut self.state,
-        );
+        viewer::draw_top_panel(ctx, &mut self.state);
         viewer::draw_bottom_panel(ctx, &mut self.state);
-        viewer::draw_central_panel(ctx, &mut self.data, &mut self.state);
-        draw_properties_panel(ctx, &mut self.state, &self.data);
+        viewer::draw_central_panel(ctx, &mut self.state);
+        draw_properties_panel(ctx, &mut self.state.ui_mode, &self.state.viewer);
         self.state.toast_system.update(ctx);
     }
 
     fn handle_ui_interactions(&mut self, ctx: &Context) {
-            // 这里 temp_config 是从 Settings 窗口修改后返回的副本
-            let mut temp_config = (*self.config).clone();
+        let mut temp_config = (*self.config).clone();
 
-            // 注意：render_settings_window 内部需要传入 &mut temp_config
-            let (context_menu_action, modal_action) =
-                viewer::draw_overlays(ctx, &self.data, &mut self.state, &mut temp_config);
+        let (context_menu_action, modal_action) =
+            viewer::draw_overlays(ctx, &self.state.viewer, &mut self.state.ui_mode, &mut temp_config);
 
-            if let Some(action) = context_menu_action {
-                handle_context_menu_action(ctx, action, &self.data, &mut self.state);
-            }
+        if let Some(action) = context_menu_action {
+            handle_context_menu_action(ctx, action, &self.state.viewer, &mut self.state.ui_mode, &self.state.toast_manager);
+        }
 
-            // 处理设置应用逻辑
-            if let Some(ModalAction::Apply) = modal_action {
-                // 1. 更新内存中的 Config Arc
-                self.config = Arc::new(temp_config);
-                // 2. 保存到文件
-                save_config(&self.config);
-                // 3. 关键：通知 State 重新加载热键
-                self.state.reload_hotkeys(&self.config);
-                // 在这里重新设置 Context 中的 config 数据，确保其他组件也能拿到最新配置
-                update_context_config(ctx, &self.config);
-            }
+        if let Some(ModalAction::Apply) = modal_action {
+            self.config = Arc::new(temp_config);
+            save_config(&self.config);
+            self.state.reload_hotkeys(&self.config);
+            update_context_config(ctx, &self.config);
+        }
     }
 }
 
 impl eframe::App for CloverApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
         update_context_config(ctx, &self.config);
-        // 定要区分“每帧检测按键”和“配置变更重载按键”这两个概念。
         self.state.process_hotkey_events();
 
         self.handle_background_tasks(ctx);
-
         self.handle_input_events(ctx);
 
         self.draw_ui(ctx);

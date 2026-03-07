@@ -4,10 +4,10 @@ use egui::{
 };
 use rfd::FileDialog;
 use crate::{
-    core::business::BusinessData,
+    core::business::{ViewerState, ViewMode},
     model::{
         config::{Config,get_context_config},
-        state::{ViewMode, ViewState},
+        state::{AppState},
         constants::SUPPORTED_IMAGE_EXTENSIONS
     },
     ui::{
@@ -37,7 +37,7 @@ use crate::{
 
 pub fn draw_top_panel(
     ctx: &Context,
-    state: &mut ViewState,
+    state: &mut AppState,
 ) {
 
     let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode);
@@ -70,25 +70,24 @@ pub fn draw_top_panel(
 
 pub fn draw_bottom_panel(
     ctx: &Context,
-    state: &mut ViewState,
+    state: &mut AppState,
 ) {
     draw_status_bar(ctx, state);
 }
 
 pub fn draw_central_panel(
     ctx: &Context,
-    data: &mut BusinessData,
-    state: &mut ViewState,
+    state: &mut AppState,
 ) {
     let background_frame = Frame::NONE.fill(Color32::from_rgb(25, 25, 25));
 
     CentralPanel::default().frame(background_frame).show(ctx, |ui| {
-        match state.view_mode {
+        match state.viewer.view_mode {
             ViewMode::Single => {
-                draw_single_view(ctx, ui, data, state);
+                draw_single_view(ctx, ui, &mut state.viewer, &mut state.ui_mode);
             }
             ViewMode::Grid => {
-                draw_grid_view(ctx, ui, data, state);
+                draw_grid_view(ctx, ui, &mut state.viewer);
             }
         }
     });
@@ -96,8 +95,8 @@ pub fn draw_central_panel(
 
 pub fn draw_overlays(
     ctx: &Context,
-    data: &BusinessData,
-    state: &mut ViewState,
+    viewer: &ViewerState,
+    ui_mode: &mut UiMode,
     temp_config: &mut Config,
 ) -> (Option<ContextMenuAction>, Option<ModalAction>) {
     let mut context_menu_action = None;
@@ -106,7 +105,7 @@ pub fn draw_overlays(
 
     let text = get_i18n_text(ctx);
 
-    match &mut state.ui_mode {
+    match ui_mode {
         UiMode::About => {
             let mut open = true;
             render_about_window(ctx, &mut open);
@@ -146,38 +145,35 @@ pub fn draw_overlays(
     }
 
     if let Some(new_mode) = new_ui_mode {
-        state.ui_mode = new_mode;
+        *ui_mode = new_mode;
     }
 
-    if data.current_texture.is_none() && data.loader.is_loading {
+    if viewer.current_texture.is_none() && viewer.loader.is_loading {
         global_loading(ctx, text.loading_parsing.to_string());
     }
 
     (context_menu_action, modal_action)
 }
 
-pub fn handle_input_events(ctx: &Context, data: &mut BusinessData, window_state: &WindowState) {
+pub fn handle_input_events(ctx: &Context, viewer: &mut ViewerState, window_state: &WindowState) {
 
     if ctx.input(|i| i.viewport().close_requested()){
         let config = get_context_config(ctx);
         let aq = window_state.allow_quit.lock().unwrap();
         let mut vis = window_state.visible.lock().unwrap();
-        // 设置：允许最小化到托盘,且不是点击托盘退出
         if config.minimize_on_close && !*aq {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             *vis = false;
-            // 隐藏程序
             show_window_hide(window_state.hwnd_isize);
         }else{
-            // 关闭程序
         }
     }
 
     if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
-        data.prev_image(ctx.clone());
+        viewer.prev_image(ctx.clone());
     }
     if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
-        data.next_image(ctx.clone());
+        viewer.next_image(ctx.clone());
     }
 
     if let Some(path) = ctx.input(|i| {
@@ -186,9 +182,9 @@ pub fn handle_input_events(ctx: &Context, data: &mut BusinessData, window_state:
             .first()
             .and_then(|f| f.path.clone())
     }) {
-        data.handle_dropped_file(ctx.clone(), path);
+        viewer.handle_dropped_file(ctx.clone(), path);
     }
 
     let scroll_delta = ctx.input(|i| i.smooth_scroll_delta.y);
-    data.update_zoom(scroll_delta);
+    viewer.update_zoom(scroll_delta);
 }

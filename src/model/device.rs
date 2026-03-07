@@ -17,8 +17,6 @@ pub struct DeviceInfo {
     pub monitors: Vec<MonitorInfo>,
     pub phys_min_x: i32,
     pub phys_min_y: i32,
-    pub phys_max_x: i32,
-    pub phys_max_y: i32,
     pub phys_total_w: u32,
     pub phys_total_h: u32,
 }
@@ -69,8 +67,6 @@ impl DeviceInfo {
             monitors,
             phys_min_x,
             phys_min_y,
-            phys_max_x,
-            phys_max_y,
             phys_total_w,
             phys_total_h,
         }
@@ -109,12 +105,5 @@ impl DeviceInfo {
         let logic_h = screen.height as f32 / scale;
 
         Rect::from_min_size(Pos2::new(logic_x, logic_y), Vec2::new(logic_w, logic_h))
-    }
-
-    /// 3. 将鼠标的绝对物理坐标，转换为某个屏幕内的局部逻辑坐标 (供放大镜取色使用)
-    pub fn pointer_local_logical(&self, global_pointer_phys: Pos2, screen: &MonitorInfo, scale: f32) -> Pos2 {
-        let local_x = (global_pointer_phys.x - screen.x as f32) / scale;
-        let local_y = (global_pointer_phys.y - screen.y as f32) / scale;
-        Pos2::new(local_x, local_y)
     }
 }

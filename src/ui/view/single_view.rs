@@ -4,9 +4,7 @@ use egui::{
 };
 
 use crate::{
-    core::business::BusinessData,
-    model::state::ViewState
-    ,
+    core::business::ViewerState,
     ui::mode::UiMode,
     ui::view::preview::show_preview_window,
 };
@@ -16,23 +14,22 @@ use crate::ui::view::arrows::{draw_arrows, Nav};
 pub fn draw_single_view(
     ctx: &Context,
     ui: &mut Ui,
-    data: &mut BusinessData,
-    state: &mut ViewState,
+    viewer: &mut ViewerState,
+    ui_mode: &mut UiMode,
 ) {
     let rect = ui.available_rect_before_wrap();
     let text = get_i18n_text(ctx);
 
-    // Clone the texture handle to avoid borrowing `data` while we need to pass `data` mutably to `render_image_viewer`
-    let current_texture = data.current_texture.clone();
+    let current_texture = viewer.current_texture.clone();
 
     if let Some(tex) = current_texture.as_ref() {
-        render_image_viewer(ui, tex, data);
+        render_image_viewer(ui, tex, viewer);
 
         if ui.input(|i| i.pointer.secondary_clicked()) {
             if let Some(pos) = ui.input(|i| i.pointer.hover_pos()) {
                 if rect.contains(pos) {
                     let mut allow_context_menu = true;
-                    if data.current().is_some() {
+                    if viewer.current().is_some() {
                         let hover_zone_width = 100.0;
                         let center_zone = Rect::from_min_max(
                             rect.min + egui::vec2(hover_zone_width, 0.0),
@@ -43,64 +40,58 @@ pub fn draw_single_view(
                         }
                     }
                     if allow_context_menu {
-                        state.ui_mode = UiMode::ContextMenu(pos);
+                        *ui_mode = UiMode::ContextMenu(pos);
                     }
                 }
             }
         }
-    } else if let Some(_) = data.error.as_ref() {
+    } else if let Some(_) = viewer.error.as_ref() {
         ui.scope_builder(UiBuilder::new().max_rect(rect),|ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(ui.available_height() * 0.4);
                 ui.label(RichText::new(text.viewer_error).color(Color32::RED).size(14.0));
             });
         });
-    } else if data.loader.is_loading {
-        // loading, but no texture yet
-    } else if data.current().is_some() && data.list.is_empty() {
+    } else if viewer.loader.is_loading {
+    } else if viewer.current().is_some() && viewer.list.is_empty() {
         ui.centered_and_justified(|ui| ui.label(text.viewer_no_images));
-    } else {//打开软件的时候，没有文件夹，此时显示提示
+    } else {
         ui.centered_and_justified(|ui| ui.label(text.viewer_drag_hint));
     }
 
-    if data.current().is_some() {
+    if viewer.current().is_some() {
         if let Some(action) = draw_arrows(ui, rect) {
             match action {
-                Nav::Prev => data.prev_image(ctx.clone()),
-                Nav::Next => data.next_image(ctx.clone()),
+                Nav::Prev => viewer.prev_image(ctx.clone()),
+                Nav::Next => viewer.next_image(ctx.clone()),
             }
         }
     }
 
-    if show_preview_window(ctx, data) {
-        data.load_current(ctx.clone());
+    if show_preview_window(ctx, viewer) {
+        viewer.load_current(ctx.clone());
     }
 }
 
 fn render_image_viewer(
     ui: &mut Ui,
     tex: &TextureHandle,
-    data: &mut BusinessData,
+    viewer: &mut ViewerState,
 ) {
     let available_size = ui.available_size();
-    if let Some(last_size) = data.last_view_size {
-        // 使用 .abs() > 1.0 判断，防止由于滚动条出现/消失导致的 1 像素级别微小抖动引发死循环重置
+    if let Some(last_size) = viewer.last_view_size {
         if (last_size.x - available_size.x).abs() > 1.0 ||
             (last_size.y - available_size.y).abs() > 1.0
         {
-            // 窗口被拉伸或最大化了，重新计算适合当前窗口的 zoom
-            data.zoom = data.calc_fit_zoom(ui.ctx(), tex.size_vec2());
+            viewer.zoom = viewer.calc_fit_zoom(ui.ctx(), tex.size_vec2());
         }
     }
-    // 更新记录当前窗口大小
-    data.last_view_size = Some(available_size);
-    let zoom = data.zoom;
-    let is_loading_high_res = data.loader.is_loading;
+    viewer.last_view_size = Some(available_size);
+    let zoom = viewer.zoom;
+    let is_loading_high_res = viewer.loader.is_loading;
     let size = tex.size_vec2() * zoom;
     let is_draggable = size.x > available_size.x || size.y > available_size.y;
 
-    // 如果图片可拖拽且鼠标在区域内，设置 Move 光标
-    // 注意：这会被后续绘制的上层控件（如箭头、预览条）覆盖
     if is_draggable {
         if ui.rect_contains_pointer(ui.max_rect()) {
             ui.ctx().set_cursor_icon(CursorIcon::Move);
@@ -126,19 +117,16 @@ fn render_image_viewer(
                     ui.add_space(y_offset);
                     let img_rect = ui.allocate_exact_size(size, egui::Sense::hover()).0;
 
-                    // 动画逻辑
-                    // 移除过渡动画以消除抖动和淡入淡出效果，实现瞬间切换
-                    if data.transition_start_time.is_some() {
-                        data.transition_start_time = None;
-                        data.previous_texture = None;
+                    if viewer.transition_start_time.is_some() {
+                        viewer.transition_start_time = None;
+                        viewer.previous_texture = None;
                     }
 
                     let prev_alpha = 0.0;
                     let current_alpha = 1.0;
                     let current_scale = 1.0;
 
-                    // 绘制上一张图片（如果在动画中）
-                    if let Some(prev_tex) = &data.previous_texture {
+                    if let Some(prev_tex) = &viewer.previous_texture {
                         if prev_alpha > 0.0 {
                             let prev_size = prev_tex.size_vec2() * zoom;
                             let prev_x_offset = (available_size.x - prev_size.x).max(0.0) * 0.5;
@@ -160,13 +148,10 @@ fn render_image_viewer(
                         }
                     }
 
-                    // 绘制当前图片
-                    // 计算缩放后的矩形
                     let scaled_size = size * current_scale;
                     let center = img_rect.center();
                     let current_rect = Rect::from_center_size(center, scaled_size);
 
-                    // 使用 painter 绘制
                     ui.painter().image(
                         tex.id(),
                         current_rect,

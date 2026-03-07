@@ -1,5 +1,5 @@
 use egui::{Color32, CornerRadius, Rect, TextureHandle, Vec2, Context, Area, Frame, Stroke, Ui, Align2, FontId, UiBuilder, Sense, Id, Image, Shadow, StrokeKind, Spinner, CursorIcon};
-use crate::core::business::BusinessData;
+use crate::core::business::ViewerState;
 
 #[derive(Clone, Copy, Default)]
 struct PickerState {
@@ -17,12 +17,12 @@ enum ThumbnailState<'a> {
 
 pub fn show_preview_window(
     ctx: &Context,
-    data: &mut BusinessData,
+    viewer: &mut ViewerState,
 ) -> bool {
-    if !data.list.is_empty() {
-        if let Some(new_idx) = draw_picker(ctx, data) {
-            if new_idx != data.index {
-                data.jump_to_index(ctx.clone(), new_idx);
+    if !viewer.list.is_empty() {
+        if let Some(new_idx) = draw_picker(ctx, viewer) {
+            if new_idx != viewer.index {
+                viewer.jump_to_index(ctx.clone(), new_idx);
                 return true;
             }
         }
@@ -32,7 +32,7 @@ pub fn show_preview_window(
 
 fn draw_picker(
     ctx: &Context,
-    data: &mut BusinessData,
+    viewer: &mut ViewerState,
 ) -> Option<usize> {
     let mut new_index = None;
     let item_width = 80.0;
@@ -58,7 +58,6 @@ fn draw_picker(
                         Sense::drag().union(Sense::click()),
                     );
 
-                    // 覆盖底层光标，强制显示默认指针
                     if ui.rect_contains_pointer(rect) {
                         ui.ctx().set_cursor_icon(CursorIcon::Default);
                     }
@@ -66,21 +65,18 @@ fn draw_picker(
                     let id = ui.id().with("picker_state");
                     let mut state = ui.data_mut(|d| d.get_temp::<PickerState>(id)).unwrap_or_default();
 
-                    // 初始化状态
                     if !state.initialized {
-                        state.scroll_offset = data.index as f32 * item_width;
+                        state.scroll_offset = viewer.index as f32 * item_width;
                         state.target_offset = state.scroll_offset;
-                        state.last_index = data.index;
+                        state.last_index = viewer.index;
                         state.initialized = true;
                     }
 
-                    // Sync with external index changes
-                    if data.index != state.last_index {
-                        state.target_offset = data.index as f32 * item_width;
-                        state.last_index = data.index;
+                    if viewer.index != state.last_index {
+                        state.target_offset = viewer.index as f32 * item_width;
+                        state.last_index = viewer.index;
                     }
 
-                    // Interaction
                     if response.dragged() {
                         state.scroll_offset -= response.drag_delta().x;
                     } else {
@@ -96,38 +92,30 @@ fn draw_picker(
                             }
                         }
 
-                        // Smooth scroll
                         state.scroll_offset += (state.target_offset - state.scroll_offset) * 0.15;
                     }
 
-                    // Bounds
-                    let max_scroll = (data.list.len() as f32 - 1.0) * item_width;
+                    let max_scroll = (viewer.list.len() as f32 - 1.0) * item_width;
                     state.scroll_offset = state.scroll_offset.clamp(0.0, max_scroll);
 
-                    // Update selection
                     let selected_idx = (state.scroll_offset / item_width).round() as usize;
-                    if selected_idx != data.index {
+                    if selected_idx != viewer.index {
                         new_index = Some(selected_idx);
-                        // 更新内部状态，防止下一帧被重置
                         state.last_index = selected_idx;
                     }
 
-                    // Draw center indicator (保留但调淡，作为视觉辅助)
                     let center_indicator_rect = Rect::from_center_size(
                         rect.center(),
                         Vec2::new(item_width + 4.0, 58.0)
                     );
-                    // 稍微加一点点背景，让选中的位置不至于完全空荡，但非常淡
                     ui.painter().rect_filled(
                         center_indicator_rect,
                         CornerRadius::same(8),
                         Color32::from_black_alpha(40)
                     );
 
-                    // Draw items
                     let center_x = rect.center().x;
 
-                    // Create a child ui for clipping
                     let mut items_ui = ui.new_child(
                         UiBuilder::new()
                             .max_rect(rect)
@@ -135,20 +123,18 @@ fn draw_picker(
                     );
                     items_ui.set_clip_rect(rect);
 
-                    // Calculate visible range
                     let start_idx = ((state.scroll_offset - view_width / 2.0) / item_width).floor() as isize;
                     let end_idx = ((state.scroll_offset + view_width / 2.0) / item_width).ceil() as isize;
                     let start_idx = start_idx.max(0) as usize;
-                    let end_idx = end_idx.min(data.list.len() as isize) as usize;
+                    let end_idx = end_idx.min(viewer.list.len() as isize) as usize;
 
                     let mut to_load = Vec::new();
 
-                    // Split borrows
-                    let list = &data.list;
-                    let thumb_cache = &mut data.thumb_cache;
-                    let failed_thumbs = &data.failed_thumbs;
-                    let loading_thumbs = &mut data.loading_thumbs;
-                    let loader = &mut data.loader;
+                    let list = &viewer.list;
+                    let thumb_cache = &mut viewer.thumb_cache;
+                    let failed_thumbs = &viewer.failed_thumbs;
+                    let loading_thumbs = &mut viewer.loading_thumbs;
+                    let loader = &mut viewer.loader;
 
                     for i in start_idx..end_idx {
                         if let Some(path) = list.get(i) {
@@ -188,7 +174,6 @@ fn draw_picker(
                         ui.ctx().request_repaint();
                     }
 
-                    // Trigger loads
                     for path in to_load {
                          if !loading_thumbs.contains(&path) {
                              loading_thumbs.insert(path.clone());
@@ -209,7 +194,6 @@ fn render_preview_item_custom(
 ) {
     match state {
         ThumbnailState::Loaded(tex) => {
-            // 给每个图片单独加阴影，增强悬浮感
             if alpha > 0.1 {
                 let shadow = Shadow {
                     offset: [0, 2],
@@ -227,7 +211,6 @@ fn render_preview_item_custom(
 
             ui.put(rect, image);
 
-            // Highlight active item
             if alpha > 0.85 {
                 ui.painter().rect_stroke(
                     rect,
@@ -247,8 +230,6 @@ fn render_preview_item_custom(
     }
 }
 
-
-/// 仅负责绘制错误占位
 fn paint_error_state(ui: &mut Ui, rect: Rect) {
     ui.painter().rect_filled(rect, CornerRadius::same(4), Color32::from_rgb(60, 20, 20));
     ui.painter().text(
@@ -260,7 +241,6 @@ fn paint_error_state(ui: &mut Ui, rect: Rect) {
     );
 }
 
-/// 仅负责绘制加载占位
 fn paint_loading_state(ui: &mut Ui, rect: Rect) {
     ui.painter().rect_filled(rect, CornerRadius::same(4), Color32::from_gray(40));
     ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {

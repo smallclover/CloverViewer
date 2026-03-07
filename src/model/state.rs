@@ -2,9 +2,9 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use eframe::egui::Context;
-// 引入 Config，因为初始化热键和重载热键都需要读取配置
-use crate::model::config::Config;
+use crate::core::business::ViewerState;
 use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
+use crate::model::config::Config;
 use crate::model::device::DeviceInfo;
 use crate::state::custom_window::WindowState;
 use crate::ui::{
@@ -13,15 +13,9 @@ use crate::ui::{
     screenshot::capture::ScreenshotState
 };
 
-#[derive(Clone, PartialEq)]
-pub enum ViewMode {
-    Single,
-    Grid,
-}
-
-pub struct ViewState {
+pub struct AppState {
     pub ui_mode: UiMode,
-    pub view_mode: ViewMode,
+    pub viewer: ViewerState,
 
     // 路径通信通道
     pub path_sender: Sender<PathBuf>,
@@ -43,7 +37,7 @@ pub struct ViewState {
 
 }
 
-impl ViewState {
+impl AppState {
     /// 初始化 ViewState
     /// 注意：这里增加了 `config` 参数，用于初始化 HotkeyManager
     pub fn new(ctx: &Context, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: isize) -> Self {
@@ -54,7 +48,7 @@ impl ViewState {
         let win_s = WindowState::new(visible_hotkey, allow_quit, hwnd);
         Self {
             ui_mode: UiMode::Normal,
-            view_mode: ViewMode::Single, // 默认为单张视图
+            viewer: ViewerState::new(),
             path_sender,
             path_receiver,
             toast_system,
