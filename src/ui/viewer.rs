@@ -43,7 +43,7 @@ pub fn draw_top_panel(
     let (open_file, open_folder) = draw_menu(ctx, &mut state.ui_mode);
 
     if open_file {
-        let sender = state.path_sender.clone();
+        let sender = state.common.path_sender.clone();
         let ctx_clone = ctx.clone();
         std::thread::spawn(move || {
             if let Some(path) = FileDialog::new()
@@ -57,7 +57,7 @@ pub fn draw_top_panel(
     }
 
     if open_folder {
-        let sender = state.path_sender.clone();
+        let sender = state.common.path_sender.clone();
         let ctx_clone = ctx.clone();
         std::thread::spawn(move || {
             if let Some(path) = FileDialog::new().pick_folder() {

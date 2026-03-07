@@ -112,12 +112,12 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
         return;
     }
 
-    if state.screenshot_state.captures.is_empty() {
-        handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot_state);
+    if state.screenshot.captures.is_empty() {
+        handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot);
     }
 
-    if state.screenshot_state.captures.is_empty() {
-        if !state.screenshot_state.is_capturing {
+    if state.screenshot.captures.is_empty() {
+        if !state.screenshot.is_capturing {
             state.ui_mode = UiMode::Normal;
         }
         return;
@@ -125,7 +125,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
 
     let mut final_action = ScreenshotAction::None;
     let mut wants_to_close_viewports = false;
-    let (pos, size) = state.device_info.global_logical_rect();
+    let (pos, size) = state.common.device_info.global_logical_rect();
 
     let viewport_id = ViewportId::from_hash_of("screenshot_global_canvas");
 
@@ -139,7 +139,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
             .with_always_on_top(),
         |ctx, class| {
             if class == ViewportClass::Immediate {
-                let action = draw_screenshot_ui(ctx, &mut state.screenshot_state, &state.device_info);
+                let action = draw_screenshot_ui(ctx, &mut state.screenshot, &state.common.device_info);
                 if action != ScreenshotAction::None {
                     final_action = action;
                     wants_to_close_viewports = true;
@@ -152,7 +152,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
     );
 
     if wants_to_close_viewports {
-        let screenshot_state_mut = &mut state.screenshot_state;
+        let screenshot_state_mut = &mut state.screenshot;
         handle_save_action(final_action, screenshot_state_mut);
 
         state.ui_mode = UiMode::Normal;

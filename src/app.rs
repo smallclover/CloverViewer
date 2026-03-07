@@ -95,13 +95,13 @@ impl CloverApp {
         if self.state.viewer.process_load_results(ctx) {
             ctx.request_repaint();
         }
-        if let Ok(path) = self.state.path_receiver.try_recv() {
+        if let Ok(path) = self.state.common.path_receiver.try_recv() {
             self.state.viewer.open_new_context(ctx.clone(), path);
         }
     }
 
     fn handle_input_events(&mut self, ctx: &Context) {
-        viewer::handle_input_events(ctx, &mut self.state.viewer, &self.state.window_state);
+        viewer::handle_input_events(ctx, &mut self.state.viewer, &self.state.common.window_state);
     }
 
     fn draw_ui(&mut self, ctx: &Context) {
@@ -109,7 +109,7 @@ impl CloverApp {
         viewer::draw_bottom_panel(ctx, &mut self.state);
         viewer::draw_central_panel(ctx, &mut self.state);
         draw_properties_panel(ctx, &mut self.state.ui_mode, &self.state.viewer);
-        self.state.toast_system.update(ctx);
+        self.state.common.toast_system.update(ctx);
     }
 
     fn handle_ui_interactions(&mut self, ctx: &Context) {
@@ -119,7 +119,7 @@ impl CloverApp {
             viewer::draw_overlays(ctx, &self.state.viewer, &mut self.state.ui_mode, &mut temp_config);
 
         if let Some(action) = context_menu_action {
-            handle_context_menu_action(ctx, action, &self.state.viewer, &mut self.state.ui_mode, &self.state.toast_manager);
+            handle_context_menu_action(ctx, action, &self.state.viewer, &mut self.state.ui_mode, &self.state.common.toast_manager);
         }
 
         if let Some(ModalAction::Apply) = modal_action {
