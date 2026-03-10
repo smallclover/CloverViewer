@@ -2,7 +2,7 @@ use std::sync::mpsc;
 use eframe::egui::Context;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
 use crate::model::config::{get_context_config, Config};
-use crate::os::window::show_window_restore;
+use crate::os::window::show_window_restore_offscreen;
 use crate::state::custom_window::WindowState;
 // 确保引入 Config
 use crate::ui::mode::UiMode;
@@ -65,9 +65,10 @@ impl HotkeyManager {
 
             // 只要不是前台 Normal，统统唤醒
             if prev_state != WindowPrevState::Normal {
-                show_window_restore(window_state.hwnd_isize);
+                // 使用 Win32 API 在屏幕外唤醒！
+                show_window_restore_offscreen(window_state.hwnd_isize);
                 *visible = true;
-                ctx_clone.send_viewport_cmd(eframe::egui::ViewportCommand::Visible(true));
+                ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
             }
 
             let _ = tx.send((event.id, prev_state));

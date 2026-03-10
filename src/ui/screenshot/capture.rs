@@ -130,8 +130,8 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
     // 1. 发起和轮询截图阶段
     if state.screenshot.captures.is_empty() {
         if !state.screenshot.is_capturing {
-            println!("移动窗口");
-            // 我们不再在这里获取坐标，直接把窗口瞬移走！
+            ctx.send_viewport_cmd(ViewportCommand::Decorations(false));
+            ctx.send_viewport_cmd(ViewportCommand::Transparent(true));
             ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(-20000.0, -20000.0)));
         }
         handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot);
@@ -188,6 +188,18 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
                 ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
             }
             WindowPrevState::Normal => {
+                // 恢复窗口的常规属性
+                ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
+                ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
+
+                // 移回截图前的原始位置和尺寸
+                if let Some(pos) = state.common.normal_window_pos {
+                    ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
+                }
+                if let Some(size) = state.common.normal_window_size {
+                    ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
+                }
+
                 ctx.send_viewport_cmd(ViewportCommand::Visible(true));
                 ctx.send_viewport_cmd(ViewportCommand::Focus);
             }

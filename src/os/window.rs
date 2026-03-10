@@ -21,7 +21,7 @@ use windows::{
     },
     core::PCWSTR,
 };
-
+use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, HWND_TOP, SWP_NOSIZE, SWP_NOZORDER};
 
 /// 操作窗口
 /// /// ============================================================================================
@@ -39,6 +39,28 @@ pub fn show_window_mini(hwnd_isize: isize){
 pub fn show_window_restore(hwnd_isize: isize){
     let window_handle = get_window_handle(hwnd_isize);
     unsafe { let _ = ShowWindow(window_handle, SW_RESTORE); }
+}
+
+pub fn show_window_restore_offscreen(hwnd_isize: isize) {
+    let window_handle = get_window_handle(hwnd_isize);
+
+    unsafe {
+        // 1. 在 Restore 之前，强制同步把窗口移到十万八千里外
+        // SWP_NOSIZE: 不改变大小
+        // SWP_NOZORDER: 不改变 Z 轴层级顺序
+        let _ = SetWindowPos(
+            window_handle,
+            HWND_TOP.into(),
+            -20000,
+            -20000,
+            0,
+            0,
+            SWP_NOSIZE | SWP_NOZORDER,
+        );
+
+        // 2. 现在再调用恢复，它会在 -20000 的位置被唤醒，实现真正的无缝隐形唤醒
+        let _ = ShowWindow(window_handle, SW_RESTORE);
+    }
 }
 
 pub fn show_window_hide(hwnd_isize: isize){
