@@ -146,8 +146,13 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
         ctx.send_viewport_cmd(ViewportCommand::Transparent(true));
         ctx.send_viewport_cmd(ViewportCommand::Visible(true));
         ctx.send_viewport_cmd(ViewportCommand::Focus);
+
+        // 【新增】：动态赋予窗口巨大的最小尺寸，强制突破操作系统的尺寸截断限制
+        ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(size));
+
         ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
-        ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
+        // 暂时对应，虽然解决了问题但是不够优雅，这个数字似乎要大于1或者1.5
+        ctx.send_viewport_cmd(ViewportCommand::InnerSize(size*2.0));
 
         state.screenshot.window_configured = true;
         ctx.request_repaint();
