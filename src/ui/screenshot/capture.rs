@@ -1,7 +1,7 @@
 use eframe::egui::{
     Color32, ColorImage, Context,
     Pos2, Rect, Stroke, StrokeKind, TextureHandle,
-    Ui, ViewportBuilder, ViewportClass, ViewportCommand, ViewportId};
+    Ui, ViewportCommand};
 use image::{GenericImage, RgbaImage};
 use std::{
     borrow::Cow,
@@ -16,6 +16,7 @@ use std::{
 use std::collections::HashMap;
 use xcap::Monitor;
 use arboard::{Clipboard, ImageData};
+
 use crate::ui::{
     mode::UiMode,
     screenshot::color_picker::ColorPicker,
@@ -27,6 +28,7 @@ use crate::model::{
     device::{DeviceInfo, MonitorInfo},
     state::AppState
 };
+use crate::os::window::show_window_hide;
 use crate::ui::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
 use crate::ui::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 
@@ -72,6 +74,9 @@ pub struct ScreenshotState {
     pub current_shape_end: Option<Pos2>,
     pub copy_requested: bool,
     pub texture_pool: HashMap<String, TextureHandle>,
+
+    pub window_configured: bool,           // 标记主窗口是否已经变为全屏截图状态
+    pub prev_window_state: WindowPrevState,
 }
 
 impl Default for ScreenshotState {
@@ -95,7 +100,11 @@ impl Default for ScreenshotState {
             current_shape_start: None,
             current_shape_end: None,
             copy_requested: false,
-            texture_pool: HashMap::new()
+            texture_pool: HashMap::new(),
+
+            // --- 新增初始化 ---
+            window_configured: false,
+            prev_window_state: WindowPrevState::Normal,
         }
     }
 }
@@ -106,60 +115,88 @@ pub struct CapturedScreen {
     pub image: ColorImage,
     pub screen_info: MonitorInfo,
 }
-
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub enum WindowPrevState {
+    Normal,    // 前台活动状态
+    Minimized, // 最小化到任务栏
+    Tray,      // 隐藏到托盘
+}
+// capture.rs
 pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
     if state.ui_mode != UiMode::Screenshot {
         return;
     }
 
-    if state.screenshot.captures.is_empty() {
-        handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot);
-    }
-
+    // 1. 发起和轮询截图阶段
     if state.screenshot.captures.is_empty() {
         if !state.screenshot.is_capturing {
-            state.ui_mode = UiMode::Normal;
+            println!("移动窗口");
+            // 我们不再在这里获取坐标，直接把窗口瞬移走！
+            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(-20000.0, -20000.0)));
         }
+        handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot);
         return;
     }
 
-    let mut final_action = ScreenshotAction::None;
-    let mut wants_to_close_viewports = false;
-    let (pos, size) = state.common.device_info.global_logical_rect();
+    // 2. 截图完成，全屏展开逻辑 (这部分不变)
+    if !state.screenshot.window_configured {
+        let (pos, size) = state.common.device_info.global_logical_rect();
 
-    let viewport_id = ViewportId::from_hash_of("screenshot_global_canvas");
+        ctx.send_viewport_cmd(ViewportCommand::Decorations(false));
+        ctx.send_viewport_cmd(ViewportCommand::Transparent(true));
+        ctx.send_viewport_cmd(ViewportCommand::Visible(true));
+        ctx.send_viewport_cmd(ViewportCommand::Focus);
+        ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
+        ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
 
-    ctx.show_viewport_immediate(
-        viewport_id,
-        ViewportBuilder::default()
-            .with_position(pos)
-            .with_min_inner_size(size)
-            .with_decorations(false)
-            .with_transparent(true)
-            .with_always_on_top(),
-        |ctx, class| {
-            if class == ViewportClass::Immediate {
-                let action = draw_screenshot_ui(ctx, &mut state.screenshot, &state.common.device_info);
-                if action != ScreenshotAction::None {
-                    final_action = action;
-                    wants_to_close_viewports = true;
-                }
-            }
-            if wants_to_close_viewports {
-                ctx.send_viewport_cmd(ViewportCommand::Close);
-            }
-        },
-    );
+        state.screenshot.window_configured = true;
+        ctx.request_repaint();
+    }
 
-    if wants_to_close_viewports {
+    // 3. 绘制截图 UI
+    let action = draw_screenshot_ui(ctx, &mut state.screenshot, &state.common.device_info);
+
+    // 4. 退出截图模式，使用缓存的正常坐标恢复
+    if action != ScreenshotAction::None {
         let screenshot_state_mut = &mut state.screenshot;
-        handle_save_action(final_action, screenshot_state_mut);
+        handle_save_action(action, screenshot_state_mut);
+
+        // 恢复窗口的常规属性
+        ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
+        ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
+
+        // 移回截图前的原始位置和尺寸
+        if let Some(pos) = state.common.normal_window_pos {
+            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
+        }
+        if let Some(size) = state.common.normal_window_size {
+            ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
+        }
+
+        match screenshot_state_mut.prev_window_state {
+            WindowPrevState::Tray => {
+                if let Ok(mut visible) = state.common.window_state.visible.lock() {
+                    *visible = false;
+                }
+                ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+                // 调用系统 API 隐藏到托盘
+                show_window_hide(state.common.window_state.hwnd_isize);
+            }
+            WindowPrevState::Minimized => {
+                ctx.send_viewport_cmd(ViewportCommand::Visible(true));
+                // 通过 eframe 发送最小化指令
+                ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
+            }
+            WindowPrevState::Normal => {
+                ctx.send_viewport_cmd(ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(ViewportCommand::Focus);
+            }
+        }
 
         state.ui_mode = UiMode::Normal;
         *screenshot_state_mut = ScreenshotState::default();
 
-        ctx.send_viewport_cmd(ViewportCommand::Visible(true));
-        ctx.send_viewport_cmd(ViewportCommand::Focus);
+        ctx.request_repaint();
     }
 }
 
@@ -530,7 +567,7 @@ fn handle_capture_process(
         let ctx_clone = ctx.clone();
 
         thread::spawn(move || {
-            thread::sleep(Duration::from_millis(50));
+            thread::sleep(Duration::from_millis(150));
             println!("[DEBUG] Capturing screens and windows in background...");
 
             let mut captures = Vec::new();

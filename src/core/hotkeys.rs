@@ -2,19 +2,20 @@ use std::sync::mpsc;
 use eframe::egui::Context;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
 use crate::model::config::{get_context_config, Config};
-use crate::os::window::show_window_mini;
+use crate::os::window::show_window_restore;
 use crate::state::custom_window::WindowState;
 // 确保引入 Config
 use crate::ui::mode::UiMode;
+use crate::ui::screenshot::capture::WindowPrevState;
 
 pub enum HotkeyAction {
-    SetScreenshotMode,
+    SetScreenshotMode { prev_state: WindowPrevState },
     RequestScreenshotCopy,
 }
 
 pub struct HotkeyManager {
     hotkeys_manager: GlobalHotKeyManager,
-    hotkey_receiver: mpsc::Receiver<u32>, // 接收 GlobalHotKeyEvent 的 ID
+    hotkey_receiver: mpsc::Receiver<(u32, WindowPrevState)>,
 
     // 当前生效的热键对象
     show_hotkey: HotKey,
@@ -43,18 +44,33 @@ impl HotkeyManager {
         // 能够通过 ID 发送事件
         GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
             // 热键变更后此时的show_hotkey.id 和 event.id 是不一样的，需要在update中取到最新的id
-            //TODO 截完图或者取消的时候也应该设置一下visible,现在时最小化截图，最小化的时候点击托盘不会再次放大
-            let mut visible = window_state.visible.lock().unwrap();
             // SW_RESTORE 是 恢复窗口
             // 如果当前是托盘状态
             // 唤起主窗口导最小化
             // 然后开始截图
-            if !*visible {
-                show_window_mini(window_state.hwnd_isize);
+
+            let mut visible = window_state.visible.lock().unwrap();
+            let is_visible = *visible;
+
+            // 获取 eframe 层面的最小化状态
+            let is_minimized = ctx_clone.input(|i| i.viewport().minimized.unwrap_or(false));
+
+            let prev_state = if !is_visible {
+                WindowPrevState::Tray
+            } else if is_minimized {
+                WindowPrevState::Minimized
+            } else {
+                WindowPrevState::Normal
+            };
+
+            // 只要不是前台 Normal，统统唤醒
+            if prev_state != WindowPrevState::Normal {
+                show_window_restore(window_state.hwnd_isize);
                 *visible = true;
+                ctx_clone.send_viewport_cmd(eframe::egui::ViewportCommand::Visible(true));
             }
-            // 无论是否隐藏都要开启截图
-            let _ = tx.send(event.id);
+
+            let _ = tx.send((event.id, prev_state));
             ctx_clone.request_repaint();
         })));
 
@@ -108,11 +124,19 @@ impl HotkeyManager {
             }
         }
 
+        // --- 新增：用于防止一帧内处理多次重复按键 ---
+        let mut screenshot_triggered_this_frame = false;
+
         // 2. 处理接收到的热键事件
-        while let Ok(id) = self.hotkey_receiver.try_recv() {
+        while let Ok((id, prev_state)) = self.hotkey_receiver.try_recv() {
             // 通过 ID 对比来判断是哪个键被按下了
             if id == self.show_hotkey.id() {
-                actions.push(HotkeyAction::SetScreenshotMode);
+
+                // 只有在不是截图模式，且本帧未触发的情况下，才接受事件
+                if *ui_mode != UiMode::Screenshot && !screenshot_triggered_this_frame {
+                    actions.push(HotkeyAction::SetScreenshotMode { prev_state });
+                    screenshot_triggered_this_frame = true;
+                }
             } else if id == self.copy_hotkey.id() {
                 if *ui_mode == UiMode::Screenshot {
                     actions.push(HotkeyAction::RequestScreenshotCopy);

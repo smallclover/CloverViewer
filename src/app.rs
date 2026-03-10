@@ -26,10 +26,13 @@ use crate::{
     }
 };
 use crate::model::config::init_config_arc;
+use crate::ui::mode::UiMode;
 
 pub fn run() -> eframe::Result<()> {
     let mut options = eframe::NativeOptions {
-        viewport: ViewportBuilder::default().with_inner_size([1024.0, 768.0]),
+        viewport: ViewportBuilder::default()
+            .with_inner_size([1024.0, 768.0])
+            .with_transparent(true),
         ..Default::default()
     };
     options.viewport = options.viewport.with_icon(load_icon());
@@ -129,18 +132,39 @@ impl CloverApp {
             update_context_config(ctx, &self.config);
         }
     }
+    fn handle_cache_win_pos(&mut self, ctx: &Context){
+        // -缓存正常窗口坐标 ---
+        if self.state.ui_mode != UiMode::Screenshot {
+            let (outer_rect, inner_rect) = ctx.input(|i| (i.viewport().outer_rect, i.viewport().inner_rect));
+            if let (Some(outer), Some(inner)) = (outer_rect, inner_rect) {
+                // 过滤掉 Windows 最小化时的异常坐标 (-32000)
+                if outer.min.x > -10000.0 && outer.min.y > -10000.0 {
+                    self.state.common.normal_window_pos = Some(outer.min);
+                    self.state.common.normal_window_size = Some(inner.size());
+                }
+            }
+        }
+    }
 }
 
 impl eframe::App for CloverApp {
     fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
+        
+        self.handle_cache_win_pos(ctx);
+        
         update_context_config(ctx, &self.config);
         self.state.process_hotkey_events();
 
         self.handle_background_tasks(ctx);
         self.handle_input_events(ctx);
-
-        self.draw_ui(ctx);
-        self.handle_ui_interactions(ctx);
-        handle_screenshot_system(ctx, &mut self.state);
+        
+        // 区分当前模式，防止普通 UI 和 截图 UI 重叠绘制
+        if self.state.ui_mode == UiMode::Screenshot {
+            handle_screenshot_system(ctx, &mut self.state);
+        } else {
+            // 普通模式下绘制常规 UI
+            self.draw_ui(ctx);
+            self.handle_ui_interactions(ctx);
+        }
     }
 }
