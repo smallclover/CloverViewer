@@ -104,7 +104,7 @@ impl CloverApp {
     }
 
     fn handle_input_events(&mut self, ctx: &Context) {
-        viewer::handle_input_events(ctx, &mut self.state.viewer, &self.state.common.window_state);
+        crate::ui::widgets::input::handle_input_events(ctx, &mut self.state.viewer, &self.state.common.window_state);
     }
 
     fn draw_ui(&mut self, ctx: &Context) {

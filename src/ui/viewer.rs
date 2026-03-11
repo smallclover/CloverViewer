@@ -1,13 +1,13 @@
 use eframe::egui;
 use egui::{
-    CentralPanel, Color32, Context, Frame, Key
+    CentralPanel, Color32, Context, Frame
 };
 use rfd::FileDialog;
 use crate::{
     core::business::{ViewerState, ViewMode},
     model::{
-        config::{Config,get_context_config},
-        state::{AppState},
+        config::Config,
+        state::AppState,
         constants::SUPPORTED_IMAGE_EXTENSIONS
     },
     ui::{
@@ -31,8 +31,6 @@ use crate::{
         mode::UiMode,
     },
     i18n::lang::get_i18n_text,
-    model::window_state::WindowState,
-    os::window::show_window_hide
 };
 
 pub fn draw_top_panel(
@@ -153,38 +151,4 @@ pub fn draw_overlays(
     }
 
     (context_menu_action, modal_action)
-}
-
-pub fn handle_input_events(ctx: &Context, viewer: &mut ViewerState, window_state: &WindowState) {
-
-    if ctx.input(|i| i.viewport().close_requested()){
-        let config = get_context_config(ctx);
-        let aq = window_state.allow_quit.lock().unwrap();
-        let mut vis = window_state.visible.lock().unwrap();
-        if config.minimize_on_close && !*aq {
-            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            *vis = false;
-            show_window_hide(window_state.hwnd_isize);
-        }else{
-        }
-    }
-
-    if ctx.input(|i| i.key_pressed(Key::ArrowLeft)) {
-        viewer.prev_image(ctx.clone());
-    }
-    if ctx.input(|i| i.key_pressed(Key::ArrowRight)) {
-        viewer.next_image(ctx.clone());
-    }
-
-    if let Some(path) = ctx.input(|i| {
-        i.raw
-            .dropped_files
-            .first()
-            .and_then(|f| f.path.clone())
-    }) {
-        viewer.handle_dropped_file(ctx.clone(), path);
-    }
-
-    let scroll_delta = ctx.input(|i| i.smooth_scroll_delta.y);
-    viewer.update_zoom(scroll_delta);
 }

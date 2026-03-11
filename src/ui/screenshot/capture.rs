@@ -1,27 +1,24 @@
 use eframe::egui::{
     Color32, ColorImage, Context,
-    Pos2, Rect, Stroke, StrokeKind, TextureHandle,
+    Pos2, Rect, Stroke, StrokeKind,
     Ui, ViewportCommand};
 use image::{GenericImage, RgbaImage};
 use std::{
     borrow::Cow,
     path::PathBuf,
     sync::{
-        mpsc::{channel, Receiver, TryRecvError},
+        mpsc::{channel, TryRecvError},
         Arc,
     },
     thread,
     time::Duration
 };
-use std::collections::HashMap;
 use xcap::Monitor;
 use arboard::{Clipboard, ImageData};
 use eframe::emath::Vec2;
 use crate::ui::{
     mode::UiMode,
-    screenshot::color_picker::ColorPicker,
     screenshot::magnifier::handle_magnifier
-
 };
 use crate::model::{
     config::get_context_config,
@@ -32,105 +29,12 @@ use crate::os::window::show_window_hide;
 use crate::ui::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
 use crate::ui::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 
-#[derive(PartialEq, Clone, Copy)]
-pub enum ScreenshotAction {
-    None,
-    Close,
-    SaveAndClose,
-    SaveToClipboard,
-}
+// 重新导出 state 模块的类型
+pub use crate::ui::screenshot::state::{
+    ScreenshotAction, ScreenshotTool, DrawnShape, ScreenshotState,
+    HistoryEntry, CapturedScreen, WindowPrevState
+};
 
-#[derive(PartialEq, Clone, Copy)]
-pub enum ScreenshotTool {
-    Rect,
-    Circle,
-}
-
-#[derive(Clone)]
-pub struct DrawnShape {
-    pub tool: ScreenshotTool,
-    pub start: Pos2,
-    pub end: Pos2,
-    pub color: Color32,
-    pub stroke_width: f32,
-}
-
-pub struct ScreenshotState {
-    pub captures: Vec<CapturedScreen>,
-    pub selection: Option<Rect>,
-    pub drag_start: Option<Pos2>,
-    pub toolbar_pos: Option<Pos2>,
-    pub window_rects: Vec<Rect>,
-    pub hovered_window: Option<Rect>,
-    pub is_capturing: bool,
-    pub capture_receiver: Option<Receiver<(Vec<CapturedScreen>, Vec<Rect>)>>,
-    pub current_tool: Option<ScreenshotTool>,
-    pub active_color: Color32,
-    pub stroke_width: f32,
-    pub color_picker: ColorPicker,
-    pub color_picker_anchor: Option<Rect>,
-    pub shapes: Vec<DrawnShape>,
-    pub current_shape_start: Option<Pos2>,
-    pub current_shape_end: Option<Pos2>,
-    pub copy_requested: bool,
-    pub texture_pool: HashMap<String, TextureHandle>,
-
-    pub window_configured: bool,           // 标记主窗口是否已经变为全屏截图状态
-    pub prev_window_state: WindowPrevState,
-
-    // 撤销功能：历史栈
-    pub history: Vec<HistoryEntry>,
-}
-
-#[derive(Clone)]
-pub struct HistoryEntry {
-    pub shapes: Vec<DrawnShape>,
-    pub selection: Option<Rect>,
-}
-
-impl Default for ScreenshotState {
-    fn default() -> Self {
-        let default_color = Color32::from_rgb(204, 0, 0);
-        Self {
-            captures: Vec::new(),
-            selection: None,
-            drag_start: None,
-            toolbar_pos: None,
-            window_rects: Vec::new(),
-            hovered_window: None,
-            is_capturing: false,
-            capture_receiver: None,
-            current_tool: None,
-            active_color: default_color,
-            stroke_width: 2.0,
-            color_picker: ColorPicker::new(default_color),
-            color_picker_anchor: None,
-            shapes: Vec::new(),
-            current_shape_start: None,
-            current_shape_end: None,
-            copy_requested: false,
-            texture_pool: HashMap::new(),
-
-            // --- 新增初始化 ---
-            window_configured: false,
-            prev_window_state: WindowPrevState::Normal,
-            history: Vec::new(),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct CapturedScreen {
-    pub raw_image: Arc<RgbaImage>,
-    pub image: ColorImage,
-    pub screen_info: MonitorInfo,
-}
-#[derive(PartialEq, Clone, Copy, Debug)]
-pub enum WindowPrevState {
-    Normal,    // 前台活动状态
-    Minimized, // 最小化到任务栏
-    Tray,      // 隐藏到托盘
-}
 // capture.rs
 pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
     if state.ui_mode != UiMode::Screenshot {

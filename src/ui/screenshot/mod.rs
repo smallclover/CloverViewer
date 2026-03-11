@@ -1,4 +1,5 @@
 pub mod capture;
+pub mod state;
 pub mod toolbar;
 pub mod color_picker;
 pub mod magnifier;
