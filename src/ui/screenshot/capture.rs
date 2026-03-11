@@ -16,7 +16,7 @@ use std::{
 use std::collections::HashMap;
 use xcap::Monitor;
 use arboard::{Clipboard, ImageData};
-
+use eframe::emath::Vec2;
 use crate::ui::{
     mode::UiMode,
     screenshot::color_picker::ColorPicker,
@@ -130,8 +130,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
     // 1. 发起和轮询截图阶段
     if state.screenshot.captures.is_empty() {
         if !state.screenshot.is_capturing {
-            ctx.send_viewport_cmd(ViewportCommand::Decorations(false));
-            ctx.send_viewport_cmd(ViewportCommand::Transparent(true));
+            ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
             ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(-20000.0, -20000.0)));
         }
         handle_capture_process(ctx, &mut state.ui_mode, &mut state.screenshot);
@@ -147,7 +146,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
         ctx.send_viewport_cmd(ViewportCommand::Visible(true));
         ctx.send_viewport_cmd(ViewportCommand::Focus);
 
-        // 【新增】：动态赋予窗口巨大的最小尺寸，强制突破操作系统的尺寸截断限制
+        // 动态赋予窗口巨大的最小尺寸，强制突破操作系统的尺寸截断限制
         ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(size));
 
         ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
