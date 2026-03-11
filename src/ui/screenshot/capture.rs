@@ -16,6 +16,7 @@ use std::{
 use xcap::Monitor;
 use arboard::{Clipboard, ImageData};
 use eframe::emath::Vec2;
+use egui::WindowLevel;
 use crate::ui::{
     mode::UiMode,
     screenshot::magnifier::handle_magnifier
@@ -60,6 +61,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
         ctx.send_viewport_cmd(ViewportCommand::Visible(true));
         ctx.send_viewport_cmd(ViewportCommand::Focus);
 
+        ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::AlwaysOnTop));
         // 动态赋予窗口巨大的最小尺寸，强制突破操作系统的尺寸截断限制
         ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(size));
 
