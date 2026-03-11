@@ -77,6 +77,15 @@ pub struct ScreenshotState {
 
     pub window_configured: bool,           // 标记主窗口是否已经变为全屏截图状态
     pub prev_window_state: WindowPrevState,
+
+    // 撤销功能：历史栈
+    pub history: Vec<HistoryEntry>,
+}
+
+#[derive(Clone)]
+pub struct HistoryEntry {
+    pub shapes: Vec<DrawnShape>,
+    pub selection: Option<Rect>,
 }
 
 impl Default for ScreenshotState {
@@ -105,6 +114,7 @@ impl Default for ScreenshotState {
             // --- 新增初始化 ---
             window_configured: false,
             prev_window_state: WindowPrevState::Normal,
+            history: Vec::new(),
         }
     }
 }
@@ -304,6 +314,20 @@ pub fn draw_screenshot_ui(
                 }
             }
 
+            // Ctrl+Z 撤销
+            if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z)) {
+                if let Some(entry) = state.history.pop() {
+                    state.shapes = entry.shapes;
+                    state.selection = entry.selection;
+                    // 更新 toolbar 位置
+                    if let Some(sel) = state.selection {
+                        state.toolbar_pos = Some(sel.right_bottom());
+                    } else {
+                        state.toolbar_pos = None;
+                    }
+                }
+            }
+
             if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                 action = ScreenshotAction::Close;
             }
@@ -370,6 +394,11 @@ fn handle_interaction(
             if response.drag_stopped() {
                 if let Some(start_pos) = state.current_shape_start {
                     if let Some(tool) = state.current_tool {
+                        // 保存历史记录
+                        state.history.push(HistoryEntry {
+                            shapes: state.shapes.clone(),
+                            selection: state.selection,
+                        });
                         state.shapes.push(DrawnShape {
                             tool,
                             start: start_pos,
@@ -384,6 +413,11 @@ fn handle_interaction(
                     state.drag_start = None;
                     if let Some(sel) = state.selection {
                         if sel.width() > 10.0 && sel.height() > 10.0 {
+                            // 保存历史记录
+                            state.history.push(HistoryEntry {
+                                shapes: state.shapes.clone(),
+                                selection: state.selection,
+                            });
                             state.toolbar_pos = Some(sel.right_bottom());
                         } else {
                             state.selection = None;
