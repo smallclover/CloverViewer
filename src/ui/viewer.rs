@@ -31,7 +31,7 @@ use crate::{
         mode::UiMode,
     },
     i18n::lang::get_i18n_text,
-    state::custom_window::WindowState,
+    model::window_state::WindowState,
     os::window::show_window_hide
 };
 

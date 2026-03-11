@@ -3,7 +3,7 @@ use eframe::egui::Context;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
 use crate::model::config::{get_context_config, Config};
 use crate::os::window::show_window_restore_offscreen;
-use crate::state::custom_window::WindowState;
+use crate::model::window_state::WindowState;
 // 确保引入 Config
 use crate::ui::mode::UiMode;
 use crate::ui::screenshot::capture::WindowPrevState;

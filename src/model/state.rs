@@ -7,7 +7,7 @@ use crate::core::business::ViewerState;
 use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::model::config::Config;
 use crate::model::device::DeviceInfo;
-use crate::state::custom_window::WindowState;
+use crate::model::window_state::WindowState;
 use crate::ui::{
     widgets::toast::{ToastManager, ToastSystem},
     mode::UiMode,
