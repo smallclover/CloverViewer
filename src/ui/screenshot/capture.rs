@@ -84,6 +84,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
         // 恢复窗口的常规属性
         ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
         ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
+        ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
 
         // 移回截图前的原始位置和尺寸
         if let Some(pos) = state.common.normal_window_pos {
