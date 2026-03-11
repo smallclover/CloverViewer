@@ -2,7 +2,7 @@ use std::sync::mpsc;
 use eframe::egui::Context;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
 use crate::model::config::{get_context_config, Config};
-use crate::os::window::show_window_restore_offscreen;
+use crate::os::window::{force_get_focus, show_window_restore_offscreen};
 use crate::model::window_state::WindowState;
 // 确保引入 Config
 use crate::ui::mode::UiMode;
@@ -67,6 +67,7 @@ impl HotkeyManager {
             if prev_state != WindowPrevState::Normal {
                 // 使用 Win32 API 在屏幕外唤醒！
                 show_window_restore_offscreen(window_state.hwnd_isize);
+                force_get_focus(window_state.hwnd_isize);
                 *visible = true;
                 ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
             }

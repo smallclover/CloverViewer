@@ -21,7 +21,8 @@ use windows::{
     },
     core::PCWSTR,
 };
-use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, HWND_TOP, SWP_NOSIZE, SWP_NOZORDER};
+use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+use windows::Win32::UI::WindowsAndMessaging::{BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow, SetWindowPos, HWND_TOP, SWP_NOSIZE, SWP_NOZORDER};
 
 /// 操作窗口
 /// /// ============================================================================================
@@ -80,6 +81,38 @@ pub fn get_hwnd_isize(cc: &eframe::CreationContext<'_>) -> isize {
     };
     
     handle.hwnd.get()
+}
+
+/// 强制获取焦点，否则最小化状态下无法退出截图状态
+pub fn force_get_focus(hwnd_isize: isize) {
+    unsafe {
+        let window_handle = get_window_handle(hwnd_isize);
+        let fg_hwnd = GetForegroundWindow();
+
+        // 如果焦点已经是我们的窗口，直接返回
+        if fg_hwnd == window_handle { return; }
+
+        // 获取当前占据焦点的窗口线程 ID
+        let fg_thread = GetWindowThreadProcessId(fg_hwnd, None);
+        // 获取我们自己程序的线程 ID
+        let current_thread = GetCurrentThreadId();
+
+        if fg_thread != current_thread && fg_thread != 0 {
+            // 核心魔法：将我们的线程输入附加到当前前台线程上
+            let _ = AttachThreadInput(current_thread, fg_thread, true.into());
+
+            // 此时我们有了和前台窗口一样的权限，趁机把窗口推到最前并设置焦点
+            BringWindowToTop(window_handle).expect("Win32系统调用报错");
+            let _ = SetForegroundWindow(window_handle);
+
+            // 抢夺完毕，解除附加
+            let _ = AttachThreadInput(current_thread, fg_thread, false.into());
+        } else {
+            // 如果是在同一个线程或者找不到前台线程，直接尝试
+            BringWindowToTop(window_handle).expect("Win32系统调用报错");
+            let _ = SetForegroundWindow(window_handle);
+        }
+    }
 }
 
 /// 获取win缩略图
