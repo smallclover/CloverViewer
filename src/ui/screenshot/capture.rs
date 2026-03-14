@@ -81,18 +81,18 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
         let screenshot_state_mut = &mut state.screenshot;
         handle_save_action(action, screenshot_state_mut);
 
-        // 恢复窗口的常规属性
-        ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
-        ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
-        ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
-
-        // 移回截图前的原始位置和尺寸
-        if let Some(pos) = state.common.normal_window_pos {
-            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
-        }
-        if let Some(size) = state.common.normal_window_size {
-            ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
-        }
+        // // 恢复窗口的常规属性
+        // ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
+        // ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
+        // ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
+        //
+        // // 移回截图前的原始位置和尺寸
+        // if let Some(pos) = state.common.normal_window_pos {
+        //     ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
+        // }
+        // if let Some(size) = state.common.normal_window_size {
+        //     ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
+        // }
 
         match screenshot_state_mut.prev_window_state {
             WindowPrevState::Tray => {
@@ -104,21 +104,32 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
                 show_window_hide(state.common.window_state.hwnd_isize);
             }
             WindowPrevState::Minimized => {
+                ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
+                ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
+
+                let config = get_context_config(ctx);
+                if let Some((x, y)) = config.window_pos {
+                    ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
+                }
+                if let Some((w, h)) = config.window_size {
+                    ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(w, h)));
+                }
+
                 ctx.send_viewport_cmd(ViewportCommand::Visible(true));
-                // 通过 eframe 发送最小化指令
+                // 发送最小化指令
                 ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
             }
             WindowPrevState::Normal => {
                 // 恢复窗口的常规属性
                 ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
                 ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
-
+                let config = get_context_config(ctx);
                 // 移回截图前的原始位置和尺寸
-                if let Some(pos) = state.common.normal_window_pos {
-                    ctx.send_viewport_cmd(ViewportCommand::OuterPosition(pos));
+                if let Some((x, y)) = config.window_pos {
+                    ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
                 }
-                if let Some(size) = state.common.normal_window_size {
-                    ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
+                if let Some((w, h)) = config.window_size {
+                    ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(w, h)));
                 }
 
                 ctx.send_viewport_cmd(ViewportCommand::Visible(true));

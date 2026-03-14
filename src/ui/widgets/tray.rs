@@ -1,6 +1,8 @@
 use std::sync::{Arc, Mutex};
+use egui::{ViewportCommand, WindowLevel};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
+use crate::model::config::get_context_config;
 use crate::os::window::{show_window_mini, show_window_restore};
 use crate::utils::image::load_tray_icon;
 /// 创建托盘
@@ -37,20 +39,29 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
                 // 隐藏状态下恢复
                 show_window_restore(hwnd_isize);
                 *vis = true;
-
-                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                let config = get_context_config(&ctx);
+                if let Some((x, y)) = config.window_pos {
+                    ctx.send_viewport_cmd(ViewportCommand::OuterPosition(egui::pos2(x, y)));
+                }
+                if let Some((w, h)) = config.window_size {
+                    ctx.send_viewport_cmd(ViewportCommand::InnerSize(egui::vec2(w, h)));
+                }
+                ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
+                ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
+                ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
+                ctx.send_viewport_cmd(ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(ViewportCommand::Focus);
 
                 ctx.request_repaint();
             }else{
                 // 最小化状态下恢复
                 let info = ctx.input(|i| i.viewport().clone());
                 if info.minimized == Some(true) {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+                    ctx.send_viewport_cmd(ViewportCommand::Minimized(false));
                 }
-                ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                ctx.send_viewport_cmd(ViewportCommand::Visible(true));
                 // 通常还需要聚焦窗口
-                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                ctx.send_viewport_cmd(ViewportCommand::Focus);
 
                 ctx.request_repaint();
             }

@@ -29,13 +29,29 @@ use crate::model::config::init_config_arc;
 use crate::ui::mode::UiMode;
 
 pub fn run() -> eframe::Result<()> {
+    // 提前加载配置
+    let config = load_config();
+
+    let mut viewport = ViewportBuilder::default()
+        .with_transparent(true)
+        .with_icon(load_icon());
+
+    // 应用配置文件中的大小，否则默认 1024x768
+    if let Some((w, h)) = config.window_size {
+        viewport = viewport.with_inner_size([w, h]);
+    } else {
+        viewport = viewport.with_inner_size([1024.0, 768.0]);
+    }
+
+    // 应用配置文件中的位置，否则默认居中
+    if let Some((x, y)) = config.window_pos {
+        viewport = viewport.with_position([x, y]);
+    }
+
     let mut options = eframe::NativeOptions {
-        viewport: ViewportBuilder::default()
-            .with_inner_size([1024.0, 768.0])
-            .with_transparent(true),
+        viewport,
         ..Default::default()
     };
-    options.viewport = options.viewport.with_icon(load_icon());
 
     let start_path = env::args().nth(1).map(PathBuf::from);
 
@@ -46,6 +62,7 @@ pub fn run() -> eframe::Result<()> {
             Ok(Box::new(CloverApp::new(
                 cc,
                 start_path,
+                config, // 将读取好的 config 传给 new()
             )))
         }),
     )
@@ -61,6 +78,7 @@ impl CloverApp {
     pub fn new(
         cc: &eframe::CreationContext<'_>,
         start_path: Option<PathBuf>,
+        config: Config,
     ) -> Self {
         Self::init_fonts(cc);
 
@@ -70,7 +88,6 @@ impl CloverApp {
 
         let tray = init_tray(&cc, &visible, &allow_quit, hwnd_isize);
 
-        let config = load_config();
         let config_arc = Arc::new(config);
         init_config_arc(&cc.egui_ctx, &Arc::clone(&config_arc));
 
@@ -133,14 +150,47 @@ impl CloverApp {
         }
     }
     fn handle_cache_win_pos(&mut self, ctx: &Context){
-        // -缓存正常窗口坐标 ---
-        if self.state.ui_mode != UiMode::Screenshot {
-            let (outer_rect, inner_rect) = ctx.input(|i| (i.viewport().outer_rect, i.viewport().inner_rect));
-            if let (Some(outer), Some(inner)) = (outer_rect, inner_rect) {
-                // 过滤掉 Windows 最小化时的异常坐标 (-32000)
-                if outer.min.x > -10000.0 && outer.min.y > -10000.0 {
-                    self.state.common.normal_window_pos = Some(outer.min);
-                    self.state.common.normal_window_size = Some(inner.size());
+        if self.state.ui_mode != UiMode::Normal { return; }
+
+        if let Ok(visible) = self.state.common.window_state.visible.lock() {
+            if !*visible { return; }
+        }
+
+        let viewport = ctx.input(|i| i.viewport().clone());
+
+        if viewport.minimized == Some(true)
+            || viewport.maximized == Some(true)
+            || viewport.fullscreen == Some(true) {
+            return;
+        }
+
+        if let (Some(outer), Some(inner)) = (viewport.outer_rect, viewport.inner_rect) {
+            if outer.min.x > -10000.0 && outer.min.y > -10000.0 && inner.width() < 4000.0 && inner.height() < 3000.0 {
+
+                let current_pos = (outer.min.x, outer.min.y);
+                let current_size = (inner.width(), inner.height());
+
+                // 检查是否发生变化
+                let pos_changed = self.config.window_pos != Some(current_pos);
+                let size_changed = self.config.window_size != Some(current_size);
+
+                // 鼠标没有任何按键被按下，说明用户的拖拽或缩放动作已经结束
+                let no_mouse_down = !ctx.input(|i| i.pointer.any_down());
+
+                if (pos_changed || size_changed) && no_mouse_down {
+                    // 更新内存配置
+                    let mut new_config = (*self.config).clone();
+                    new_config.window_pos = Some(current_pos);
+                    new_config.window_size = Some(current_size);
+                    self.config = Arc::new(new_config);
+
+                    // 写入 config.json 永久保存
+                    save_config(&self.config);
+
+                    // 更新 Context 里的配置（保证全局同步）
+                    update_context_config(ctx, &self.config);
+
+                    println!("窗口调整完毕，已保存位置与尺寸到 JSON！");
                 }
             }
         }

@@ -34,6 +34,11 @@ pub struct Config {
     pub minimize_on_close: bool,
     #[serde(default = "default_magnifier_enabled")]
     pub magnifier_enabled: bool,
+
+    #[serde(default)]
+    pub window_pos: Option<(f32, f32)>,
+    #[serde(default)]
+    pub window_size: Option<(f32, f32)>,
 }
 
 fn default_zoom_sensitivity() -> f32 {
@@ -56,6 +61,8 @@ impl Default for Config {
             hotkeys: HotkeysConfig::default(),
             minimize_on_close: default_minimize_on_close(),
             magnifier_enabled: default_magnifier_enabled(),
+            window_pos: None,
+            window_size: None,
         }
     }
 }

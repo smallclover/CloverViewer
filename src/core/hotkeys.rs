@@ -1,5 +1,6 @@
 use std::sync::mpsc;
 use eframe::egui::Context;
+use egui::ViewportCommand;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
 use crate::model::config::{get_context_config, Config};
 use crate::os::window::{force_get_focus, show_window_restore_offscreen};
@@ -65,11 +66,20 @@ impl HotkeyManager {
 
             // 只要不是前台 Normal，统统唤醒
             if prev_state != WindowPrevState::Normal {
-                // 使用 Win32 API 在屏幕外唤醒！
-                show_window_restore_offscreen(window_state.hwnd_isize);
-                force_get_focus(window_state.hwnd_isize);
-                *visible = true;
-                ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                if prev_state == WindowPrevState::Tray {
+                    // 使用 Win32 API 在屏幕外唤醒！
+                    show_window_restore_offscreen(window_state.hwnd_isize);
+                    force_get_focus(window_state.hwnd_isize);
+                    *visible = true;
+                    ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                }else{
+                    // show_window_restore(window_state.hwnd_isize);
+                    *visible = true;
+                    ctx_clone.send_viewport_cmd(ViewportCommand::Minimized(false));
+                    ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+
+                }
+
             }
 
             let _ = tx.send((event.id, prev_state));
@@ -133,7 +143,7 @@ impl HotkeyManager {
         while let Ok((id, prev_state)) = self.hotkey_receiver.try_recv() {
             // 通过 ID 对比来判断是哪个键被按下了
             if id == self.show_hotkey.id() {
-
+                println!("处理");
                 // 只有在不是截图模式，且本帧未触发的情况下，才接受事件
                 if *ui_mode != UiMode::Screenshot && !screenshot_triggered_this_frame {
                     actions.push(HotkeyAction::SetScreenshotMode { prev_state });
