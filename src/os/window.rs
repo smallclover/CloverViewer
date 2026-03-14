@@ -22,7 +22,7 @@ use windows::{
     core::PCWSTR,
 };
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
-use windows::Win32::UI::WindowsAndMessaging::{BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow, SetWindowPos, HWND_TOP, SWP_NOSIZE, SWP_NOZORDER, SW_SHOW};
+use windows::Win32::UI::WindowsAndMessaging::{BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow, SetWindowPos, HWND_TOP, SWP_NOSIZE, SWP_NOZORDER};
 
 /// 操作窗口
 /// /// ============================================================================================
@@ -41,10 +41,10 @@ pub fn show_window_restore(hwnd_isize: isize){
     let window_handle = get_window_handle(hwnd_isize);
     unsafe { let _ = ShowWindow(window_handle, SW_RESTORE); }
 }
-pub fn show_window_show(hwnd_isize: isize){
-    let window_handle = get_window_handle(hwnd_isize);
-    unsafe { let _ = ShowWindow(window_handle, SW_SHOW); }
-}
+// pub fn show_window_show(hwnd_isize: isize){
+//     let window_handle = get_window_handle(hwnd_isize);
+//     unsafe { let _ = ShowWindow(window_handle, SW_SHOW); }
+// }
 
 pub fn show_window_restore_offscreen(hwnd_isize: isize) {
     let window_handle = get_window_handle(hwnd_isize);

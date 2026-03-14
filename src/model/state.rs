@@ -2,7 +2,6 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use eframe::egui::Context;
-use egui::{Pos2, Vec2};
 use crate::core::business::ViewerState;
 use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::model::config::Config;
@@ -34,9 +33,6 @@ pub struct CommonState {
     pub window_state: WindowState,
     pub device_info: DeviceInfo,
 
-    // --- 新增：缓存健康的坐标和尺寸 ---
-    pub normal_window_pos: Option<Pos2>,
-    pub normal_window_size: Option<Vec2>,
 }
 
 impl AppState {
@@ -90,9 +86,6 @@ impl CommonState {
             hotkey_manager: HotkeyManager::new(ctx, win_m),
             window_state: win_s,
             device_info: DeviceInfo::load(),
-            // --- 初始化新增字段 ---
-            normal_window_pos: None,
-            normal_window_size: None,
         }
     }
 }
