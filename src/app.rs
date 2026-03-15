@@ -1,6 +1,6 @@
 use eframe::egui;
 use tray_icon::TrayIcon;
-use egui::{Context, FontData, FontDefinitions, FontFamily, ViewportBuilder};
+use egui::{Context, FontData, FontDefinitions, FontFamily, Pos2, Vec2, ViewportBuilder, ViewportCommand, WindowLevel};
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
@@ -48,7 +48,7 @@ pub fn run() -> eframe::Result<()> {
         viewport = viewport.with_position([x, y]);
     }
 
-    let mut options = eframe::NativeOptions {
+    let options = eframe::NativeOptions {
         viewport,
         ..Default::default()
     };
@@ -149,7 +149,7 @@ impl CloverApp {
             update_context_config(ctx, &self.config);
         }
     }
-    fn handle_cache_win_pos(&mut self, ctx: &Context){
+    fn handle_cache_win_pos(&mut self, ctx: &Context, _frame: &mut eframe::Frame){
         if self.state.ui_mode != UiMode::Normal { return; }
 
         if let Ok(visible) = self.state.common.window_state.visible.lock() {
@@ -158,7 +158,38 @@ impl CloverApp {
 
         let viewport = ctx.input(|i| i.viewport().clone());
 
-        if viewport.minimized == Some(true)
+        // 检测最小化状态变化
+        let is_minimized = viewport.minimized == Some(true);
+        let was_minimized = {
+            if let Ok(minimized) = self.state.common.window_state.minimized.lock() {
+                *minimized
+            } else {
+                false
+            }
+        };
+
+        // 更新最小化状态
+        if let Ok(mut minimized) = self.state.common.window_state.minimized.lock() {
+            *minimized = is_minimized;
+        }
+
+        // 从最小化恢复
+        if was_minimized && !is_minimized {
+            println!("从最小化恢复，config 中窗口位置: {:?}, 尺寸: {:?}", self.config.window_pos, self.config.window_size);
+            ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
+            ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
+            ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
+
+            // 移回截图前的原始位置和尺寸
+            if let Some((x, y))  = self.config.window_pos {
+                    ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
+            }
+            if let Some((w, h))  = self.config.window_size {
+                ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(w, h)));
+            }
+        }
+
+        if is_minimized
             || viewport.maximized == Some(true)
             || viewport.fullscreen == Some(true) {
             return;
@@ -190,7 +221,6 @@ impl CloverApp {
                     // 更新 Context 里的配置（保证全局同步）
                     update_context_config(ctx, &self.config);
 
-                    println!("窗口调整完毕，已保存位置与尺寸到 JSON！");
                 }
             }
         }
@@ -198,9 +228,9 @@ impl CloverApp {
 }
 
 impl eframe::App for CloverApp {
-    fn update(&mut self, ctx: &Context, _: &mut eframe::Frame) {
-        
-        self.handle_cache_win_pos(ctx);
+    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+
+        self.handle_cache_win_pos(ctx, frame);
         
         update_context_config(ctx, &self.config);
         self.state.process_hotkey_events();
