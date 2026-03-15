@@ -89,6 +89,7 @@ pub struct TextBundle {
     // Tooltips
     pub tooltip_draw_rect: &'static str,
     pub tooltip_draw_circle: &'static str,
+    pub tooltip_draw_arrow: &'static str,
     pub tooltip_cancel: &'static str,
     pub tooltip_save: &'static str,
     pub tooltip_save_to_clipboard: &'static str,
@@ -147,6 +148,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
 
     tooltip_draw_rect: "矩形",
     tooltip_draw_circle: "圆形",
+    tooltip_draw_arrow: "箭头",
     tooltip_cancel: "取消",
     tooltip_save: "保存到桌面",
     tooltip_save_to_clipboard: "复制到剪贴板",
@@ -205,6 +207,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
 
     tooltip_draw_rect: "Rectangle",
     tooltip_draw_circle: "Circle",
+    tooltip_draw_arrow: "Arrow",
     tooltip_cancel: "Cancel",
 tooltip_save: "Save to Desktop",
     tooltip_save_to_clipboard: "Copy to Clipboard",
@@ -263,6 +266,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
 
     tooltip_draw_rect: "矩形",
     tooltip_draw_circle: "円形",
+    tooltip_draw_arrow: "矢印",
     tooltip_cancel: "キャンセル",
     tooltip_save: "デスクトップに保存",
     tooltip_save_to_clipboard: "クリップボードにコピー",

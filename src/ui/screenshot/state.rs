@@ -18,6 +18,7 @@ pub enum ScreenshotAction {
 pub enum ScreenshotTool {
     Rect,
     Circle,
+    Arrow,
 }
 
 #[derive(Clone)]

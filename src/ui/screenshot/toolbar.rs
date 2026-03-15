@@ -9,8 +9,8 @@ pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2,
     if let Some(global_toolbar_pos_phys) = state.toolbar_pos {
         let vec_phys = global_toolbar_pos_phys - global_offset_phys;
         let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
-
-        let toolbar_width = 217.0;
+        
+        let toolbar_width = 250.0;
         let toolbar_height = 48.0;
 
         // 工具栏定位在选区右下角，向下偏移 10 个像素，向左偏移自身宽度
@@ -90,6 +90,14 @@ fn draw_screenshot_toolbar(
                     state.current_tool = Some(ScreenshotTool::Circle);
                 }
                 handle_tool_interaction(ui, &circle_button, ScreenshotTool::Circle, state);
+
+                // === 3. 箭头工具 ===
+                let is_arrow = state.current_tool == Some(ScreenshotTool::Arrow);
+                let arrow_button = draw_icon_button(ui, is_arrow, IconType::DrawArrow, &text);
+                if arrow_button.clicked() {
+                    state.current_tool = Some(ScreenshotTool::Arrow);
+                }
+                handle_tool_interaction(ui, &arrow_button, ScreenshotTool::Arrow, state);
 
                 let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(1.0, 16.0), egui::Sense::hover());
                 ui.painter().line_segment(

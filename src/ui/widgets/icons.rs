@@ -8,6 +8,7 @@ pub enum IconType {
     Single,
     DrawRect,
     DrawCircle,
+    DrawArrow,
     Cancel,
     Save,
     SaveToClipboard,
@@ -20,6 +21,7 @@ impl IconType {
             IconType::Single => text.status_single,
             IconType::DrawRect => text.tooltip_draw_rect,
             IconType::DrawCircle => text.tooltip_draw_circle,
+            IconType::DrawArrow => text.tooltip_draw_arrow,
             IconType::Cancel => text.tooltip_cancel,
             IconType::Save => text.tooltip_save,
             IconType::SaveToClipboard => text.tooltip_save_to_clipboard,
@@ -90,6 +92,23 @@ pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, text: 
                 icon_rect.width() / 2.0,
                 stroke,
             );
+        }
+        IconType::DrawArrow => {
+            // 绘制箭头：从左下到右上
+            let start = icon_rect.left_bottom() + vec2(2.0, -2.0);
+
+            // 【修复这里】让 Y 轴 +2.0 向下缩进，而不是 -2.0 向上溢出
+            let end = icon_rect.right_top() + vec2(-2.0, 2.0);
+
+            painter.line_segment([start, end], stroke);
+
+            // 箭头头部 (保持不变)
+            let arrow_size = 4.0;
+            let dir = (end - start).normalized();
+            let arrow_p1 = end - dir * arrow_size + vec2(dir.y, -dir.x) * arrow_size;
+            let arrow_p2 = end - dir * arrow_size - vec2(dir.y, -dir.x) * arrow_size;
+            painter.line_segment([end, arrow_p1], stroke);
+            painter.line_segment([end, arrow_p2], stroke);
         }
         IconType::Cancel => {
             let inner = icon_rect.shrink(2.0);

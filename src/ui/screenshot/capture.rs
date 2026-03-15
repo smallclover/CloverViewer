@@ -80,7 +80,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
     if action != ScreenshotAction::None {
         let screenshot_state_mut = &mut state.screenshot;
         handle_save_action(action, screenshot_state_mut);
-        
+
         match screenshot_state_mut.prev_window_state {
             WindowPrevState::Tray => {
                 if let Ok(mut visible) = state.common.window_state.visible.lock() {
@@ -392,7 +392,7 @@ fn render_canvas_elements(
         let rect = Rect::from_two_pos(start_local, end_local);
 
         if viewport_rect.intersects(rect) {
-            draw_egui_shape(painter, shape.tool, rect, shape.stroke_width, shape.color);
+            draw_egui_shape(painter, shape.tool, rect, start_local, end_local, shape.stroke_width, shape.color);
         }
     }
 
@@ -403,7 +403,7 @@ fn render_canvas_elements(
 
         if viewport_rect.intersects(rect) {
             if let Some(tool) = state.current_tool {
-                draw_egui_shape(painter, tool, rect, state.stroke_width, state.active_color);
+                draw_egui_shape(painter, tool, rect, start_local, end_local, state.stroke_width, state.active_color);
             }
         }
     }
