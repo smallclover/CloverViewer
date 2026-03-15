@@ -1,6 +1,7 @@
 use eframe::egui::{Color32, Painter, Pos2, Rect, Stroke, Ui, Vec2, FontId, Align2, StrokeKind};
 use eframe::egui::ColorImage;
 use arboard::Clipboard;
+use egui::epaint::Vertex;
 use crate::i18n::lang::get_i18n_text;
 use crate::ui::screenshot::capture::ScreenshotState;
 
@@ -104,13 +105,6 @@ fn draw_magnifier_ui(
 
     // --- 3. 绘制卡片背景和边框 ---
     painter.rect_filled(card_rect, 4.0, Color32::WHITE);
-    painter.rect_stroke(
-        card_rect,
-        4.0,
-        Stroke::new(1.0, Color32::from_gray(200)),
-        StrokeKind::Outside
-    );
-
     // --- 4. 绘制上半部分：像素放大镜 ---
     let magnifier_rect = Rect::from_min_size(card_pos, Vec2::new(magnifier_size, magnifier_size));
     let center_phys_x = (sample_pos.x * ppp).round() as isize;
@@ -141,18 +135,40 @@ fn draw_magnifier_ui(
             );
 
             let idx = mesh.vertices.len() as u32;
-            mesh.add_triangle(idx, idx + 1, idx + 2);
-            mesh.add_triangle(idx, idx + 2, idx + 3);
-
-            use eframe::egui::epaint::Vertex;
-            mesh.vertices.push(Vertex { pos: pixel_rect.left_top(), uv: Pos2::ZERO, color });
-            mesh.vertices.push(Vertex { pos: pixel_rect.right_top(), uv: Pos2::ZERO, color });
-            mesh.vertices.push(Vertex { pos: pixel_rect.right_bottom(), uv: Pos2::ZERO, color });
-            mesh.vertices.push(Vertex { pos: pixel_rect.left_bottom(), uv: Pos2::ZERO, color });
+            // 对左上角和右上角的像素做“切角”处理
+            // 否则像素点会将边框的弧形给遮住
+            if dy == -half_grid && dx == -half_grid {
+                // 左上角像素：切掉左上角的尖尖，只画一个包含 (右上, 右下, 左下) 的三角形
+                mesh.add_triangle(idx, idx + 1, idx + 2);
+                mesh.vertices.push(Vertex { pos: pixel_rect.right_top(), uv: Pos2::ZERO, color });
+                mesh.vertices.push(Vertex { pos: pixel_rect.right_bottom(), uv: Pos2::ZERO, color });
+                mesh.vertices.push(Vertex { pos: pixel_rect.left_bottom(), uv: Pos2::ZERO, color });
+            } else if dy == -half_grid && dx == half_grid {
+                // 右上角像素：切掉右上角的尖尖，只画一个包含 (左上, 右下, 左下) 的三角形
+                mesh.add_triangle(idx, idx + 1, idx + 2);
+                mesh.vertices.push(Vertex { pos: pixel_rect.left_top(), uv: Pos2::ZERO, color });
+                mesh.vertices.push(Vertex { pos: pixel_rect.right_bottom(), uv: Pos2::ZERO, color });
+                mesh.vertices.push(Vertex { pos: pixel_rect.left_bottom(), uv: Pos2::ZERO, color });
+            } else {
+                // 其他正常的像素：画完整的正方形 (两个三角形)
+                mesh.add_triangle(idx, idx + 1, idx + 2);
+                mesh.add_triangle(idx, idx + 2, idx + 3);
+                mesh.vertices.push(Vertex { pos: pixel_rect.left_top(), uv: Pos2::ZERO, color });
+                mesh.vertices.push(Vertex { pos: pixel_rect.right_top(), uv: Pos2::ZERO, color });
+                mesh.vertices.push(Vertex { pos: pixel_rect.right_bottom(), uv: Pos2::ZERO, color });
+                mesh.vertices.push(Vertex { pos: pixel_rect.left_bottom(), uv: Pos2::ZERO, color });
+            }
         }
     }
     painter.add(eframe::egui::Shape::mesh(mesh));
 
+    // --- 4.5 绘制卡片边框 (在画完网格之后画，让边框压在最上面，确保完美闭合) ---
+    painter.rect_stroke(
+        card_rect,
+        4.0,
+        Stroke::new(1.0, Color32::from_gray(200)),
+        StrokeKind::Inside // Inside 向内绘制
+    );
     // --- 5. 绘制十字准星 ---
     let center_grid_idx = half_grid as f32;
     let center_pixel_rect = Rect::from_min_size(
