@@ -2,7 +2,7 @@
 name = "CloverViewer"
 version = "0.0.8"
 edition = "2024"
-#cargo packager打包安装文件
+#cargo packager --release打包安装文件
 [package.metadata.packager]
 before-packaging-command = "cargo build --release"
 identifier = "com.smallclover.cloverViewer"
