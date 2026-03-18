@@ -81,8 +81,8 @@ fn draw_magnifier_ui(
 ) {
     let text = get_i18n_text(ui.ctx());
     // --- 1. 参数调整 ---
-    let pixel_grid_size = 61;
-    let zoom_pixel_size = 3.0;
+    let pixel_grid_size = 15;
+    let zoom_pixel_size = 10.0;
     let half_grid = pixel_grid_size / 2;
 
     let magnifier_size = pixel_grid_size as f32 * zoom_pixel_size;
@@ -162,7 +162,31 @@ fn draw_magnifier_ui(
     }
     painter.add(eframe::egui::Shape::mesh(mesh));
 
-    // --- 4.5 绘制卡片边框 (在画完网格之后画，让边框压在最上面，确保完美闭合) ---
+    // --- 4.5 绘制像素格子 ---
+    let grid_line_color = Color32::from_rgba_unmultiplied(0, 0, 0, 80);
+    let grid_line_width = 1.0;
+    for dy in 0..pixel_grid_size {
+        for dx in 0..pixel_grid_size {
+            let x = card_pos.x + dx as f32 * zoom_pixel_size;
+            let y = card_pos.y + dy as f32 * zoom_pixel_size;
+            // 竖线（向右延伸一格），最后一列不画避免与边框重合
+            if dx < pixel_grid_size - 1 {
+                painter.line_segment(
+                    [Pos2::new(x + zoom_pixel_size, y), Pos2::new(x + zoom_pixel_size, y + zoom_pixel_size)],
+                    Stroke::new(grid_line_width, grid_line_color)
+                );
+            }
+            // 横线（向下一格），最后一行不画避免与边框重合
+            if dy < pixel_grid_size - 1 {
+                painter.line_segment(
+                    [Pos2::new(x, y + zoom_pixel_size), Pos2::new(x + zoom_pixel_size, y + zoom_pixel_size)],
+                    Stroke::new(grid_line_width, grid_line_color)
+                );
+            }
+        }
+    }
+
+    // --- 4.6 绘制卡片边框 (在画完网格之后画，让边框压在最上面，确保完美闭合) ---
     painter.rect_stroke(
         card_rect,
         4.0,
