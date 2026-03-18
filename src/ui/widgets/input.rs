@@ -17,6 +17,7 @@ pub fn handle_input_events(ctx: &Context, viewer: &mut ViewerState, window_state
             *vis = false;
             show_window_hide(window_state.hwnd_isize);
         }else{
+            //println!("测试");
         }
     }
 

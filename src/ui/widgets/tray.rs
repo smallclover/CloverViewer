@@ -3,7 +3,7 @@ use egui::{ViewportCommand, WindowLevel};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use crate::model::config::get_context_config;
-use crate::os::window::{show_window_mini, show_window_restore};
+use crate::os::window::{show_window_restore, show_window_restore_offscreen};
 use crate::utils::image::load_tray_icon;
 /// 创建托盘
 pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_isize: isize) -> TrayIcon {
@@ -73,11 +73,16 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
         if event.id == item_exit_id {
             let mut vis = visible_for_tray_menu.lock().unwrap();
             let mut aq = allow_quit_1.lock().unwrap();
-            // 退出前最小化窗口
-            show_window_mini(hwnd_isize);
+            // 不是最小化的时候
+            let info = ctx_2.input(|i| i.viewport().clone());
+            if info.minimized == Some(false) {
+                show_window_restore_offscreen(hwnd_isize);
+            }
+
             *vis = true;
             *aq = true;
-            ctx_2.send_viewport_cmd(egui::ViewportCommand::Close);
+
+            ctx_2.send_viewport_cmd(ViewportCommand::Close);
         }
     }));
 
