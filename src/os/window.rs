@@ -16,7 +16,7 @@ use windows::{
                 SHCreateItemFromParsingName, IShellItem, IShellItemImageFactory,
                 SIIGBF_RESIZETOFIT, SIIGBF_BIGGERSIZEOK,
             },
-            WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_MINIMIZE, SW_RESTORE}
+            WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_RESTORE}
         },
     },
     core::PCWSTR,
@@ -32,10 +32,10 @@ use windows::Win32::UI::WindowsAndMessaging::{BringWindowToTop, GetForegroundWin
 /// 如果没有唤醒egui的update方法是不会有任何响应
 /// 除了ShowWindow之外还要配合一个全局的变量来控制当前
 /// 窗口是隐藏还是表示的状态Arc<Mutex<bool>>
-pub fn show_window_mini(hwnd_isize: isize){
-    let window_handle = get_window_handle(hwnd_isize);
-    unsafe { let _ = ShowWindow(window_handle, SW_MINIMIZE); }
-}
+// pub fn show_window_mini(hwnd_isize: isize){
+//     let window_handle = get_window_handle(hwnd_isize);
+//     unsafe { let _ = ShowWindow(window_handle, SW_MINIMIZE); }
+// }
 
 pub fn show_window_restore(hwnd_isize: isize){
     let window_handle = get_window_handle(hwnd_isize);

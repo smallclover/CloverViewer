@@ -5,20 +5,61 @@ use crate::ui::widgets::icons::{draw_icon_button, IconType};
 use super::capture::{ScreenshotState, ScreenshotTool, ScreenshotAction};
 
 /// 预先计算工具栏应该显示的位置和尺寸
+/// 预先计算工具栏应该显示的位置和尺寸
 pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2, ppp: f32) -> Option<Rect> {
-    if let Some(global_toolbar_pos_phys) = state.toolbar_pos {
-        let vec_phys = global_toolbar_pos_phys - global_offset_phys;
-        let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
-        
-        let toolbar_width = 250.0;
-        let toolbar_height = 48.0;
+    let global_toolbar_pos_phys = state.toolbar_pos?;
 
-        // 工具栏定位在选区右下角，向下偏移 10 个像素，向左偏移自身宽度
-        let toolbar_min_pos = Pos2::new(local_pos_logical.x - toolbar_width, local_pos_logical.y + 10.0);
-        Some(Rect::from_min_size(toolbar_min_pos, egui::vec2(toolbar_width, toolbar_height)))
-    } else {
-        None
+    let vec_phys = global_toolbar_pos_phys - global_offset_phys;
+    let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
+
+    let toolbar_width = 250.0;
+    let toolbar_height = 48.0;
+    let padding = 10.0;
+
+    // 1. 计算默认位置：选区右下角外部
+    let mut target_x = local_pos_logical.x - toolbar_width;
+    let mut target_y = local_pos_logical.y + padding;
+
+    // 2. 找到当前工具栏所在的物理显示器边界
+    let mut current_monitor_rect = None;
+    for cap in &state.captures {
+        let cap_phys_rect = Rect::from_min_size(
+            Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
+            egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32)
+        );
+
+        // 因为 toolbar_pos 是选区右下角，可能正好压在边界上，所以向外扩展几个像素来保证能命中
+        if cap_phys_rect.expand(5.0).contains(global_toolbar_pos_phys) {
+            // 将物理边界转为当前的逻辑绘图边界
+            let min_local = Pos2::ZERO + ((cap_phys_rect.min - global_offset_phys) / ppp);
+            let max_local = Pos2::ZERO + ((cap_phys_rect.max - global_offset_phys) / ppp);
+            current_monitor_rect = Some(Rect::from_min_max(min_local, max_local));
+            break;
+        }
     }
+
+    // 3. 执行边界防遮挡检测
+    if let Some(screen_rect) = current_monitor_rect {
+        // --- 底部溢出检测 ---
+        if target_y + toolbar_height > screen_rect.max.y {
+            // 翻转到选区内部（选区底部 - 高度 - 间距）
+            target_y = local_pos_logical.y - toolbar_height - padding;
+
+            // 极端情况防御：如果选区很扁，翻转上去又超出了屏幕顶部
+            if target_y < screen_rect.min.y {
+                target_y = screen_rect.max.y - toolbar_height - padding;
+            }
+        }
+
+        // --- 左右溢出检测 ---
+        if target_x < screen_rect.min.x {
+            target_x = screen_rect.min.x + padding;
+        } else if target_x + toolbar_width > screen_rect.max.x {
+            target_x = screen_rect.max.x - toolbar_width - padding;
+        }
+    }
+
+    Some(Rect::from_min_size(Pos2::new(target_x, target_y), egui::vec2(toolbar_width, toolbar_height)))
 }
 
 /// 渲染工具栏以及关联的浮层（如颜色选择器）

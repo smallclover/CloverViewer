@@ -94,6 +94,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
                 if let Ok(mut visible) = state.common.window_state.visible.lock() {
                     *visible = false;
                 }
+                // 让托盘式无感
                 ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(-20000.0, -20000.0)));
                 ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
                 ctx.send_viewport_cmd(ViewportCommand::Visible(false));
