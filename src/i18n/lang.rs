@@ -48,6 +48,7 @@ pub struct TextBundle {
     pub settings_language: &'static str,
     pub settings_minimize_on_close: &'static str,
     pub settings_magnifier_enabled: &'static str,
+    pub settings_screenshot_hides_main_window: &'static str,
     pub settings_close: &'static str,
     pub settings_apply: &'static str,
     pub settings_shortcut_key: &'static str,
@@ -116,6 +117,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     settings_language: "语言",
     settings_minimize_on_close: "关闭窗口时最小化到托盘",
     settings_magnifier_enabled: "启用放大镜",
+    settings_screenshot_hides_main_window: "截图后隐藏主窗口",
     settings_close: "关闭",
     settings_apply: "应用",
 
@@ -175,6 +177,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
     settings_language: "Language",
     settings_minimize_on_close: "Minimize to tray on close",
     settings_magnifier_enabled: "Enable Magnifier",
+    settings_screenshot_hides_main_window: "Hide main window after screenshot",
     settings_close: "Close",
     settings_apply: "Apply",
 
@@ -234,6 +237,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
     settings_language: "言語",
     settings_minimize_on_close: "閉じるときにトレイに最小化",
     settings_magnifier_enabled: "虫眼鏡を有効にする",
+    settings_screenshot_hides_main_window: "スクリーンショット後にメインウィンドウを隠す",
     settings_close: "閉じる",
     settings_apply: "設定",
 

@@ -26,7 +26,6 @@ use crate::model::{
     device::{DeviceInfo, MonitorInfo},
     state::AppState
 };
-use crate::os::window::show_window_hide;
 use crate::ui::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
 use crate::ui::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 
@@ -80,15 +79,26 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
     if action != ScreenshotAction::None {
         let screenshot_state_mut = &mut state.screenshot;
         handle_save_action(action, screenshot_state_mut);
+        //开启截图模式之后，将不再显示住窗口
+        let config = get_context_config(ctx);
+        let force_hide_to_tray = config.screenshot_hides_main_window;
 
-        match screenshot_state_mut.prev_window_state {
+        let effective_prev_state = if force_hide_to_tray {
+            WindowPrevState::Tray
+        } else {
+            screenshot_state_mut.prev_window_state
+        };
+
+        match effective_prev_state {
             WindowPrevState::Tray => {
                 if let Ok(mut visible) = state.common.window_state.visible.lock() {
                     *visible = false;
                 }
+                ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(-20000.0, -20000.0)));
+                ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
                 ctx.send_viewport_cmd(ViewportCommand::Visible(false));
-                // 调用系统 API 隐藏到托盘
-                show_window_hide(state.common.window_state.hwnd_isize);
+                // 调用系统 API 隐藏到托盘,似乎没用，暂时注释掉
+                // show_window_hide(state.common.window_state.hwnd_isize);
             }
             WindowPrevState::Minimized => {
                 ctx.send_viewport_cmd(ViewportCommand::Visible(true));

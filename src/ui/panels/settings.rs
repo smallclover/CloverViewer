@@ -131,6 +131,11 @@ fn render_content_body(
                     ui.label(format!("{}:", text.settings_magnifier_enabled));
                     ui.add(toggle(&mut config.magnifier_enabled));
                 });
+                ui.add_space(10.0);
+                ui.horizontal(|ui|{
+                    ui.label(format!("{}:", text.settings_screenshot_hides_main_window));
+                    ui.add(toggle(&mut config.screenshot_hides_main_window));
+                });
             }
             SettingsTab::Hotkeys => {
                 ui.heading(text.settings_shortcut_key);
