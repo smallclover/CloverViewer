@@ -253,15 +253,30 @@ fn handle_interaction(
     let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::click_and_drag());
 
     if response.clicked() {
-        if state.current_tool.is_none() && state.hovered_window.is_some() {
-            state.selection = state.hovered_window;
-            if let Some(sel) = state.selection {
-                state.toolbar_pos = Some(sel.right_bottom());
+        if state.current_tool.is_none() {
+            if let Some(hovered) = state.hovered_window {
+                // 1. 优先选中具体窗口
+                state.selection = Some(hovered);
+                state.toolbar_pos = Some(hovered.right_bottom());
+                return;
+            } else if let Some(pointer_pos) = response.interact_pointer_pos() {
+                // 2. 如果没命中窗口（即点在桌面上），则选中当前鼠标所在的整个显示器
+                let global_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
+                for cap in &state.captures {
+                    let cap_phys_rect = Rect::from_min_size(
+                        Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
+                        egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32)
+                    );
+
+                    if cap_phys_rect.contains(global_phys) {
+                        state.selection = Some(cap_phys_rect);
+                        state.toolbar_pos = Some(cap_phys_rect.right_bottom());
+                        return;
+                    }
+                }
             }
-            return;
         }
     }
-
     if let Some(press_pos) = response.interact_pointer_pos() {
         let is_clicking_toolbar = toolbar_rect.map_or(false, |r| r.contains(press_pos));
         let is_interacting_with_picker = state.color_picker.is_open && ui.ctx().is_pointer_over_area();
