@@ -134,7 +134,7 @@ fn draw_magnifier_ui(
                 Vec2::new(zoom_pixel_size, zoom_pixel_size)
             );
 
-            // 修改：使用圆角而非粗暴切角，完美贴合卡片的 4.0 弧度
+            // 使用圆角而非粗暴切角，完美贴合卡片的 4.0 弧度
             if dy == -half_grid && dx == -half_grid {
                 // 左上角像素：单独绘制，应用 4.0 的左上圆角 (nw: North-West)
                 painter.rect_filled(

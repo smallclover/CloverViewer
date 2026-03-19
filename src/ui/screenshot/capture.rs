@@ -501,11 +501,14 @@ fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
     let anchor_stroke = Stroke::new(1.0, green);
     let anchor_fill = green;
 
-    painter.rect_stroke(rect, 0.0, main_stroke, StrokeKind::Middle);
+    // 使用 StrokeKind::Inside 让主边框完全向内侧绘制，防止线条溢出
+    painter.rect_stroke(rect, 0.0, main_stroke, StrokeKind::Inside);
 
     if rect.width() > anchor_size * 3.0 && rect.height() > anchor_size * 3.0 {
-        let min = rect.min;
-        let max = rect.max;
+        // 为了让小正方形也不溢出，将其中心点向内缩进半个正方形的尺寸 (anchor_size / 2.0)
+        let inset = anchor_size / 2.0;
+        let min = rect.min + egui::vec2(inset, inset);
+        let max = rect.max - egui::vec2(inset, inset);
         let center = rect.center();
 
         let anchors = [
@@ -517,7 +520,8 @@ fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
         for anchor_pos in anchors {
             let anchor_rect = Rect::from_center_size(anchor_pos, egui::vec2(anchor_size, anchor_size));
             painter.rect_filled(anchor_rect, 0.0, anchor_fill);
-            painter.rect_stroke(anchor_rect, 0.0, anchor_stroke, StrokeKind::Middle);
+            // 锚点自身的边框也向内侧绘制，严丝合缝
+            painter.rect_stroke(anchor_rect, 0.0, anchor_stroke, StrokeKind::Inside);
         }
     }
 }
