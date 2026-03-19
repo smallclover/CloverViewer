@@ -134,23 +134,24 @@ fn draw_magnifier_ui(
                 Vec2::new(zoom_pixel_size, zoom_pixel_size)
             );
 
-            let idx = mesh.vertices.len() as u32;
-            // 对左上角和右上角的像素做“切角”处理
-            // 否则像素点会将边框的弧形给遮住
+            // 修改：使用圆角而非粗暴切角，完美贴合卡片的 4.0 弧度
             if dy == -half_grid && dx == -half_grid {
-                // 左上角像素：切掉左上角的尖尖，只画一个包含 (右上, 右下, 左下) 的三角形
-                mesh.add_triangle(idx, idx + 1, idx + 2);
-                mesh.vertices.push(Vertex { pos: pixel_rect.right_top(), uv: Pos2::ZERO, color });
-                mesh.vertices.push(Vertex { pos: pixel_rect.right_bottom(), uv: Pos2::ZERO, color });
-                mesh.vertices.push(Vertex { pos: pixel_rect.left_bottom(), uv: Pos2::ZERO, color });
+                // 左上角像素：单独绘制，应用 4.0 的左上圆角 (nw: North-West)
+                painter.rect_filled(
+                    pixel_rect,
+                    egui::CornerRadius { nw: 4, ne: 0, sw: 0, se: 0 },
+                    color
+                );
             } else if dy == -half_grid && dx == half_grid {
-                // 右上角像素：切掉右上角的尖尖，只画一个包含 (左上, 右下, 左下) 的三角形
-                mesh.add_triangle(idx, idx + 1, idx + 2);
-                mesh.vertices.push(Vertex { pos: pixel_rect.left_top(), uv: Pos2::ZERO, color });
-                mesh.vertices.push(Vertex { pos: pixel_rect.right_bottom(), uv: Pos2::ZERO, color });
-                mesh.vertices.push(Vertex { pos: pixel_rect.left_bottom(), uv: Pos2::ZERO, color });
+                // 右上角像素：单独绘制，应用 4.0 的右上圆角 (ne: North-East)
+                painter.rect_filled(
+                    pixel_rect,
+                    egui::CornerRadius { nw: 0, ne: 4, sw: 0, se: 0 },
+                    color
+                );
             } else {
-                // 其他正常的像素：画完整的正方形 (两个三角形)
+                // 其他正常的像素：画完整的正方形 (两个三角形) 合并入 mesh 以提高性能
+                let idx = mesh.vertices.len() as u32;
                 mesh.add_triangle(idx, idx + 1, idx + 2);
                 mesh.add_triangle(idx, idx + 2, idx + 3);
                 mesh.vertices.push(Vertex { pos: pixel_rect.left_top(), uv: Pos2::ZERO, color });
@@ -160,6 +161,7 @@ fn draw_magnifier_ui(
             }
         }
     }
+    // 将普通像素统一绘制
     painter.add(eframe::egui::Shape::mesh(mesh));
 
     // --- 4.5 绘制像素格子 ---
