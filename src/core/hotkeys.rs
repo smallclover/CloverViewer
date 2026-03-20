@@ -6,8 +6,8 @@ use crate::model::config::{get_context_config, Config};
 use crate::os::window::{force_get_focus, show_window_restore_offscreen};
 use crate::model::window_state::WindowState;
 // 确保引入 Config
-use crate::ui::mode::UiMode;
-use crate::ui::screenshot::capture::WindowPrevState;
+use crate::model::mode::UiMode;
+use crate::feature::screenshot::capture::WindowPrevState;
 
 pub enum HotkeyAction {
     SetScreenshotMode { prev_state: WindowPrevState },

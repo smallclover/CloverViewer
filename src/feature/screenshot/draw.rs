@@ -1,6 +1,6 @@
 use eframe::egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
 use image::RgbaImage;
-use crate::ui::screenshot::capture::{DrawnShape, ScreenshotTool};
+use crate::feature::screenshot::capture::{DrawnShape, ScreenshotTool};
 
 /// 渲染 UI 时的实时绘图 (Egui)
 pub fn draw_egui_shape(

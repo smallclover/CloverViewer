@@ -17,21 +17,19 @@ use xcap::Monitor;
 use arboard::{Clipboard, ImageData};
 use eframe::emath::Vec2;
 use egui::WindowLevel;
-use crate::ui::{
-    mode::UiMode,
-    screenshot::magnifier::handle_magnifier
-};
+use crate::model::mode::UiMode;
 use crate::model::{
     config::get_context_config,
     device::{DeviceInfo, MonitorInfo},
     state::AppState
 };
 use crate::os::window::{get_taskbar_rects, lock_cursor_for_screenshot, unlock_cursor};
-use crate::ui::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
-use crate::ui::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
+use crate::feature::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
+use crate::feature::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
+use crate::feature::screenshot::magnifier::handle_magnifier;
 
 // 重新导出 state 模块的类型
-pub use crate::ui::screenshot::state::{
+pub use crate::feature::screenshot::state::{
     ScreenshotAction, ScreenshotTool, DrawnShape, ScreenshotState,
     HistoryEntry, CapturedScreen, WindowPrevState
 };

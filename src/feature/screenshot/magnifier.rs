@@ -3,7 +3,7 @@ use eframe::egui::ColorImage;
 use arboard::Clipboard;
 use egui::epaint::Vertex;
 use crate::i18n::lang::get_i18n_text;
-use crate::ui::screenshot::capture::ScreenshotState;
+use crate::feature::screenshot::capture::ScreenshotState;
 
 /// 处理放大镜和取色器的核心入口
 pub fn handle_magnifier(

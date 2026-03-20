@@ -2,7 +2,7 @@ use eframe::emath::Pos2;
 use egui::{Area, Context, Frame, Id, Order, Sense, Layout, Align};
 use crate::{
     utils::clipboard::{copy_image_path_to_clipboard, copy_image_to_clipboard_async},
-    ui::mode::UiMode,
+    model::mode::UiMode,
     i18n::lang::{get_i18n_text},
     core::business::ViewerState,
     ui::widgets::toast::ToastManager

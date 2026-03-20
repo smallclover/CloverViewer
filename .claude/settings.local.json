@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:docs.rs)",
-      "Bash(cd D:/Project/CloverViewer && cargo check 2>&1)"
+      "Bash(cd D:/Project/CloverViewer && cargo check 2>&1)",
+      "Bash(cargo check:*)"
     ]
   }
 }

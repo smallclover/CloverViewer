@@ -10,6 +10,7 @@ use crate::{
     model::{
         config::{load_config, save_config, update_context_config, Config},
         state::{AppState},
+        mode::UiMode,
     },
     os::window::get_hwnd_isize,
     utils::image::load_icon,
@@ -19,14 +20,13 @@ use crate::{
             modal::ModalAction,
             tray::init_tray
         },
-        panels::properties_panel::draw_properties_panel,
         resources::APP_FONT,
-        screenshot::capture::handle_screenshot_system,
-        viewer
-    }
+    },
+    feature::viewer,
+    feature::screenshot::capture::handle_screenshot_system,
+    feature::viewer::panels::properties_panel::draw_properties_panel,
 };
 use crate::model::config::init_config_arc;
-use crate::ui::mode::UiMode;
 
 pub fn run() -> eframe::Result<()> {
     // 提前加载配置

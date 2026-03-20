@@ -7,11 +7,9 @@ use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::model::config::Config;
 use crate::model::device::DeviceInfo;
 use crate::model::window_state::WindowState;
-use crate::ui::{
-    widgets::toast::{ToastManager, ToastSystem},
-    mode::UiMode,
-    screenshot::capture::ScreenshotState
-};
+use crate::ui::widgets::toast::{ToastManager, ToastSystem};
+use crate::model::mode::UiMode;
+use crate::feature::screenshot::capture::ScreenshotState;
 
 // --- Top-Level Application State ---
 

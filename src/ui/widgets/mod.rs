@@ -5,3 +5,5 @@ pub mod modal;
 pub mod toast;
 pub mod tray;
 pub mod toggle;
+pub mod about;
+pub mod settings;

@@ -1,6 +1,4 @@
-use crate::{
-    ui::mode::{UiMode},
-};
+use crate::model::mode::UiMode;
 use egui::{Button, Context, MenuBar, TopBottomPanel};
 use crate::i18n::lang::{get_i18n_text};
 use crate::model::config::{get_context_config};

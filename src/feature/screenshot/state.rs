@@ -4,7 +4,7 @@ use eframe::egui::{Color32, ColorImage, Pos2, Rect, TextureHandle};
 use image::RgbaImage;
 
 use crate::model::device::MonitorInfo;
-use crate::ui::screenshot::color_picker::ColorPicker;
+use crate::feature::screenshot::color_picker::ColorPicker;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ScreenshotAction {

@@ -5,11 +5,11 @@ use egui::{
 
 use crate::{
     core::business::ViewerState,
-    ui::mode::UiMode,
-    ui::view::preview::show_preview_window,
+    model::mode::UiMode,
+    feature::viewer::view::preview::show_preview_window,
 };
 use crate::i18n::lang::get_i18n_text;
-use crate::ui::view::arrows::{draw_arrows, Nav};
+use crate::feature::viewer::view::arrows::{draw_arrows, Nav};
 
 pub fn draw_single_view(
     ctx: &Context,
@@ -87,9 +87,10 @@ fn render_image_viewer(
         }
     }
     viewer.last_view_size = Some(available_size);
-    let zoom = viewer.zoom;
+    // let zoom = viewer.zoom;
     let is_loading_high_res = viewer.loader.is_loading;
-    let size = tex.size_vec2() * zoom;
+    let zoom = viewer.zoom.max(0.01); // 保证最小缩放比例为 1%
+    let size = (tex.size_vec2() * zoom).max(egui::Vec2::ZERO);
     let is_draggable = size.x > available_size.x || size.y > available_size.y;
 
     if is_draggable {

@@ -2,6 +2,7 @@
 
 mod app;
 mod core;
+mod feature;
 mod i18n;
 mod model;
 mod ui;
