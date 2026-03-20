@@ -483,8 +483,8 @@ fn render_canvas_elements(
                                 Pos2::ZERO + (vec_max / ppp),
                             );
 
-                            let inset_rect = local_logical_rect.shrink(4.0);
-                            paint_style_box(painter, inset_rect, 3.0);
+                            // let inset_rect = local_logical_rect.shrink(4.0);
+                            paint_style_box(painter, local_logical_rect, 3.0);
                             break;
                         }
                     }

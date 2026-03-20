@@ -153,13 +153,13 @@ pub fn lock_cursor_for_screenshot() {
             bottom: bottom_limit,
         };
 
-        ClipCursor(Some(&rect as *const RECT));
+        ClipCursor(Some(&rect as *const RECT)).expect("Calling Windows API failed!");
     }
 }
 pub fn unlock_cursor() {
     unsafe {
-        // 【修复 2】直接传入 None 来代替 ptr::null()，释放鼠标
-        ClipCursor(None);
+        // 直接传入 None 来代替 ptr::null()，释放鼠标
+        ClipCursor(None).expect("Calling Windows API failed!");
     }
 }
 
@@ -170,47 +170,37 @@ pub fn get_taskbar_rects() -> Vec<Rect> {
         use windows::Win32::UI::WindowsAndMessaging::{FindWindowA, FindWindowExA, GetWindowRect};
         use windows::Win32::Foundation::{HWND, RECT};
 
+        // 🎯 核心重构：声明一个闭包来统一处理“从句柄获取尺寸并保存”的逻辑
+        let mut push_rect_from_hwnd = |hwnd: HWND| {
+            let mut rect = RECT::default();
+            if GetWindowRect(hwnd, &mut rect).is_ok() {
+                rects.push(Rect::from_min_max(
+                    pos2(rect.left as f32, rect.top as f32),
+                    pos2(rect.right as f32, rect.bottom as f32),
+                ));
+            }
+        };
+
         // 1. 定向捕获：主屏任务栏
-        // FindWindowA 返回 Result<HWND>，使用 if let Ok() 解包
         if let Ok(hwnd_main) = FindWindowA(s!("Shell_TrayWnd"), PCSTR::null()) {
             if !hwnd_main.0.is_null() {
-                let mut rect = RECT::default();
-                if GetWindowRect(hwnd_main, &mut rect).is_ok() {
-                    rects.push(Rect::from_min_max(
-                        pos2(rect.left as f32, rect.top as f32),
-                        pos2(rect.right as f32, rect.bottom as f32),
-                    ));
-                }
+                push_rect_from_hwnd(hwnd_main); // ✨ 直接调用闭包
             }
         }
 
         // 2. 定向捕获：副屏任务栏 (可能有多块副屏，所以用循环)
-        // 初始设置为默认空句柄
         let mut current_hwnd = HWND::default();
-
         loop {
-            // FindWindowExA 同样返回 Result<HWND>
-            let result = FindWindowExA(
+            match FindWindowExA(
                 HWND::default().into(),
                 current_hwnd.into(),
                 s!("Shell_SecondaryTrayWnd"),
                 PCSTR::null()
-            );
-
-            match result {
-                // 如果成功找到，且句柄不为空指针
+            ) {
                 Ok(hwnd) if !hwnd.0.is_null() => {
-                    let mut rect = RECT::default();
-                    if GetWindowRect(hwnd, &mut rect).is_ok() {
-                        rects.push(Rect::from_min_max(
-                            pos2(rect.left as f32, rect.top as f32),
-                            pos2(rect.right as f32, rect.bottom as f32),
-                        ));
-                    }
-                    // 把当前找到的句柄作为下一次查询的起点，继续找下一个副屏
+                    push_rect_from_hwnd(hwnd); // ✨ 直接调用闭包
                     current_hwnd = hwnd;
                 }
-                // 如果返回 Err（找不到更多了）或者为空指针，直接退出循环
                 _ => break,
             }
         }
