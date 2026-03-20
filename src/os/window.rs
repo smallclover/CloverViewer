@@ -1,9 +1,5 @@
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use std::{
-    path::PathBuf,
-    os::windows::ffi::OsStrExt,
-    mem,slice,iter
-};
+use std::{path::PathBuf, os::windows::ffi::OsStrExt, mem, slice, iter};
 use egui::ColorImage;
 use windows::{
     core::{Interface},
@@ -21,8 +17,10 @@ use windows::{
     },
     core::PCWSTR,
 };
+use windows::Win32::Foundation::{POINT, RECT};
+use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
-use windows::Win32::UI::WindowsAndMessaging::{BringWindowToTop, GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow, SetWindowPos, HWND_TOP, SWP_NOSIZE, SWP_NOZORDER};
+use windows::Win32::UI::WindowsAndMessaging::{BringWindowToTop, ClipCursor, GetCursorPos, GetForegroundWindow, GetSystemMetrics, GetWindowThreadProcessId, SetForegroundWindow, SetWindowPos, HWND_TOP, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SWP_NOSIZE, SWP_NOZORDER};
 
 /// 操作窗口
 /// /// ============================================================================================
@@ -119,6 +117,51 @@ pub fn force_get_focus(hwnd_isize: isize) {
     }
 }
 
+pub fn lock_cursor_for_screenshot() {
+    unsafe {
+        // 1. 获取整个合并虚拟桌面的范围（用来保证左右和上方可以自由跨屏）
+        let vx = GetSystemMetrics(SM_XVIRTUALSCREEN);
+        let vy = GetSystemMetrics(SM_YVIRTUALSCREEN);
+        let vw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+        let vh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+
+        // 2. 获取当前鼠标位置
+        let mut pt = POINT { x: 0, y: 0 };
+        let _ = GetCursorPos(&mut pt);
+
+        // 3. 找出鼠标当前所在的具体显示器
+        let hmonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+
+        // 4. 获取该显示器的精确物理尺寸信息
+        let mut monitor_info: MONITORINFO = std::mem::zeroed();
+        monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+        let _ = GetMonitorInfoW(hmonitor, &mut monitor_info);
+
+        // 如果成功获取到了显示器信息，就用当前显示器的底部限制；否则使用全局底部降级
+        let bottom_limit = if monitor_info.rcMonitor.bottom > 0 {
+            // 限制鼠标向下移动的距离为屏幕底部向上两个像素
+            monitor_info.rcMonitor.bottom - 2
+        } else {
+            vy + vh - 5
+        };
+
+        // ✨ 核心魔法：左右允许整个虚拟桌面的宽度跨屏，但底部随着鼠标所在的屏幕实时变化
+        let rect = RECT {
+            left: vx,
+            top: vy,
+            right: vx + vw,
+            bottom: bottom_limit,
+        };
+
+        ClipCursor(Some(&rect as *const RECT));
+    }
+}
+pub fn unlock_cursor() {
+    unsafe {
+        // 【修复 2】直接传入 None 来代替 ptr::null()，释放鼠标
+        ClipCursor(None);
+    }
+}
 /// 获取win缩略图
 /// ================================================================================================
 

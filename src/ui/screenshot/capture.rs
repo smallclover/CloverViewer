@@ -26,6 +26,7 @@ use crate::model::{
     device::{DeviceInfo, MonitorInfo},
     state::AppState
 };
+use crate::os::window::{lock_cursor_for_screenshot, unlock_cursor};
 use crate::ui::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
 use crate::ui::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 
@@ -70,6 +71,8 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
 
         state.screenshot.window_configured = true;
         ctx.request_repaint();
+    }else {
+        lock_cursor_for_screenshot();
     }
 
     // 3. 绘制截图 UI
@@ -88,7 +91,7 @@ pub fn handle_screenshot_system(ctx: &Context, state: &mut AppState) {
         } else {
             screenshot_state_mut.prev_window_state
         };
-
+        unlock_cursor();
         match effective_prev_state {
             WindowPrevState::Tray => {
                 if let Ok(mut visible) = state.common.window_state.visible.lock() {
