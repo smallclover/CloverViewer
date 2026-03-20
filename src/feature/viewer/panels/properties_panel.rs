@@ -2,14 +2,14 @@ use egui::{Align, Context, Layout, Ui, CursorIcon};
 use crate::core::business::ViewerState;
 use crate::i18n::lang::{get_i18n_text, TextBundle};
 use crate::model::image_meta::ImageProperties;
-use crate::model::mode::UiMode;
+use crate::model::mode::OverlayMode;
 
 pub fn draw_properties_panel(
     ctx: &Context,
-    ui_mode: &mut UiMode,
+    overlay: &mut OverlayMode,
     viewer: &ViewerState,
 ) {
-    let mut is_open = matches!(*ui_mode, UiMode::Properties);
+    let mut is_open = matches!(overlay, OverlayMode::Properties);
     if !is_open {
         return;
     }
@@ -42,7 +42,7 @@ pub fn draw_properties_panel(
         });
 
     if !is_open {
-        *ui_mode = UiMode::Normal;
+        *overlay = OverlayMode::None;
     }
 }
 

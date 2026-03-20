@@ -5,10 +5,10 @@ use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKe
 use crate::model::config::{get_context_config, Config};
 use crate::os::window::{force_get_focus, show_window_restore_offscreen};
 use crate::model::window_state::WindowState;
-// 确保引入 Config
-use crate::model::mode::UiMode;
+use crate::model::mode::AppMode;
 use crate::feature::screenshot::capture::WindowPrevState;
 
+#[derive(Clone)]
 pub enum HotkeyAction {
     SetScreenshotMode { prev_state: WindowPrevState },
     RequestScreenshotCopy,
@@ -122,15 +122,15 @@ impl HotkeyManager {
         // 除非你目前的逻辑是全局都生效。依照你的 update 逻辑，它是动态的，所以这里不动。
     }
 
-    pub fn update(&mut self, ui_mode: &UiMode) -> Vec<HotkeyAction> {
+    pub fn update(&mut self, mode: &AppMode) -> Vec<HotkeyAction> {
         let mut actions = Vec::new();
 
         // 1. 动态注册/注销 Copy 快捷键 (逻辑保持不变)
-        if *ui_mode == UiMode::Screenshot && !self.is_copy_registered {
+        if *mode == AppMode::Screenshot && !self.is_copy_registered {
             if self.hotkeys_manager.register(self.copy_hotkey).is_ok() {
                 self.is_copy_registered = true;
             }
-        } else if *ui_mode != UiMode::Screenshot && self.is_copy_registered {
+        } else if *mode != AppMode::Screenshot && self.is_copy_registered {
             if self.hotkeys_manager.unregister(self.copy_hotkey).is_ok() {
                 self.is_copy_registered = false;
             }
@@ -145,12 +145,12 @@ impl HotkeyManager {
             if id == self.show_hotkey.id() {
                 println!("处理");
                 // 只有在不是截图模式，且本帧未触发的情况下，才接受事件
-                if *ui_mode != UiMode::Screenshot && !screenshot_triggered_this_frame {
+                if *mode != AppMode::Screenshot && !screenshot_triggered_this_frame {
                     actions.push(HotkeyAction::SetScreenshotMode { prev_state });
                     screenshot_triggered_this_frame = true;
                 }
             } else if id == self.copy_hotkey.id() {
-                if *ui_mode == UiMode::Screenshot {
+                if *mode == AppMode::Screenshot {
                     actions.push(HotkeyAction::RequestScreenshotCopy);
                 }
             }

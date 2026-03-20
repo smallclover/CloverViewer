@@ -5,7 +5,7 @@ use egui::{
 
 use crate::{
     core::business::ViewerState,
-    model::mode::UiMode,
+    model::mode::OverlayMode,
     feature::viewer::view::preview::show_preview_window,
 };
 use crate::i18n::lang::get_i18n_text;
@@ -15,7 +15,7 @@ pub fn draw_single_view(
     ctx: &Context,
     ui: &mut Ui,
     viewer: &mut ViewerState,
-    ui_mode: &mut UiMode,
+    overlay: &mut OverlayMode,
 ) {
     let rect = ui.available_rect_before_wrap();
     let text = get_i18n_text(ctx);
@@ -40,7 +40,7 @@ pub fn draw_single_view(
                         }
                     }
                     if allow_context_menu {
-                        *ui_mode = UiMode::ContextMenu(pos);
+                        *overlay = OverlayMode::ContextMenu(pos);
                     }
                 }
             }

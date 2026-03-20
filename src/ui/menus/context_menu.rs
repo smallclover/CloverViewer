@@ -2,7 +2,7 @@ use eframe::emath::Pos2;
 use egui::{Area, Context, Frame, Id, Order, Sense, Layout, Align};
 use crate::{
     utils::clipboard::{copy_image_path_to_clipboard, copy_image_to_clipboard_async},
-    model::mode::UiMode,
+    model::mode::OverlayMode,
     i18n::lang::{get_i18n_text},
     core::business::ViewerState,
     ui::widgets::toast::ToastManager
@@ -69,7 +69,7 @@ pub fn handle_context_menu_action(
     ctx: &Context,
     action: ContextMenuAction,
     viewer: &ViewerState,
-    ui_mode: &mut UiMode,
+    overlay: &mut OverlayMode,
     toast_manager: &ToastManager,
 ) {
 
@@ -95,7 +95,7 @@ pub fn handle_context_menu_action(
             }
         }
         ContextMenuAction::ShowProperties => {
-            *ui_mode = UiMode::Properties;
+            *overlay = OverlayMode::Properties;
         }
     }
 }

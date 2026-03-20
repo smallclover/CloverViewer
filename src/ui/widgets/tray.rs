@@ -6,7 +6,8 @@ use crate::model::config::get_context_config;
 use crate::os::window::{show_window_restore, show_window_restore_offscreen};
 use crate::utils::image::load_tray_icon;
 /// 创建托盘
-pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_isize: isize) -> TrayIcon {
+/// `tray_restore_requested` - 当点击托盘且窗口处于隐藏状态时设置为 true，app.rs 的 update loop 会重置模式并清除此标志
+pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_isize: isize, tray_restore_requested: &Arc<Mutex<bool>>) -> TrayIcon {
 
     let tray_menu = Menu::new();
     // 创建常规的菜单项
@@ -28,6 +29,7 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
     let visible_for_tray = Arc::clone(visible);
     let visible_for_tray_menu = Arc::clone(visible);
     let allow_quit_1 = Arc::clone(allow_quit);
+    let tray_restore_for_tray = Arc::clone(tray_restore_requested);
 
 
     // 托盘图标处理
@@ -39,6 +41,10 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
                 // 隐藏状态下恢复
                 show_window_restore(hwnd_isize);
                 *vis = true;
+                // 设置标志，通知 app.rs 的 update loop 重置模式为 Viewer
+                if let Ok(mut flag) = tray_restore_for_tray.lock() {
+                    *flag = true; 
+                }
                 let config = get_context_config(&ctx);
                 if let Some((x, y)) = config.window_pos {
                     ctx.send_viewport_cmd(ViewportCommand::OuterPosition(egui::pos2(x, y)));

@@ -10,21 +10,20 @@ use crate::{
     model::{
         config::{load_config, save_config, update_context_config, Config},
         state::{AppState},
-        mode::UiMode,
+        mode::AppMode,
     },
     os::window::get_hwnd_isize,
     utils::image::load_icon,
     ui::{
-        menus::context_menu::handle_context_menu_action,
         widgets::{
             modal::ModalAction,
             tray::init_tray
         },
         resources::APP_FONT,
     },
-    feature::viewer,
-    feature::screenshot::capture::handle_screenshot_system,
-    feature::viewer::panels::properties_panel::draw_properties_panel,
+    feature::Feature,
+    feature::viewer::ViewerFeature,
+    feature::screenshot::ScreenshotFeature,
 };
 use crate::model::config::init_config_arc;
 
@@ -72,6 +71,8 @@ pub struct CloverApp {
     state: AppState,
     config: Arc<Config>,
     _tray: TrayIcon,
+    viewer_feature: ViewerFeature,
+    screenshot_feature: ScreenshotFeature,
 }
 
 impl CloverApp {
@@ -86,21 +87,28 @@ impl CloverApp {
         let allow_quit = Arc::new(Mutex::new(false));
         let hwnd_isize = get_hwnd_isize(&cc);
 
-        let tray = init_tray(&cc, &visible, &allow_quit, hwnd_isize);
-
         let config_arc = Arc::new(config);
         init_config_arc(&cc.egui_ctx, &Arc::clone(&config_arc));
 
-        let mut state = AppState::new(&cc.egui_ctx, visible, allow_quit, hwnd_isize);
+        let state = AppState::new(&cc.egui_ctx, visible, allow_quit, hwnd_isize);
 
+        // 创建托盘，使用 tray_restore_requested 标志在点击时通知模式需要重置
+        let tray = init_tray(&cc, &state.common.window_state.visible, &state.common.window_state.allow_quit, hwnd_isize, &state.common.tray_restore_requested);
+
+        // 创建 ViewerFeature（持有自己的 ViewerState 副本）
+        let mut viewer_feature = ViewerFeature::new();
+
+        // 打开启动路径
         if let Some(path) = start_path {
-            state.viewer.open_new_context(cc.egui_ctx.clone(), path);
+            viewer_feature.state.open_new_context(cc.egui_ctx.clone(), path);
         }
 
         Self {
             state,
             config: config_arc,
             _tray: tray,
+            viewer_feature,
+            screenshot_feature: ScreenshotFeature::new(),
         }
     }
 
@@ -111,46 +119,41 @@ impl CloverApp {
         cc.egui_ctx.set_fonts(fonts);
     }
 
-    fn handle_background_tasks(&mut self, ctx: &Context) {
-        if self.state.viewer.process_load_results(ctx) {
-            ctx.request_repaint();
-        }
-        if let Ok(path) = self.state.common.path_receiver.try_recv() {
-            self.state.viewer.open_new_context(ctx.clone(), path);
-        }
-    }
+    /// 处理全局输入事件（窗口关闭等）
+    fn handle_global_input(&mut self, ctx: &Context) {
+        use crate::model::config::get_context_config;
+        use crate::os::window::show_window_hide;
 
-    fn handle_input_events(&mut self, ctx: &Context) {
-        crate::ui::widgets::input::handle_input_events(ctx, &mut self.state.viewer, &self.state.common.window_state);
-    }
-
-    fn draw_ui(&mut self, ctx: &Context) {
-        viewer::draw_top_panel(ctx, &mut self.state);
-        viewer::draw_bottom_panel(ctx, &mut self.state);
-        viewer::draw_central_panel(ctx, &mut self.state);
-        draw_properties_panel(ctx, &mut self.state.ui_mode, &self.state.viewer);
-        self.state.common.toast_system.update(ctx);
-    }
-
-    fn handle_ui_interactions(&mut self, ctx: &Context) {
-        let mut temp_config = (*self.config).clone();
-
-        let (context_menu_action, modal_action) =
-            viewer::draw_overlays(ctx, &self.state.viewer, &mut self.state.ui_mode, &mut temp_config);
-
-        if let Some(action) = context_menu_action {
-            handle_context_menu_action(ctx, action, &self.state.viewer, &mut self.state.ui_mode, &self.state.common.toast_manager);
+        if ctx.input(|i| i.viewport().close_requested()) {
+            let config = get_context_config(ctx);
+            let aq = self.state.common.window_state.allow_quit.lock().unwrap();
+            let mut vis = self.state.common.window_state.visible.lock().unwrap();
+            if config.minimize_on_close && !*aq {
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                *vis = false;
+                show_window_hide(self.state.common.window_state.hwnd_isize);
+            }
         }
 
-        if let Some(ModalAction::Apply) = modal_action {
-            self.config = Arc::new(temp_config);
-            save_config(&self.config);
-            self.state.reload_hotkeys(&self.config);
-            update_context_config(ctx, &self.config);
+        // 1. 获取所有触发的热键动作
+        let actions = self.state.process_hotkey_events();
+        // 2. 遍历动作，进行全局广播
+        for action in actions {
+            // 截图模块热键处理
+            if let Some(new_mode) = self.screenshot_feature.handle_hotkey(action.clone()) {
+                self.state.mode = new_mode;
+            }
+
+            // 图片查看模块： 热键处理
+            if let Some(new_mode) = self.viewer_feature.handle_hotkey(action.clone()) {
+                self.state.mode = new_mode;
+            }
         }
+
     }
+
     fn handle_cache_win_pos(&mut self, ctx: &Context, _frame: &mut eframe::Frame){
-        if self.state.ui_mode != UiMode::Normal { return; }
+        if self.state.mode != AppMode::Viewer { return; }
 
         if let Ok(visible) = self.state.common.window_state.visible.lock() {
             if !*visible { return; }
@@ -225,26 +228,46 @@ impl CloverApp {
             }
         }
     }
+
+    /// 更新应用配置
+    fn handle_update_config(&mut self, ctx: &Context){
+        if let Some(ModalAction::Apply) = self.viewer_feature.get_pending_config_action() {
+            if let Some(config) = self.viewer_feature.take_pending_config() {
+                self.config = Arc::new(config);
+                save_config(&self.config);
+                self.state.reload_hotkeys(&self.config);
+                update_context_config(ctx, &self.config);
+            }
+        }
+    }
 }
 
 impl eframe::App for CloverApp {
     fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
-
+        // 处理窗口缓存的位置
         self.handle_cache_win_pos(ctx, frame);
-        
-        update_context_config(ctx, &self.config);
-        self.state.process_hotkey_events();
+        // 全局输入处理
+        self.handle_global_input(ctx);
 
-        self.handle_background_tasks(ctx);
-        self.handle_input_events(ctx);
-        
-        // 区分当前模式，防止普通 UI 和 截图 UI 重叠绘制
-        if self.state.ui_mode == UiMode::Screenshot {
-            handle_screenshot_system(ctx, &mut self.state);
-        } else {
-            // 普通模式下绘制常规 UI
-            self.draw_ui(ctx);
-            self.handle_ui_interactions(ctx);
+        // 检查是否从托盘恢复，若是则重置模式为 Viewer
+        if let Ok(mut flag) = self.state.common.tray_restore_requested.lock() {
+            if *flag {
+                *flag = false;
+                self.state.mode = AppMode::Viewer;
+            }
+        }
+
+        // 调用当前模式的 Feature 更新
+        let common = &mut self.state.common;
+        match self.state.mode {
+            AppMode::Viewer => {
+                self.viewer_feature.update(ctx, common, &mut self.state.mode);
+                // 处理配置应用（从 overlay 状态）
+                self.handle_update_config(ctx);
+            },
+            AppMode::Screenshot => {
+                self.screenshot_feature.update(ctx, common, &mut self.state.mode);
+            },
         }
     }
 }

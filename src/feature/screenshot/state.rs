@@ -65,6 +65,12 @@ pub struct HistoryEntry {
 
 impl Default for ScreenshotState {
     fn default() -> Self {
+        Self::new(WindowPrevState::Normal)
+    }
+}
+
+impl ScreenshotState {
+    pub fn new(prev_state: WindowPrevState) -> Self {
         let default_color = Color32::from_rgb(204, 0, 0);
         Self {
             captures: Vec::new(),
@@ -87,7 +93,7 @@ impl Default for ScreenshotState {
             texture_pool: HashMap::new(),
 
             window_configured: false,
-            prev_window_state: WindowPrevState::Normal,
+            prev_window_state: prev_state,
             history: Vec::new(),
         }
     }

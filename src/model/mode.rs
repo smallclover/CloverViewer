@@ -1,17 +1,6 @@
 use eframe::egui::Pos2;
 use crate::model::config::Config;
 
-/// UI 模式枚举
-#[derive(Clone, PartialEq)]
-pub enum UiMode {
-    Normal,
-    About,
-    Settings(Config),
-    ContextMenu(Pos2),
-    Properties,
-    Screenshot,
-}
-
 /// 应用级功能模式 - 顶层状态机
 #[derive(Clone, PartialEq, Debug)]
 pub enum AppMode {
