@@ -26,7 +26,7 @@ use crate::model::{
     device::{DeviceInfo, MonitorInfo},
     state::AppState
 };
-use crate::os::window::{lock_cursor_for_screenshot, unlock_cursor};
+use crate::os::window::{get_taskbar_rects, lock_cursor_for_screenshot, unlock_cursor};
 use crate::ui::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
 use crate::ui::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 
@@ -595,7 +595,9 @@ fn handle_capture_process(
                     }
                 }
             }
-
+            // 使用win底层API强制捕获副屏的任务栏
+            let taskbars = get_taskbar_rects();
+            window_rects.extend(taskbars);
             let _ = tx.send((captures, window_rects));
             ctx_clone.request_repaint();
         });
