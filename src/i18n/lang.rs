@@ -95,6 +95,16 @@ pub struct TextBundle {
     pub tooltip_save: &'static str,
     pub tooltip_save_to_clipboard: &'static str,
     pub tooltip_mouse_copy_color: &'static str,
+
+    // help box
+    pub help_shortcuts: &'static str,
+    pub help_esc: &'static str,
+    pub help_undo: &'static str,
+    pub help_copy: &'static str,
+    pub help_tools: &'static str,
+    pub help_tools_mark: &'static str,
+    pub help_tools_finish: &'static str,
+    pub help_finish_end: &'static str,
 }
 
 pub const ZH_TEXT: TextBundle = TextBundle {
@@ -155,6 +165,15 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     tooltip_save: "保存到桌面",
     tooltip_save_to_clipboard: "复制到剪贴板",
     tooltip_mouse_copy_color: "按 Ctrl + C 复制颜色",
+
+    help_shortcuts: "【快捷键】",
+    help_esc: "Esc : 退出截图",
+    help_undo: "Ctrl+Z : 撤销上一步绘制",
+    help_copy: "复制截图",
+    help_tools: "【工具说明】",
+    help_tools_mark: "标记 : 使用",
+    help_tools_finish: "完成 : 点击",
+    help_finish_end: "完成截图",
 };
 
 pub const EN_TEXT: TextBundle = TextBundle {
@@ -212,9 +231,18 @@ pub const EN_TEXT: TextBundle = TextBundle {
     tooltip_draw_circle: "Circle",
     tooltip_draw_arrow: "Arrow",
     tooltip_cancel: "Cancel",
-tooltip_save: "Save to Desktop",
+    tooltip_save: "Save to Desktop",
     tooltip_save_to_clipboard: "Copy to Clipboard",
     tooltip_mouse_copy_color: "Press Ctrl + C Copy Color",
+
+    help_shortcuts: "[ Shortcuts ]",
+    help_esc: "Esc : Exit Screenshot",
+    help_undo: "Ctrl + Z : Undo Drawing",
+    help_copy: "Copy Screenshot",
+    help_tools: "[ Tools ]",
+    help_tools_mark: "Mark : Use",
+    help_tools_finish: "Finish : Click",
+    help_finish_end: "to complete",
 };
 
 pub const JA_TEXT: TextBundle = TextBundle {
@@ -275,6 +303,15 @@ pub const JA_TEXT: TextBundle = TextBundle {
     tooltip_save: "デスクトップに保存",
     tooltip_save_to_clipboard: "クリップボードにコピー",
     tooltip_mouse_copy_color: "Ctrl + C を押して色をコピー",
+
+    help_shortcuts: "【ショートカット】",
+    help_esc: "Esc : スクリーンショットを終了",
+    help_undo: "Ctrl + Z : 元に戻す",
+    help_copy: "スクリーンショットをコピー",
+    help_tools: "【ツール】",
+    help_tools_mark: "マーク :",
+    help_tools_finish: "完了 : クリック",
+    help_finish_end: "で完了",
 };
 
 pub fn get_text(lang: Language) -> &'static TextBundle {

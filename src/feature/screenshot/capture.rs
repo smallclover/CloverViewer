@@ -24,6 +24,7 @@ use crate::model::{
 };
 use crate::os::window::{get_taskbar_rects, lock_cursor_for_screenshot, unlock_cursor};
 use crate::feature::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
+use crate::feature::screenshot::help_box;
 use crate::feature::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 use crate::feature::screenshot::magnifier::handle_magnifier;
 
@@ -32,6 +33,7 @@ pub use crate::feature::screenshot::state::{
     ScreenshotAction, ScreenshotTool, DrawnShape, ScreenshotState,
     HistoryEntry, CapturedScreen, WindowPrevState
 };
+use crate::utils::screen::find_target_screen_rect;
 
 // capture.rs
 /// 处理截图系统的更新
@@ -226,6 +228,9 @@ pub fn draw_screenshot_ui(
 
             render_canvas_elements(ui, state, global_offset_phys, ppp, is_hovered);
 
+            // [新增] 绘制左下角快捷键与工具栏帮助说明框
+            help_box::render_help_box(ui, state, global_offset_phys, ppp);
+
             if let Some(rect) = local_toolbar_rect {
                 if ui.clip_rect().intersects(rect) {
                     let toolbar_act = render_toolbar_and_overlays(ui, state, rect);
@@ -296,17 +301,10 @@ fn handle_interaction(
             } else if let Some(pointer_pos) = response.interact_pointer_pos() {
                 // 2. 如果没命中窗口（即点在桌面上），则选中当前鼠标所在的整个显示器
                 let global_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
-                for cap in &state.captures {
-                    let cap_phys_rect = Rect::from_min_size(
-                        Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
-                        egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32)
-                    );
-
-                    if cap_phys_rect.contains(global_phys) {
-                        state.selection = Some(cap_phys_rect);
-                        state.toolbar_pos = Some(cap_phys_rect.right_bottom());
-                        return;
-                    }
+                if let Some(cap_phys_rect) = find_target_screen_rect(&state.captures, global_phys) {
+                    state.selection = Some(cap_phys_rect);
+                    state.toolbar_pos = Some(cap_phys_rect.right_bottom());
+                    return;
                 }
             }
         }
@@ -499,25 +497,16 @@ fn render_canvas_elements(
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
                     let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
 
-                    for cap in &state.captures {
-                        let cap_phys_rect = Rect::from_min_size(
-                            Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
-                            egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32)
+                    if let Some(cap_phys_rect) = find_target_screen_rect(&state.captures, global_pointer_phys) {
+                        let vec_min = cap_phys_rect.min - global_offset_phys;
+                        let vec_max = cap_phys_rect.max - global_offset_phys;
+
+                        let local_logical_rect = Rect::from_min_max(
+                            Pos2::ZERO + (vec_min / ppp),
+                            Pos2::ZERO + (vec_max / ppp),
                         );
 
-                        if cap_phys_rect.contains(global_pointer_phys) {
-                            let vec_min = cap_phys_rect.min - global_offset_phys;
-                            let vec_max = cap_phys_rect.max - global_offset_phys;
-
-                            let local_logical_rect = Rect::from_min_max(
-                                Pos2::ZERO + (vec_min / ppp),
-                                Pos2::ZERO + (vec_max / ppp),
-                            );
-
-                            // let inset_rect = local_logical_rect.shrink(4.0);
-                            paint_style_box(painter, local_logical_rect, 3.0);
-                            break;
-                        }
+                        paint_style_box(painter, local_logical_rect, 3.0);
                     }
                 }
             }

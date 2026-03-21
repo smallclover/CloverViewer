@@ -4,6 +4,7 @@ pub mod toolbar;
 pub mod color_picker;
 pub mod magnifier;
 pub mod draw;
+pub mod help_box;
 
 use eframe::egui::Context;
 use crate::core::hotkeys::HotkeyAction;
