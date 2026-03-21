@@ -47,9 +47,8 @@ fn get_hovered_shape_index(
                 dist_to_line_segment(pos, start_local, end_local) <= grab_tolerance
             },
             ScreenshotTool::Text => {
-                if let Some(text) = &shape.text {
-                    let font_size = 20.0 + (shape.stroke_width * 2.0);
-                    let galley = painter.layout_no_wrap(text.clone(), egui::FontId::proportional(font_size), Color32::WHITE);
+                // 直接调用辅助函数获取排版结果
+                if let Some(galley) = layout_text_shape(shape, state.selection, global_offset_phys, ppp, painter) {
                     let text_rect = Rect::from_min_size(start_local, galley.size());
                     text_rect.expand(4.0).contains(pos)
                 } else {
@@ -168,18 +167,39 @@ pub fn handle_interaction(
                     }
                     if let Some((pos, text)) = state.active_text_input.take() {
                         if !text.trim().is_empty() {
+                            // 计算此时文本被右边界挤压后的“真实宽度”，并存储到 end 坐标中
+                            let font_size = 20.0 + (state.stroke_width * 2.0);
+                            let max_width_logical = if let Some(sel) = state.selection {
+                                let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
+                                let start_local_x = Pos2::ZERO.x + ((pos.x - global_offset_phys.x) / ppp);
+                                (sel_max_x_local - start_local_x - 16.0).max(20.0)
+                            } else {
+                                1000.0
+                            };
+
+                            let galley = ui.painter().layout(
+                                text.clone(),
+                                egui::FontId::proportional(font_size),
+                                Color32::WHITE,
+                                max_width_logical,
+                            );
+
+                            let text_width_phys = galley.size().x * ppp;
+                            let end_pos = pos + eframe::emath::Vec2::new(text_width_phys, 0.0);
+
                             state.history.push(HistoryEntry { shapes: state.shapes.clone(), selection: state.selection });
                             state.shapes.push(DrawnShape {
                                 tool: ScreenshotTool::Text,
                                 start: pos,
-                                end: pos,
+                                end: end_pos, // <--- 把宽度锁死在 end 坐标里
                                 color: state.active_color,
                                 stroke_width: state.stroke_width,
                                 text: Some(text),
                             });
                         }
+                    } else {
+                        state.active_text_input = Some((global_phys, String::new()));
                     }
-                    state.active_text_input = Some((global_phys, String::new()));
                 }
             }
 
@@ -357,7 +377,9 @@ pub fn render_canvas_elements(
             painter.rect_filled(viewport_rect, 0.0, overlay_color);
         }
     }
-
+    // ==========================================
+    // 渲染已经画好的图形和文字
+    // ==========================================
     let dragging_id = egui::Id::new("dragging_shape_index");
     let dragging_index = ui.data(|d| d.get_temp::<usize>(dragging_id));
     let hover_id = egui::Id::new("hovered_shape_index");
@@ -370,17 +392,18 @@ pub fn render_canvas_elements(
 
         let mut is_visible = viewport_rect.intersects(rect);
         let mut text_rect = rect;
+        let mut text_galley = None; // 【新增】：专门缓存排版好的换行文本
 
         if shape.tool == ScreenshotTool::Text {
-            if let Some(ref text) = shape.text {
-                let font_size = 20.0 + (shape.stroke_width * 2.0);
-                let galley = painter.layout_no_wrap(text.clone(), egui::FontId::proportional(font_size), Color32::WHITE);
+            // 直接调用辅助函数获取排版结果
+            if let Some(galley) = layout_text_shape(shape, state.selection, global_offset_phys, ppp, painter) {
                 text_rect = Rect::from_min_size(start_local, galley.size());
                 is_visible = viewport_rect.intersects(text_rect);
+                text_galley = Some(galley);
             }
         }
-
         if is_visible {
+            // 绘制悬停/拖拽时的淡蓝色高亮框
             if (Some(index) == hovered_index || Some(index) == dragging_index) && state.current_shape_start.is_none() {
                 let highlight_rect = if shape.tool == ScreenshotTool::Text { text_rect } else { rect };
                 painter.rect_stroke(
@@ -391,16 +414,11 @@ pub fn render_canvas_elements(
                 );
             }
 
+            // 绘制图形或文本本身
             if shape.tool == ScreenshotTool::Text {
-                if let Some(ref text) = shape.text {
-                    let font_size = 20.0 + (shape.stroke_width * 2.0);
-                    painter.text(
-                        start_local,
-                        egui::Align2::LEFT_TOP,
-                        text,
-                        egui::FontId::proportional(font_size),
-                        shape.color,
-                    );
+                // 不再使用不换行的 painter.text，而是把带换行信息的 galley 直接印上去
+                if let Some(galley) = text_galley {
+                    painter.galley(start_local, galley, shape.color);
                 }
             } else {
                 draw_egui_shape(painter, shape.tool, rect, start_local, end_local, shape.stroke_width, shape.color);
@@ -469,31 +487,62 @@ pub fn render_canvas_elements(
         }
     }
 
+    // ==========================================
+    // 渲染正在输入中的文本框
+    // ==========================================
     if let Some((pos_phys, mut text)) = state.active_text_input.clone() {
         let pos_local = Pos2::ZERO + ((pos_phys - global_offset_phys) / ppp);
+
+        let max_width = if let Some(sel) = state.selection {
+            let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
+            (sel_max_x_local - pos_local.x - 16.0).max(20.0)
+        } else {
+            1000.0
+        };
 
         egui::Area::new(egui::Id::new("screenshot_text_input"))
             .fixed_pos(pos_local)
             .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
                 let font_size = 20.0 + (state.stroke_width * 2.0);
+                let font_id = egui::FontId::proportional(font_size);
+
+                // 动态计算文字现在的宽度，让输入框随着文字横向撑开
+                let galley = ui.painter().layout_no_wrap(text.clone(), font_id.clone(), Color32::WHITE);
+                let text_width = galley.size().x + 15.0; // 留 15 像素余量给正在闪烁的光标
+                // 动态宽度：最少 20，随文字增长，最大不能超过 max_width
+                let dynamic_width = text_width.max(20.0).min(max_width);
+
                 let frame = egui::Frame::default()
                     .fill(Color32::from_black_alpha(150))
-                    .stroke(Stroke::new(1.5, state.active_color))
                     .inner_margin(8.0)
                     .corner_radius(4.0);
 
-                frame.show(ui, |ui| {
+                let frame_response = frame.show(ui, |ui| {
+                    ui.set_max_width(max_width);
+
                     let response = ui.add(
                         egui::TextEdit::multiline(&mut text)
-                            .font(egui::FontId::proportional(font_size))
+                            .font(font_id)
                             .text_color(state.active_color)
                             .frame(false)
-                            .desired_width(120.0)
+                            .desired_width(dynamic_width) // 【使用动态宽度】
                     );
                     response.request_focus();
                     state.active_text_input = Some((pos_phys, text));
                 });
+
+                // 手动绘制高亮虚线边框
+                let rect = frame_response.response.rect;
+                let stroke = Stroke::new(1.5, state.active_color);
+                let dash_len = 5.0;
+                let gap_len = 4.0;
+                let painter = ui.painter();
+
+                painter.add(egui::Shape::dashed_line(&[rect.left_top(), rect.right_top()], stroke, dash_len, gap_len));
+                painter.add(egui::Shape::dashed_line(&[rect.right_top(), rect.right_bottom()], stroke, dash_len, gap_len));
+                painter.add(egui::Shape::dashed_line(&[rect.right_bottom(), rect.left_bottom()], stroke, dash_len, gap_len));
+                painter.add(egui::Shape::dashed_line(&[rect.left_bottom(), rect.left_top()], stroke, dash_len, gap_len));
             });
     }
 }
@@ -541,4 +590,37 @@ fn clamp_pos_to_rect(pos: Pos2, rect: Rect) -> Pos2 {
         pos.x.clamp(rect.min.x, rect.max.x),
         pos.y.clamp(rect.min.y, rect.max.y),
     )
+}
+
+// === 辅助函数：统一处理文本的动态排版与固定换行 ===
+fn layout_text_shape(
+    shape: &DrawnShape,
+    selection: Option<Rect>,
+    global_offset_phys: Pos2,
+    ppp: f32,
+    painter: &egui::Painter,
+) -> Option<std::sync::Arc<egui::Galley>> {
+    // 如果没有文本内容，直接返回 None
+    let text = shape.text.as_ref()?;
+
+    let font_size = 20.0 + (shape.stroke_width * 2.0);
+    let start_local_x = Pos2::ZERO.x + ((shape.start.x - global_offset_phys.x) / ppp);
+
+    // 读取被锁死的宽度，维持当初的换行状态
+    let stored_width = (shape.end.x - shape.start.x).abs() / ppp;
+    let max_width = if stored_width > 1.0 {
+        stored_width
+    } else if let Some(sel) = selection {
+        let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
+        (sel_max_x_local - start_local_x - 16.0).max(20.0)
+    } else {
+        1000.0
+    };
+
+    Some(painter.layout(
+        text.clone(),
+        egui::FontId::proportional(font_size),
+        shape.color,
+        max_width,
+    ))
 }
