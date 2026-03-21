@@ -1,5 +1,6 @@
 use eframe::egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
-use image::RgbaImage;
+use image::{RgbaImage, Rgba};
+use ab_glyph::{FontRef, PxScale};
 use crate::feature::screenshot::capture::{DrawnShape, ScreenshotTool};
 
 /// 渲染 UI 时的实时绘图 (Egui)
@@ -27,7 +28,7 @@ pub fn draw_egui_shape(
             draw_arrow_egui(painter, start, end, stroke_width, color);
         }
         ScreenshotTool::Text => {
-
+            // Text 在 UI 层面由 canvas.rs 独立渲染，这里不处理
         }
     }
 }
@@ -67,7 +68,6 @@ fn draw_arrow_skia(
 ) {
     let transform = tiny_skia::Transform::identity();
 
-    // 计算箭头方向
     let dx = end_x - start_x;
     let dy = end_y - start_y;
     let len = (dx * dx + dy * dy).sqrt();
@@ -76,23 +76,19 @@ fn draw_arrow_skia(
     let dir_x = dx / len;
     let dir_y = dy / len;
 
-    // 箭头头部大小
     let arrow_size = 12.0 + stroke.width * 2.0;
 
-    // 计算箭头两翼的端点
     let arrow_p1_x = end_x - dir_x * arrow_size + dir_y * arrow_size * 0.5;
     let arrow_p1_y = end_y - dir_y * arrow_size - dir_x * arrow_size * 0.5;
     let arrow_p2_x = end_x - dir_x * arrow_size - dir_y * arrow_size * 0.5;
     let arrow_p2_y = end_y - dir_y * arrow_size + dir_x * arrow_size * 0.5;
 
-    // 绘制主线 (从起点到终点)
     let mut pb = tiny_skia::PathBuilder::new();
     pb.move_to(start_x, start_y);
     pb.line_to(end_x, end_y);
     let path = pb.finish().unwrap();
     pixmap.stroke_path(&path, paint, stroke, transform, None);
 
-    // 绘制箭头头部 (从终点到两翼)
     let mut pb1 = tiny_skia::PathBuilder::new();
     pb1.move_to(end_x, end_y);
     pb1.line_to(arrow_p1_x, arrow_p1_y);
@@ -106,7 +102,7 @@ fn draw_arrow_skia(
     pixmap.stroke_path(&path2, paint, stroke, transform, None);
 }
 
-/// 导出图片时的抗锯齿高质量绘图 (Tiny-Skia)
+/// 导出图片时的抗锯齿高质量绘图 (最终合成)
 pub fn draw_skia_shapes_on_image(
     final_image: &mut RgbaImage,
     shapes: &[DrawnShape],
@@ -115,13 +111,19 @@ pub fn draw_skia_shapes_on_image(
     let final_width = final_image.width();
     let final_height = final_image.height();
 
-    // 将 image 库的像素直接映射给 tiny-skia 进行硬件级别的绘制
+    // ==========================================
+    // 1. 使用 Tiny-Skia 渲染底层的几何图形
+    // ==========================================
     if let Some(mut pixmap) = tiny_skia::PixmapMut::from_bytes(
         final_image,
         final_width,
         final_height,
     ) {
         for shape in shapes {
+            if shape.tool == ScreenshotTool::Text {
+                continue; // 文本跳过，留给后面处理
+            }
+
             let start_x = shape.start.x - selection_phys.min.x;
             let start_y = shape.start.y - selection_phys.min.y;
             let end_x = shape.end.x - selection_phys.min.x;
@@ -164,8 +166,46 @@ pub fn draw_skia_shapes_on_image(
                 ScreenshotTool::Arrow => {
                     draw_arrow_skia(&mut pixmap, start_x, start_y, end_x, end_y, &paint, &stroke);
                 }
-                ScreenshotTool::Text => {
+                _ => {}
+            }
+        }
+    }
 
+    // ==========================================
+    // 2. 使用 imageproc 渲染顶层的文本
+    // ==========================================
+    // 必须引入中文字体
+    let font_data = include_bytes!("../../../assets/fonts/msyhl.ttf");
+    let font = FontRef::try_from_slice(font_data).expect("字体加载失败");
+
+    for shape in shapes {
+        if shape.tool == ScreenshotTool::Text {
+            if let Some(ref text) = shape.text {
+                let start_x = shape.start.x - selection_phys.min.x;
+                let start_y = shape.start.y - selection_phys.min.y;
+
+                // 字体大小基准计算（乘以 1.5 是模拟一般的屏幕缩放系数，防止保存的图文字太小）
+                let font_size = (20.0 + (shape.stroke_width * 2.0)) * 1.5;
+                let scale = PxScale::from(font_size);
+
+                // 将 Egui 的颜色转换为 image 的 Rgba 颜色
+                let text_color = Rgba([shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a()]);
+
+                let mut current_y = start_y as i32;
+
+                // 按换行符分割，支持多行文本打印
+                for line in text.lines() {
+                    imageproc::drawing::draw_text_mut(
+                        final_image,
+                        text_color,
+                        start_x as i32,
+                        current_y,
+                        scale,
+                        &font,
+                        line,
+                    );
+                    // 动态增加 Y 轴高度进行换行（包含少许行距缓冲）
+                    current_y += (font_size + 6.0) as i32;
                 }
             }
         }
