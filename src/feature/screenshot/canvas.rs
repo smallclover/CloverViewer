@@ -507,13 +507,12 @@ pub fn render_canvas_elements(
                 let font_size = 20.0 + (state.stroke_width * 2.0);
                 let font_id = egui::FontId::proportional(font_size);
 
-                // 动态计算文字现在的宽度，让输入框随着文字横向撑开
                 let galley = ui.painter().layout_no_wrap(text.clone(), font_id.clone(), Color32::WHITE);
-                let text_width = galley.size().x + 15.0; // 留 15 像素余量给正在闪烁的光标
-                // 动态宽度：最少 20，随文字增长，最大不能超过 max_width
+                let text_width = galley.size().x + 15.0;
                 let dynamic_width = text_width.max(20.0).min(max_width);
 
                 let frame = egui::Frame::default()
+                    // 固定一个半透明深色背景，这样无论背景图多白多亮，都能看清框在哪
                     .fill(Color32::from_black_alpha(150))
                     .inner_margin(8.0)
                     .corner_radius(4.0);
@@ -524,17 +523,18 @@ pub fn render_canvas_elements(
                     let response = ui.add(
                         egui::TextEdit::multiline(&mut text)
                             .font(font_id)
+                            // 【重点】：文字的颜色跟随工具栏的颜色选择器
                             .text_color(state.active_color)
                             .frame(false)
-                            .desired_width(dynamic_width) // 【使用动态宽度】
+                            .desired_width(dynamic_width)
                     );
                     response.request_focus();
                     state.active_text_input = Some((pos_phys, text));
                 });
 
-                // 手动绘制高亮虚线边框
+                // 【重点】：文本框虚线边框颜色固定为浅灰色，不再跟随文字颜色变化
                 let rect = frame_response.response.rect;
-                let stroke = Stroke::new(1.5, state.active_color);
+                let stroke = Stroke::new(1.5, Color32::from_gray(200));
                 let dash_len = 5.0;
                 let gap_len = 4.0;
                 let painter = ui.painter();
