@@ -47,7 +47,6 @@ fn get_hovered_shape_index(
                 dist_to_line_segment(pos, start_local, end_local) <= grab_tolerance
             },
             ScreenshotTool::Text => {
-                // 直接调用辅助函数获取排版结果
                 if let Some(galley) = layout_text_shape(shape, state.selection, global_offset_phys, ppp, painter) {
                     let text_rect = Rect::from_min_size(start_local, galley.size());
                     text_rect.expand(4.0).contains(pos)
@@ -127,26 +126,43 @@ pub fn handle_interaction(
     let dragging_id = egui::Id::new("dragging_shape_index");
     let mut dragging_index = ui.data(|d| d.get_temp::<usize>(dragging_id));
 
-    // 只要锁定了某个图形，或正在拖拽中，就进入强制移动状态，严格禁止画图！
+    let dragging_sel_id = egui::Id::new("dragging_selection");
+    let mut is_dragging_sel = ui.data(|d| d.get_temp::<bool>(dragging_sel_id).unwrap_or(false));
+
+    // 计算鼠标是否悬停在选区的“空白处”
+    // 加入 state.shapes.is_empty()，一旦有绘制图形，立刻剥夺拖动选区的资格
+    let mut is_hovering_selection_bg = false;
+    if let Some(pos) = ui.ctx().pointer_latest_pos() {
+        let global_phys = global_offset_phys + (pos.to_vec2() * ppp);
+        if let Some(sel) = state.selection {
+            is_hovering_selection_bg = sel.contains(global_phys)
+                && !is_hovering_ui
+                && visual_hovered_index.is_none()
+                && state.shapes.is_empty(); // <--- 这里加上限制
+        }
+    }
+
     let is_moving_state = visual_hovered_index.is_some() || dragging_index.is_some();
-    let can_draw = !is_moving_state;
+    let can_draw = !is_moving_state && !is_dragging_sel;
 
     // ==========================================
     // 光标反馈优先级
     // ==========================================
     if is_hovering_ui {
-        // 如果悬停在工具栏上，强制恢复默认的鼠标箭头模式
         ui.ctx().set_cursor_icon(egui::CursorIcon::Default);
-    } else if is_moving_state && state.current_shape_start.is_none() {
-        // 拖拽状态显示十字箭头
+    } else if (is_moving_state && state.current_shape_start.is_none()) || is_dragging_sel {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Move);
+    } else if state.current_tool.is_none() && is_hovering_selection_bg {
+        // 由于上面限制了 is_hovering_selection_bg，有图形时这里就不会变成 Move
         ui.ctx().set_cursor_icon(egui::CursorIcon::Move);
     } else if state.current_tool.is_some() {
-        // 画图状态显示准星
+        ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
+    } else {
         ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
     }
 
     // ==========================================
-    // 2. 真实交互处理
+    // 真实交互处理
     // ==========================================
     if let Some(press_pos) = response.interact_pointer_pos() {
         let is_clicking_toolbar = toolbar_rect.map_or(false, |r| r.contains(press_pos));
@@ -212,13 +228,19 @@ pub fn handle_interaction(
                     state.drag_start = Some(global_phys);
                     state.history.push(HistoryEntry { shapes: state.shapes.clone(), selection: state.selection });
                 } else if can_draw && state.current_tool.is_some() {
-                    // 开始画新图
                     if let Some(selection) = state.selection {
                         if selection.contains(global_phys) && state.current_tool != Some(ScreenshotTool::Text) {
                             state.current_shape_start = Some(global_phys);
                             state.current_shape_end = Some(global_phys);
                         }
                     }
+                } else if is_hovering_selection_bg && state.current_tool.is_none() {
+                    // 开始拖拽整个选区（如果代码走到这里，说明 state.shapes 一定是空的）
+                    is_dragging_sel = true;
+                    ui.data_mut(|d| d.insert_temp(dragging_sel_id, true));
+                    state.drag_start = Some(global_phys);
+                    state.toolbar_pos = None;
+                    state.color_picker.close();
                 } else if can_draw {
                     // 拉动新的截图选区
                     state.drag_start = Some(global_phys);
@@ -261,6 +283,16 @@ pub fn handle_interaction(
                             state.drag_start = Some(drag_start_phys + clamped_delta);
                         }
                     }
+                } else if is_dragging_sel {
+                    // 处理选区整体移动
+                    if let (Some(drag_start_phys), Some(mut sel)) = (state.drag_start, state.selection) {
+                        let delta_phys = current_phys - drag_start_phys;
+
+                        // 只移动选区本身，删除了移动内部图形的代码
+                        sel = sel.translate(delta_phys);
+                        state.selection = Some(sel);
+                        state.drag_start = Some(current_phys);
+                    }
                 } else if let Some(_) = state.current_shape_start {
                     let mut clamped_phys = current_phys;
                     if let Some(sel) = state.selection {
@@ -280,10 +312,15 @@ pub fn handle_interaction(
                 if dragging_index.is_some() {
                     ui.data_mut(|d| d.remove::<usize>(dragging_id));
                     state.drag_start = None;
+                } else if is_dragging_sel {
+                    ui.data_mut(|d| d.remove::<bool>(dragging_sel_id));
+                    state.drag_start = None;
+                    if let Some(sel) = state.selection {
+                        state.toolbar_pos = Some(sel.right_bottom());
+                    }
                 } else if let Some(start_pos) = state.current_shape_start {
                     let end_pos = state.current_shape_end.unwrap_or(current_phys);
 
-                    // 防手抖：即使能画图，拖动距离小于 5 像素也不生成微小垃圾图形
                     if start_pos.distance(end_pos) > 5.0 {
                         if let Some(tool) = state.current_tool {
                             state.history.push(HistoryEntry { shapes: state.shapes.clone(), selection: state.selection });
@@ -392,7 +429,7 @@ pub fn render_canvas_elements(
 
         let mut is_visible = viewport_rect.intersects(rect);
         let mut text_rect = rect;
-        let mut text_galley = None; // 【新增】：专门缓存排版好的换行文本
+        let mut text_galley = None;
 
         if shape.tool == ScreenshotTool::Text {
             // 直接调用辅助函数获取排版结果
@@ -523,7 +560,7 @@ pub fn render_canvas_elements(
                     let response = ui.add(
                         egui::TextEdit::multiline(&mut text)
                             .font(font_id)
-                            // 【重点】：文字的颜色跟随工具栏的颜色选择器
+                            // 文字的颜色跟随工具栏的颜色选择器
                             .text_color(state.active_color)
                             .frame(false)
                             .desired_width(dynamic_width)
@@ -532,7 +569,6 @@ pub fn render_canvas_elements(
                     state.active_text_input = Some((pos_phys, text));
                 });
 
-                // 【重点】：文本框虚线边框颜色固定为浅灰色，不再跟随文字颜色变化
                 let rect = frame_response.response.rect;
                 let stroke = Stroke::new(1.5, Color32::from_gray(200));
                 let dash_len = 5.0;
