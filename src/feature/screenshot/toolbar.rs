@@ -12,7 +12,7 @@ pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2,
     let vec_phys = global_toolbar_pos_phys - global_offset_phys;
     let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
 
-    let toolbar_width = 250.0;
+    let toolbar_width = 298.0;
     let toolbar_height = 48.0;
     let padding = 10.0;
 
@@ -139,6 +139,16 @@ fn draw_screenshot_toolbar(
                     state.current_tool = Some(ScreenshotTool::Arrow);
                 }
                 handle_tool_interaction(ui, &arrow_button, ScreenshotTool::Arrow, state);
+
+                // ==========================================
+                // === 4. 文本工具 (新插入的代码放在这里) ===
+                // ==========================================
+                let is_text = state.current_tool == Some(ScreenshotTool::Text);
+                let text_button = draw_icon_button(ui, is_text, IconType::Text, &text);
+                if text_button.clicked() {
+                    state.current_tool = Some(ScreenshotTool::Text);
+                }
+                handle_tool_interaction(ui, &text_button, ScreenshotTool::Text, state);
 
                 let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(1.0, 16.0), egui::Sense::hover());
                 ui.painter().line_segment(

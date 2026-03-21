@@ -26,6 +26,9 @@ pub fn draw_egui_shape(
         ScreenshotTool::Arrow => {
             draw_arrow_egui(painter, start, end, stroke_width, color);
         }
+        ScreenshotTool::Text => {
+
+        }
     }
 }
 
@@ -160,6 +163,9 @@ pub fn draw_skia_shapes_on_image(
                 }
                 ScreenshotTool::Arrow => {
                     draw_arrow_skia(&mut pixmap, start_x, start_y, end_x, end_y, &paint, &stroke);
+                }
+                ScreenshotTool::Text => {
+
                 }
             }
         }

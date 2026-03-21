@@ -88,6 +88,7 @@ pub struct TextBundle {
     pub status_single: &'static str,
 
     // Tooltips
+    pub tooltip_draw_text: &'static str,
     pub tooltip_draw_rect: &'static str,
     pub tooltip_draw_circle: &'static str,
     pub tooltip_draw_arrow: &'static str,
@@ -158,6 +159,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     status_gird: "网格视图",
     status_single: "单图视图",
 
+    tooltip_draw_text: "文字",
     tooltip_draw_rect: "矩形",
     tooltip_draw_circle: "圆形",
     tooltip_draw_arrow: "箭头",
@@ -227,6 +229,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
     status_gird: "Grid View",
     status_single: "Single View",
 
+    tooltip_draw_text: "Font",
     tooltip_draw_rect: "Rectangle",
     tooltip_draw_circle: "Circle",
     tooltip_draw_arrow: "Arrow",
@@ -296,6 +299,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
     status_gird: "グリッド表示",
     status_single: "単一表示",
 
+    tooltip_draw_text: "文字",
     tooltip_draw_rect: "矩形",
     tooltip_draw_circle: "円形",
     tooltip_draw_arrow: "矢印",

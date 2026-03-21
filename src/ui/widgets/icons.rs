@@ -6,6 +6,7 @@ use crate::i18n::lang::TextBundle;
 pub enum IconType {
     Grid,
     Single,
+    Text,
     DrawRect,
     DrawCircle,
     DrawArrow,
@@ -19,6 +20,7 @@ impl IconType {
         match self {
             IconType::Grid => text.status_gird,
             IconType::Single => text.status_single,
+            IconType::Text => text.tooltip_draw_text,
             IconType::DrawRect => text.tooltip_draw_rect,
             IconType::DrawCircle => text.tooltip_draw_circle,
             IconType::DrawArrow => text.tooltip_draw_arrow,
@@ -29,8 +31,7 @@ impl IconType {
     }
 }
 
-/// 图标绘制逻辑，剥离了按钮的交互和背景
-/// [bg_color] 用于需要遮挡底层线条的图标（如剪贴板顶部的夹子）
+/// 核心：纯粹的图标绘制逻辑（内部几何线条）
 pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType, stroke: Stroke, bg_color: Color32) {
     match icon_type {
         IconType::Grid => {
@@ -53,6 +54,11 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
             let p3 = inner.right_bottom() - vec2(0.0, 2.0);
             painter.line_segment([p1, p2], stroke);
             painter.line_segment([p2, p3], stroke);
+        }
+        IconType::Text => {
+            let r = icon_rect.shrink(1.0);
+            painter.line_segment([r.left_top(), r.right_top()], stroke); // T的横线
+            painter.line_segment([r.center_top(), r.center_bottom()], stroke); // T的竖线
         }
         IconType::DrawRect => {
             painter.rect_stroke(icon_rect, 2.0, stroke, StrokeKind::Outside);
@@ -95,43 +101,55 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
     }
 }
 
-/// 供工具栏使用：带交互背景、大尺寸（32x32）的按钮
+/// 供工具栏使用：带交互背景、正方形边框的大尺寸（32x32）按钮
 pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, text: &TextBundle) -> Response {
     let button_size = vec2(32.0, 32.0);
     let (rect, response) = ui.allocate_exact_size(button_size, Sense::click_and_drag());
     response.clone().on_hover_text(icon_type.tooltip(text));
 
     let painter = ui.painter();
+    let rounded_rect = rect.shrink(1.0);
+    let corner_radius = 4.0;
 
-    // 交互状态样式
-    if response.hovered() {
-        painter.rect_filled(rect, 4.0, Color32::from_gray(245));
-    }
+    // 1. 绘制正方形的背景色 (Hover 或 选中状态)
     if selected {
-        painter.rect_stroke(rect.shrink(1.0), 4.0, Stroke::new(2.0, Color32::from_rgb(0, 120, 215)), StrokeKind::Outside);
-        painter.rect_filled(rect.shrink(1.0), 4.0, Color32::from_rgba_premultiplied(0, 120, 215, 20));
+        painter.rect_filled(rounded_rect, corner_radius, Color32::from_rgba_premultiplied(0, 120, 215, 20));
+    } else if response.hovered() {
+        painter.rect_filled(rounded_rect, corner_radius, Color32::from_gray(245));
     }
 
-    // 设置线条颜色与内缩距
+    // 2. 绘制正方形的外边框
+    let box_stroke = if selected {
+        Stroke::new(1.5, Color32::from_rgb(0, 120, 215)) // 选中时的蓝色边框
+    } else {
+        Stroke::new(1.0, Color32::from_gray(220))        // 默认状态的浅灰色边框
+    };
+    painter.rect_stroke(rounded_rect, corner_radius, box_stroke, StrokeKind::Outside);
+
+    // 3. 绘制内部的几何图标
     let icon_color = if selected { Color32::from_rgb(0, 120, 215) } else { Color32::from_gray(80) };
     let stroke = Stroke::new(1.5, icon_color);
     let icon_rect = rect.shrink(8.0);
 
-    // 调用核心绘制逻辑 (Toolbar使用白色作为剪贴板的遮挡背景)
     paint_icon(painter, icon_rect, icon_type, stroke, Color32::WHITE);
 
     response
 }
 
-/// 供 Help Box 使用：纯静态展示，无交互
+/// 供 Help Box 使用：纯静态展示，完美融入 13pt 文本行内
 pub fn draw_inline_icon(ui: &mut Ui, icon_type: IconType) {
     let size = egui::vec2(14.0, 14.0);
-    // 只分配空间，不加 Sense::click_and_drag()
     let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
     let painter = ui.painter();
+    //
+    // // 【核心修改】给 Help Box 的小图标也加上一个正方形淡淡的边框，让它看起来像按键
+    // painter.rect_stroke(
+    //     rect.shrink(0.5),
+    //     2.0,
+    //     Stroke::new(1.0, Color32::from_white_alpha(50)), // 半透明白色边框
+    //     StrokeKind::Outside
+    // );
 
     let stroke = Stroke::new(1.2, Color32::from_rgb(230, 230, 230));
-
-    // 调用核心绘制逻辑 (Help Box 的剪贴板背景使用透明或深色，这里用深色避免穿帮)
     paint_icon(painter, rect, icon_type, stroke, Color32::from_black_alpha(200));
 }

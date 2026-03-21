@@ -1,7 +1,6 @@
 use eframe::egui::{
     Color32, ColorImage, Context,
-    Pos2, Rect, Stroke, StrokeKind,
-    Ui, ViewportCommand};
+    Pos2, Rect,ViewportCommand};
 use image::{GenericImage, RgbaImage};
 use std::{
     borrow::Cow,
@@ -17,13 +16,14 @@ use xcap::Monitor;
 use arboard::{Clipboard, ImageData};
 use eframe::emath::Vec2;
 use egui::WindowLevel;
+use crate::feature::screenshot::canvas::{handle_interaction, render_canvas_elements};
 use crate::model::{
     config::get_context_config,
     device::{DeviceInfo, MonitorInfo},
     state::CommonState
 };
 use crate::os::window::{get_taskbar_rects, lock_cursor_for_screenshot, unlock_cursor};
-use crate::feature::screenshot::draw::{draw_egui_shape, draw_skia_shapes_on_image};
+use crate::feature::screenshot::draw::{draw_skia_shapes_on_image};
 use crate::feature::screenshot::help_box;
 use crate::feature::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 use crate::feature::screenshot::magnifier::handle_magnifier;
@@ -33,7 +33,6 @@ pub use crate::feature::screenshot::state::{
     ScreenshotAction, ScreenshotTool, DrawnShape, ScreenshotState,
     HistoryEntry, CapturedScreen, WindowPrevState
 };
-use crate::utils::screen::find_target_screen_rect;
 
 // capture.rs
 /// 处理截图系统的更新
@@ -280,273 +279,6 @@ pub fn draw_screenshot_ui(
     ctx.request_repaint();
 
     action
-}
-
-fn handle_interaction(
-    ui: &mut Ui,
-    state: &mut ScreenshotState,
-    global_offset_phys: Pos2,
-    ppp: f32,
-    toolbar_rect: Option<Rect>,
-) {
-    let response = ui.interact(ui.max_rect(), ui.id().with("screenshot_background"), egui::Sense::click_and_drag());
-
-    if response.clicked() {
-        if state.current_tool.is_none() {
-            if let Some(hovered) = state.hovered_window {
-                // 1. 优先选中具体窗口
-                state.selection = Some(hovered);
-                state.toolbar_pos = Some(hovered.right_bottom());
-                return;
-            } else if let Some(pointer_pos) = response.interact_pointer_pos() {
-                // 2. 如果没命中窗口（即点在桌面上），则选中当前鼠标所在的整个显示器
-                let global_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
-                if let Some(cap_phys_rect) = find_target_screen_rect(&state.captures, global_phys) {
-                    state.selection = Some(cap_phys_rect);
-                    state.toolbar_pos = Some(cap_phys_rect.right_bottom());
-                    return;
-                }
-            }
-        }
-    }
-    if let Some(press_pos) = response.interact_pointer_pos() {
-        let is_clicking_toolbar = toolbar_rect.map_or(false, |r| r.contains(press_pos));
-        let is_interacting_with_picker = state.color_picker.is_open && ui.ctx().is_pointer_over_area();
-
-        if !is_clicking_toolbar && !is_interacting_with_picker {
-            let local_vec_phys = press_pos.to_vec2() * ppp;
-            let global_phys = global_offset_phys + local_vec_phys;
-
-            if response.drag_started() {
-                if state.current_tool.is_some() {
-                    if let Some(selection) = state.selection {
-                        if selection.contains(global_phys) {
-                            state.current_shape_start = Some(global_phys);
-                            state.current_shape_end = Some(global_phys);
-                        }
-                    }
-                } else {
-                    state.drag_start = Some(global_phys);
-                    state.toolbar_pos = None;
-                    state.color_picker.close();
-                }
-            }
-
-            if response.dragged() {
-                if let Some(_) = state.current_shape_start {
-                    state.current_shape_end = Some(global_phys);
-                } else if let Some(drag_start_phys) = state.drag_start {
-                    let rect = Rect::from_two_pos(drag_start_phys, global_phys);
-                    if state.selection.map_or(true, |s| s != rect) {
-                        state.selection = Some(rect);
-                    }
-                }
-            }
-
-            if response.drag_stopped() {
-                if let Some(start_pos) = state.current_shape_start {
-                    if let Some(tool) = state.current_tool {
-                        // 保存历史记录
-                        state.history.push(HistoryEntry {
-                            shapes: state.shapes.clone(),
-                            selection: state.selection,
-                        });
-                        state.shapes.push(DrawnShape {
-                            tool,
-                            start: start_pos,
-                            end: global_phys,
-                            color: state.active_color,
-                            stroke_width: state.stroke_width,
-                        });
-                    }
-                    state.current_shape_start = None;
-                    state.current_shape_end = None;
-                } else if state.drag_start.is_some() {
-                    state.drag_start = None;
-                    if let Some(sel) = state.selection {
-                        if sel.width() > 10.0 && sel.height() > 10.0 {
-                            // 保存历史记录
-                            state.history.push(HistoryEntry {
-                                shapes: state.shapes.clone(),
-                                selection: state.selection,
-                            });
-                            state.toolbar_pos = Some(sel.right_bottom());
-                        } else {
-                            state.selection = None;
-                            state.toolbar_pos = None;
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-fn render_canvas_elements(
-    ui: &mut Ui,
-    state: &ScreenshotState,
-    global_offset_phys: Pos2,
-    ppp: f32,
-    is_hovered: bool,
-) {
-    let painter = ui.painter();
-    let viewport_rect = ui.ctx().viewport_rect();
-    let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
-
-    if let Some(global_sel_phys) = state.selection {
-        let vec_min = global_sel_phys.min - global_offset_phys;
-        let vec_max = global_sel_phys.max - global_offset_phys;
-
-        let local_logical_rect = Rect::from_min_max(
-            Pos2::ZERO + (vec_min / ppp),
-            Pos2::ZERO + (vec_max / ppp),
-        );
-
-        let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
-        let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
-
-        if clipped_local_sel.is_positive() {
-            let top = Rect::from_min_max(screen_rect_local.min, Pos2::new(screen_rect_local.max.x, clipped_local_sel.min.y));
-            let bottom = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.max.y), screen_rect_local.max);
-            let left = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.min.y), Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y));
-            let right = Rect::from_min_max(Pos2::new(clipped_local_sel.max.x, clipped_local_sel.min.y), Pos2::new(screen_rect_local.max.x, clipped_local_sel.max.y));
-
-            painter.rect_filled(top, 0.0, overlay_color);
-            painter.rect_filled(bottom, 0.0, overlay_color);
-            painter.rect_filled(left, 0.0, overlay_color);
-            painter.rect_filled(right, 0.0, overlay_color);
-
-            paint_style_box(painter, clipped_local_sel, 1.0);
-
-            if screen_rect_local.expand(1.0).contains(local_logical_rect.min) {
-                let w = global_sel_phys.width().round() as u32;
-                let h = global_sel_phys.height().round() as u32;
-                let text = format!("{} x {}", w, h);
-                let font_id = egui::FontId::proportional(12.0);
-                let text_color = Color32::WHITE;
-
-                let galley = painter.layout_no_wrap(text, font_id, text_color);
-                let padding = egui::vec2(6.0, 4.0);
-                let bg_size = galley.size() + padding * 2.0;
-
-                let mut label_pos = local_logical_rect.min - egui::vec2(0.0, bg_size.y + 5.0);
-                if label_pos.y < screen_rect_local.min.y {
-                    label_pos = local_logical_rect.min + egui::vec2(5.0, 5.0);
-                }
-
-                let label_rect = Rect::from_min_size(label_pos, bg_size);
-                painter.rect_filled(label_rect, 4.0, Color32::from_black_alpha(160));
-                painter.galley(label_rect.min + padding, galley, text_color);
-            }
-
-        } else {
-            painter.rect_filled(viewport_rect, 0.0, overlay_color);
-        }
-    }
-
-    for shape in &state.shapes {
-        let start_local = Pos2::ZERO + ((shape.start - global_offset_phys) / ppp);
-        let end_local = Pos2::ZERO + ((shape.end - global_offset_phys) / ppp);
-        let rect = Rect::from_two_pos(start_local, end_local);
-
-        if viewport_rect.intersects(rect) {
-            draw_egui_shape(painter, shape.tool, rect, start_local, end_local, shape.stroke_width, shape.color);
-        }
-    }
-
-    if let (Some(start_phys), Some(end_phys)) = (state.current_shape_start, state.current_shape_end) {
-        let start_local = Pos2::ZERO + ((start_phys - global_offset_phys) / ppp);
-        let end_local = Pos2::ZERO + ((end_phys - global_offset_phys) / ppp);
-        let rect = Rect::from_two_pos(start_local, end_local);
-
-        if viewport_rect.intersects(rect) {
-            if let Some(tool) = state.current_tool {
-                draw_egui_shape(painter, tool, rect, start_local, end_local, state.stroke_width, state.active_color);
-            }
-        }
-    }
-
-    if state.selection.is_none() && state.current_shape_start.is_none() && state.drag_start.is_none() {
-        if is_hovered {
-            if let Some(hover_phys_rect) = state.hovered_window {
-                let vec_min = hover_phys_rect.min - global_offset_phys;
-                let vec_max = hover_phys_rect.max - global_offset_phys;
-
-                let local_logical_rect = Rect::from_min_max(
-                    Pos2::ZERO + (vec_min / ppp),
-                    Pos2::ZERO + (vec_max / ppp),
-                );
-
-                let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
-                let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
-
-                if clipped_local_sel.is_positive() {
-                    let top = Rect::from_min_max(screen_rect_local.min, Pos2::new(screen_rect_local.max.x, clipped_local_sel.min.y));
-                    let bottom = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.max.y), screen_rect_local.max);
-                    let left = Rect::from_min_max(Pos2::new(screen_rect_local.min.x, clipped_local_sel.min.y), Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y));
-                    let right = Rect::from_min_max(Pos2::new(clipped_local_sel.max.x, clipped_local_sel.min.y), Pos2::new(screen_rect_local.max.x, clipped_local_sel.max.y));
-
-                    painter.rect_filled(top, 0.0, overlay_color);
-                    painter.rect_filled(bottom, 0.0, overlay_color);
-                    painter.rect_filled(left, 0.0, overlay_color);
-                    painter.rect_filled(right, 0.0, overlay_color);
-
-                    paint_style_box(painter, clipped_local_sel, 2.0);
-                }
-            } else {
-                if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-                    let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
-
-                    if let Some(cap_phys_rect) = find_target_screen_rect(&state.captures, global_pointer_phys) {
-                        let vec_min = cap_phys_rect.min - global_offset_phys;
-                        let vec_max = cap_phys_rect.max - global_offset_phys;
-
-                        let local_logical_rect = Rect::from_min_max(
-                            Pos2::ZERO + (vec_min / ppp),
-                            Pos2::ZERO + (vec_max / ppp),
-                        );
-
-                        paint_style_box(painter, local_logical_rect, 3.0);
-                    }
-                }
-            }
-        } else {
-            painter.rect_filled(viewport_rect, 0.0, overlay_color);
-        }
-    }
-}
-
-
-fn paint_style_box(painter: &egui::Painter, rect: Rect, line_width: f32) {
-    let anchor_size = 6.0;
-    let green = Color32::from_rgb(0, 255, 0);
-    let main_stroke = Stroke::new(line_width, green);
-    let anchor_stroke = Stroke::new(1.0, green);
-    let anchor_fill = green;
-
-    // 使用 StrokeKind::Inside 让主边框完全向内侧绘制，防止线条溢出
-    painter.rect_stroke(rect, 0.0, main_stroke, StrokeKind::Inside);
-
-    if rect.width() > anchor_size * 3.0 && rect.height() > anchor_size * 3.0 {
-        // 为了让小正方形也不溢出，将其中心点向内缩进半个正方形的尺寸 (anchor_size / 2.0)
-        let inset = anchor_size / 2.0;
-        let min = rect.min + egui::vec2(inset, inset);
-        let max = rect.max - egui::vec2(inset, inset);
-        let center = rect.center();
-
-        let anchors = [
-            min, Pos2::new(max.x, min.y), max, Pos2::new(min.x, max.y),
-            Pos2::new(center.x, min.y), Pos2::new(center.x, max.y),
-            Pos2::new(min.x, center.y), Pos2::new(max.x, center.y),
-        ];
-
-        for anchor_pos in anchors {
-            let anchor_rect = Rect::from_center_size(anchor_pos, egui::vec2(anchor_size, anchor_size));
-            painter.rect_filled(anchor_rect, 0.0, anchor_fill);
-            // 锚点自身的边框也向内侧绘制，严丝合缝
-            painter.rect_stroke(anchor_rect, 0.0, anchor_stroke, StrokeKind::Inside);
-        }
-    }
 }
 
 /// 处理截图捕获过程
