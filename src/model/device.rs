@@ -1,7 +1,6 @@
 // src/os/device.rs
 use eframe::egui::{Pos2, Rect, Vec2};
 use xcap::Monitor;
-use crate::feature::screenshot::capture::CapturedScreen;
 
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {

@@ -5,8 +5,6 @@ use crate::model::config::get_context_config;
 use crate::ui::widgets::icons::{draw_inline_icon, IconType};
 use crate::utils::screen::{find_target_screen_rect, get_screen_phys_rect};
 
-use eframe::epaint::StrokeKind; // 确保引入了 StrokeKind
-
 /// 绘制左下角快捷键与帮助提示框（支持多语言、动态配置和图标混合排版）
 pub fn render_help_box(
     ui: &mut Ui,

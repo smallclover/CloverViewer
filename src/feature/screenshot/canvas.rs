@@ -188,6 +188,8 @@ pub fn handle_interaction(
                             let max_width_logical = if let Some(sel) = state.selection {
                                 let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
                                 let start_local_x = Pos2::ZERO.x + ((pos.x - global_offset_phys.x) / ppp);
+                                // 扣除输入框的 16 像素水平内边距 (左右各 8.0)
+                                // 这样模拟出来的固化排版，就和用户在框里看到的一模一样了
                                 (sel_max_x_local - start_local_x - 16.0).max(20.0)
                             } else {
                                 1000.0
@@ -199,9 +201,6 @@ pub fn handle_interaction(
                                 Color32::WHITE,
                                 max_width_logical,
                             );
-
-                            let text_width_phys = galley.size().x * ppp;
-                            let end_pos = pos + eframe::emath::Vec2::new(text_width_phys, 0.0);
 
                             // ==========================================
                             // 直接从底层的 Glyphs 中“榨取”最真实的排版结果
@@ -228,10 +227,16 @@ pub fn handle_interaction(
                                 }
                             }
 
+                            // 补偿坐标偏移
+                            // 文字在视觉上是偏移了 8.0 像素的，我们将这 8 像素补偿进保存的物理坐标中
+                            let start_pos_phys = pos + eframe::emath::Vec2::new(8.0 * ppp, 8.0 * ppp);
+                            let text_width_phys = galley.size().x * ppp;
+                            let end_pos = start_pos_phys + eframe::emath::Vec2::new(text_width_phys, 0.0);
+
                             state.history.push(HistoryEntry { shapes: state.shapes.clone(), selection: state.selection });
                             state.shapes.push(DrawnShape {
                                 tool: ScreenshotTool::Text,
-                                start: pos,
+                                start: start_pos_phys,
                                 end: end_pos,
                                 color: state.active_color,
                                 stroke_width: state.stroke_width,
@@ -655,6 +660,7 @@ fn clamp_pos_to_rect(pos: Pos2, rect: Rect) -> Pos2 {
 }
 
 // === 辅助函数：统一处理文本的动态排版与固定换行 ===
+// === 辅助函数：统一处理文本的动态排版与固定换行 ===
 fn layout_text_shape(
     shape: &DrawnShape,
     selection: Option<Rect>,
@@ -662,27 +668,15 @@ fn layout_text_shape(
     ppp: f32,
     painter: &egui::Painter,
 ) -> Option<std::sync::Arc<egui::Galley>> {
-    // 如果没有文本内容，直接返回 None
     let text = shape.text.as_ref()?;
-
     let font_size = 20.0 + (shape.stroke_width * 2.0);
-    let start_local_x = Pos2::ZERO.x + ((shape.start.x - global_offset_phys.x) / ppp);
 
-    // 读取被锁死的宽度，维持当初的换行状态
-    let stored_width = (shape.end.x - shape.start.x).abs() / ppp;
-    let max_width = if stored_width > 1.0 {
-        stored_width
-    } else if let Some(sel) = selection {
-        let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
-        (sel_max_x_local - start_local_x - 16.0).max(20.0)
-    } else {
-        1000.0
-    };
-
-    Some(painter.layout(
+    // 因为保存下来的 shape.text 已经饱含了完美的 \n，
+    // 所以这里改用 `layout_no_wrap`！Egui 会忠实于这些 \n 进行渲染，
+    // 彻底杜绝了因为极微小的浮点数宽度误差导致的文字跳动和意外换行。
+    Some(painter.layout_no_wrap(
         text.clone(),
         egui::FontId::proportional(font_size),
         shape.color,
-        max_width,
     ))
 }
