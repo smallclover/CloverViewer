@@ -2,7 +2,10 @@ use eframe::egui;
 use egui::{CentralPanel, Color32, Context, Frame, TopBottomPanel, Vec2, ViewportCommand};
 use rfd::FileDialog;
 use crate::{
-    core::business::{ViewMode, ViewerState},
+    core::{
+        business::{ViewMode, ViewerState},
+        hotkeys::HotkeyAction,
+    },
     feature::Feature,
     feature::viewer::view::{
         grid_view::draw_grid_view,
@@ -11,9 +14,9 @@ use crate::{
     i18n::lang::get_i18n_text,
     model::{
         config::Config,
-        constants::SUPPORTED_IMAGE_EXTENSIONS,
         mode::{AppMode, OverlayMode},
         state::CommonState,
+        image_meta::SUPPORTED_IMAGE_EXTENSIONS
     },
     ui::{
         menus::{
@@ -29,7 +32,6 @@ use crate::{
         },
     },
 };
-use crate::core::hotkeys::HotkeyAction;
 
 pub mod view;
 pub mod panels;

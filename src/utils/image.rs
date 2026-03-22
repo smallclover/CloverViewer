@@ -1,14 +1,14 @@
 use std::path::{Path, PathBuf};
 use rayon::prelude::*;
 use tray_icon::Icon;
-use crate::model::constants;
+use crate::model::image_meta::SUPPORTED_IMAGE_EXTENSIONS;
 use crate::ui::resources::APP_IMG;
 
 /// 统一的判断逻辑
 pub fn is_image(path: &Path) -> bool {
     path.extension()
         .and_then(|s| s.to_str())
-        .map(|s| constants::SUPPORTED_IMAGE_EXTENSIONS.contains(&s.to_lowercase().as_str()))
+        .map(|s| SUPPORTED_IMAGE_EXTENSIONS.contains(&s.to_lowercase().as_str()))
         .unwrap_or(false)
 }
 

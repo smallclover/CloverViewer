@@ -2,8 +2,8 @@ use egui::{Color32, Id, Pos2, Rect, RichText, Stroke, Ui};
 use crate::feature::screenshot::state::ScreenshotState;
 use crate::i18n::lang::get_i18n_text;
 use crate::model::config::get_context_config;
+use crate::model::device::{find_target_screen_rect, get_screen_phys_rect};
 use crate::ui::widgets::icons::{draw_inline_icon, IconType};
-use crate::utils::screen::{find_target_screen_rect, get_screen_phys_rect};
 
 /// 绘制左下角快捷键与帮助提示框（支持多语言、动态配置和图标混合排版）
 pub fn render_help_box(

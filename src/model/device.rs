@@ -1,6 +1,6 @@
-// src/os/device.rs
 use eframe::egui::{Pos2, Rect, Vec2};
 use xcap::Monitor;
+use crate::feature::screenshot::capture::CapturedScreen;
 
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {
@@ -14,11 +14,11 @@ pub struct MonitorInfo {
 
 #[derive(Clone, Debug, Default)]
 pub struct DeviceInfo {
-    pub monitors: Vec<MonitorInfo>,
+    // pub monitors: Vec<MonitorInfo>,
     pub phys_min_x: i32,
     pub phys_min_y: i32,
-    pub phys_total_w: u32,
-    pub phys_total_h: u32,
+    // pub phys_total_w: u32,
+    // pub phys_total_h: u32,
 }
 
 impl DeviceInfo {
@@ -60,39 +60,39 @@ impl DeviceInfo {
             });
         }
 
-        let phys_total_w = (phys_max_x - phys_min_x).max(0) as u32;
-        let phys_total_h = (phys_max_y - phys_min_y).max(0) as u32;
+        // let phys_total_w = (phys_max_x - phys_min_x).max(0) as u32;
+        // let phys_total_h = (phys_max_y - phys_min_y).max(0) as u32;
 
         Self {
-            monitors,
+            // monitors,
             phys_min_x,
             phys_min_y,
-            phys_total_w,
-            phys_total_h,
+            // phys_total_w,
+            // phys_total_h,
         }
     }
 
-    /// 取得主屏幕的缩放率
-    pub fn primary_scale(&self) -> f32 {
-        for m in &self.monitors {
-            // 在 Windows 系统的虚拟坐标系中，主显示器的物理坐标必定是 (0, 0)
-            if m.x == 0 && m.y == 0 {
-                return m.scale_factor;
-            }
-        }
-        // 兜底方案
-        self.monitors.first().map(|m| m.scale_factor).unwrap_or(1.0)
-    }
-
-    /// 1. 计算并返回大画布的全局逻辑坐标和尺寸 (供 ViewportBuilder 启动窗口使用)
-    pub fn global_logical_rect(&self) -> (Pos2, Vec2) {
-        let scale = self.primary_scale();
-        let logic_x = self.phys_min_x as f32 / scale;
-        let logic_y = self.phys_min_y as f32 / scale;
-        let logic_w = self.phys_total_w as f32 / scale;
-        let logic_h = self.phys_total_h as f32 / scale;
-        (Pos2::new(logic_x, logic_y), Vec2::new(logic_w, logic_h))
-    }
+    // /// 取得主屏幕的缩放率
+    // pub fn primary_scale(&self) -> f32 {
+    //     for m in &self.monitors {
+    //         // 在 Windows 系统的虚拟坐标系中，主显示器的物理坐标必定是 (0, 0)
+    //         if m.x == 0 && m.y == 0 {
+    //             return m.scale_factor;
+    //         }
+    //     }
+    //     // 兜底方案
+    //     self.monitors.first().map(|m| m.scale_factor).unwrap_or(1.0)
+    // }
+    //
+    // /// 1. 计算并返回大画布的全局逻辑坐标和尺寸 (供 ViewportBuilder 启动窗口使用)
+    // pub fn global_logical_rect(&self) -> (Pos2, Vec2) {
+    //     let scale = self.primary_scale();
+    //     let logic_x = self.phys_min_x as f32 / scale;
+    //     let logic_y = self.phys_min_y as f32 / scale;
+    //     let logic_w = self.phys_total_w as f32 / scale;
+    //     let logic_h = self.phys_total_h as f32 / scale;
+    //     (Pos2::new(logic_x, logic_y), Vec2::new(logic_w, logic_h))
+    // }
 
     /// 2. 将某个物理屏幕的绝对坐标，转换为大画布内的相对逻辑坐标 (供贴图和遮罩使用)
     pub fn screen_logical_rect(&self, screen: &MonitorInfo, scale: f32) -> Rect {
@@ -106,4 +106,25 @@ impl DeviceInfo {
 
         Rect::from_min_size(Pos2::new(logic_x, logic_y), Vec2::new(logic_w, logic_h))
     }
+}
+
+/// 获取屏幕的物理边界矩形
+#[inline]
+pub fn get_screen_phys_rect(info: &MonitorInfo) -> Rect {
+    Rect::from_min_size(
+        Pos2::new(info.x as f32, info.y as f32),
+        egui::vec2(info.width as f32, info.height as f32),
+    )
+}
+
+/// 根据物理坐标，查找包含该坐标的屏幕物理矩形
+pub fn find_target_screen_rect(captures: &[CapturedScreen], pos: Pos2) -> Option<Rect> {
+    captures.iter().find_map(|cap| {
+        let rect = get_screen_phys_rect(&cap.screen_info);
+        if rect.contains(pos) {
+            Some(rect)
+        } else {
+            None
+        }
+    })
 }

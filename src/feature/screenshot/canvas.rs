@@ -1,9 +1,9 @@
-use eframe::emath::{Pos2, Rect};
-use eframe::epaint::{Color32, Stroke, StrokeKind};
-use egui::Ui;
-use crate::feature::screenshot::capture::{DrawnShape, HistoryEntry, ScreenshotState, ScreenshotTool};
-use crate::feature::screenshot::draw::draw_egui_shape;
-use crate::utils::screen::find_target_screen_rect;
+use egui::{Color32, CursorIcon, Id, Pos2, Rect, Stroke, StrokeKind, Ui, Vec2};
+use crate::feature::screenshot::{
+    capture::{DrawnShape, HistoryEntry, ScreenshotState, ScreenshotTool},
+    draw::draw_egui_shape
+};
+use crate::model::device::find_target_screen_rect;
 
 /// 核心辅助函数：根据指定的坐标检测命中了哪个图形
 fn get_hovered_shape_index(
@@ -94,7 +94,7 @@ pub fn handle_interaction(
     // 1. 引入按下状态锁 (Press State Lock)
     // ==========================================
     let is_pointer_down = ui.ctx().input(|i| i.pointer.primary_down());
-    let hover_id = egui::Id::new("hovered_shape_index");
+    let hover_id = Id::new("hovered_shape_index");
 
     // 取出上一帧的悬停状态
     let mut visual_hovered_index = ui.data(|d| d.get_temp::<Option<usize>>(hover_id).unwrap_or(None));
@@ -123,10 +123,10 @@ pub fn handle_interaction(
         }
     }
 
-    let dragging_id = egui::Id::new("dragging_shape_index");
+    let dragging_id = Id::new("dragging_shape_index");
     let mut dragging_index = ui.data(|d| d.get_temp::<usize>(dragging_id));
 
-    let dragging_sel_id = egui::Id::new("dragging_selection");
+    let dragging_sel_id = Id::new("dragging_selection");
     let mut is_dragging_sel = ui.data(|d| d.get_temp::<bool>(dragging_sel_id).unwrap_or(false));
 
     // 计算鼠标是否悬停在选区的“空白处”
@@ -149,16 +149,16 @@ pub fn handle_interaction(
     // 光标反馈优先级
     // ==========================================
     if is_hovering_ui {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Default);
+        ui.ctx().set_cursor_icon(CursorIcon::Default);
     } else if (is_moving_state && state.current_shape_start.is_none()) || is_dragging_sel {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Move);
+        ui.ctx().set_cursor_icon(CursorIcon::Move);
     } else if state.current_tool.is_none() && is_hovering_selection_bg {
         // 由于上面限制了 is_hovering_selection_bg，有图形时这里就不会变成 Move
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Move);
+        ui.ctx().set_cursor_icon(CursorIcon::Move);
     } else if state.current_tool.is_some() {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
+        ui.ctx().set_cursor_icon(CursorIcon::Crosshair);
     } else {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
+        ui.ctx().set_cursor_icon(CursorIcon::Crosshair);
     }
 
     // ==========================================
@@ -229,9 +229,9 @@ pub fn handle_interaction(
 
                             // 补偿坐标偏移
                             // 文字在视觉上是偏移了 8.0 像素的，我们将这 8 像素补偿进保存的物理坐标中
-                            let start_pos_phys = pos + eframe::emath::Vec2::new(8.0 * ppp, 8.0 * ppp);
+                            let start_pos_phys = pos + Vec2::new(8.0 * ppp, 8.0 * ppp);
                             let text_width_phys = galley.size().x * ppp;
-                            let end_pos = start_pos_phys + eframe::emath::Vec2::new(text_width_phys, 0.0);
+                            let end_pos = start_pos_phys + Vec2::new(text_width_phys, 0.0);
 
                             state.history.push(HistoryEntry { shapes: state.shapes.clone(), selection: state.selection });
                             state.shapes.push(DrawnShape {
@@ -308,7 +308,7 @@ pub fn handle_interaction(
                                 }
                             }
 
-                            let clamped_delta = eframe::emath::Vec2::new(dx, dy);
+                            let clamped_delta = Vec2::new(dx, dy);
                             shape.start += clamped_delta;
                             shape.end += clamped_delta;
                             state.drag_start = Some(drag_start_phys + clamped_delta);
@@ -448,9 +448,9 @@ pub fn render_canvas_elements(
     // ==========================================
     // 渲染已经画好的图形和文字
     // ==========================================
-    let dragging_id = egui::Id::new("dragging_shape_index");
+    let dragging_id = Id::new("dragging_shape_index");
     let dragging_index = ui.data(|d| d.get_temp::<usize>(dragging_id));
-    let hover_id = egui::Id::new("hovered_shape_index");
+    let hover_id = Id::new("hovered_shape_index");
     let hovered_index = ui.data(|d| d.get_temp::<Option<usize>>(hover_id)).unwrap_or(None);
 
     for (index, shape) in state.shapes.iter().enumerate() {
@@ -568,7 +568,7 @@ pub fn render_canvas_elements(
             1000.0
         };
 
-        egui::Area::new(egui::Id::new("screenshot_text_input"))
+        egui::Area::new(Id::new("screenshot_text_input"))
             .fixed_pos(pos_local)
             .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
