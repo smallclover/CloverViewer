@@ -47,7 +47,7 @@ fn get_hovered_shape_index(
                 dist_to_line_segment(pos, start_local, end_local) <= grab_tolerance
             },
             ScreenshotTool::Text => {
-                if let Some(galley) = layout_text_shape(shape, state.selection, global_offset_phys, ppp, painter) {
+                if let Some(galley) = layout_text_shape(shape, painter) {
                     let text_rect = Rect::from_min_size(start_local, galley.size());
                     text_rect.expand(4.0).contains(pos)
                 } else {
@@ -464,7 +464,7 @@ pub fn render_canvas_elements(
 
         if shape.tool == ScreenshotTool::Text {
             // 直接调用辅助函数获取排版结果
-            if let Some(galley) = layout_text_shape(shape, state.selection, global_offset_phys, ppp, painter) {
+            if let Some(galley) = layout_text_shape(shape, painter) {
                 text_rect = Rect::from_min_size(start_local, galley.size());
                 is_visible = viewport_rect.intersects(text_rect);
                 text_galley = Some(galley);
@@ -660,12 +660,8 @@ fn clamp_pos_to_rect(pos: Pos2, rect: Rect) -> Pos2 {
 }
 
 // === 辅助函数：统一处理文本的动态排版与固定换行 ===
-// === 辅助函数：统一处理文本的动态排版与固定换行 ===
 fn layout_text_shape(
     shape: &DrawnShape,
-    selection: Option<Rect>,
-    global_offset_phys: Pos2,
-    ppp: f32,
     painter: &egui::Painter,
 ) -> Option<std::sync::Arc<egui::Galley>> {
     let text = shape.text.as_ref()?;

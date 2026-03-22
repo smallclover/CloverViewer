@@ -79,9 +79,9 @@ pub struct TextBundle {
     pub img_prop: &'static str,
     pub img_name: &'static str,
     pub img_date: &'static str,
-    pub img_path:  &'static str,
+    pub img_path: &'static str,
     // pub img_size:  &'static str,
-    pub img_dim:  &'static str,
+    pub img_dim: &'static str,
 
     // 状态栏
     pub status_gird: &'static str,
@@ -103,9 +103,6 @@ pub struct TextBundle {
     pub help_undo: &'static str,
     pub help_copy: &'static str,
     pub help_tools: &'static str,
-    pub help_tools_mark: &'static str,
-    pub help_tools_finish: &'static str,
-    pub help_finish_end: &'static str,
 }
 
 pub const ZH_TEXT: TextBundle = TextBundle {
@@ -148,7 +145,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     loading_parsing: "正在解析像素...",
     copied_message: "已复制",
     copy_failed_message: "复制失败",
-    coping_message:"正在复制中...",
+    coping_message: "正在复制中...",
     img_prop: "属性",
 
     img_name: "名称",
@@ -173,9 +170,6 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     help_undo: "Ctrl+Z : 撤销上一步绘制",
     help_copy: "复制截图",
     help_tools: "【工具说明】",
-    help_tools_mark: "标记 : 使用",
-    help_tools_finish: "完成 : 点击",
-    help_finish_end: "完成截图",
 };
 
 pub const EN_TEXT: TextBundle = TextBundle {
@@ -243,9 +237,6 @@ pub const EN_TEXT: TextBundle = TextBundle {
     help_undo: "Ctrl + Z : Undo Drawing",
     help_copy: "Copy Screenshot",
     help_tools: "[ Tools ]",
-    help_tools_mark: "Mark : Use",
-    help_tools_finish: "Finish : Click",
-    help_finish_end: "to complete",
 };
 
 pub const JA_TEXT: TextBundle = TextBundle {
@@ -313,9 +304,6 @@ pub const JA_TEXT: TextBundle = TextBundle {
     help_undo: "Ctrl + Z : 元に戻す",
     help_copy: "スクリーンショットをコピー",
     help_tools: "【ツール】",
-    help_tools_mark: "マーク :",
-    help_tools_finish: "完了 : クリック",
-    help_finish_end: "で完了",
 };
 
 pub fn get_text(lang: Language) -> &'static TextBundle {
