@@ -203,14 +203,40 @@ pub fn handle_interaction(
                             let text_width_phys = galley.size().x * ppp;
                             let end_pos = pos + eframe::emath::Vec2::new(text_width_phys, 0.0);
 
+                            // ==========================================
+                            // 直接从底层的 Glyphs 中“榨取”最真实的排版结果
+                            // ==========================================
+                            let mut baked_text = String::new();
+                            let rows_len = galley.rows.len();
+
+                            for (i, row) in galley.rows.iter().enumerate() {
+                                let mut row_str = String::new();
+
+                                // 直接遍历 egui 决定分配到这一行的所有字符 (glyphs)
+                                for glyph in &row.glyphs {
+                                    row_str.push(glyph.chr);
+                                }
+
+                                // 过滤掉这一行末尾可能存在的隐藏换行符
+                                // (如果用户敲了回车，egui 有时会把 '\n' 也算作一个字符放在行尾)
+                                let clean_row = row_str.trim_end_matches(&['\r', '\n'][..]);
+                                baked_text.push_str(clean_row);
+
+                                // 只要不是最后一行，我们就硬塞一个 '\n' 进去
+                                if i < rows_len - 1 {
+                                    baked_text.push('\n');
+                                }
+                            }
+
                             state.history.push(HistoryEntry { shapes: state.shapes.clone(), selection: state.selection });
                             state.shapes.push(DrawnShape {
                                 tool: ScreenshotTool::Text,
                                 start: pos,
-                                end: end_pos, // <--- 把宽度锁死在 end 坐标里
+                                end: end_pos,
                                 color: state.active_color,
                                 stroke_width: state.stroke_width,
-                                text: Some(text),
+                                // 把固化好真实换行的纯文本直接保存进去！不需要加任何新字段！
+                                text: Some(baked_text),
                             });
                         }
                     } else {

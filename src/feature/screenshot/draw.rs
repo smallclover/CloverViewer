@@ -174,7 +174,6 @@ pub fn draw_skia_shapes_on_image(
     // ==========================================
     // 2. 使用 imageproc 渲染顶层的文本
     // ==========================================
-    // 必须引入中文字体
     let font_data = include_bytes!("../../../assets/fonts/msyhl.ttf");
     let font = FontRef::try_from_slice(font_data).expect("字体加载失败");
 
@@ -184,28 +183,36 @@ pub fn draw_skia_shapes_on_image(
                 let start_x = shape.start.x - selection_phys.min.x;
                 let start_y = shape.start.y - selection_phys.min.y;
 
-                // 字体大小基准计算（乘以 1.5 是模拟一般的屏幕缩放系数，防止保存的图文字太小）
+                // 字体大小基准计算（乘以 1.5 是模拟一般的屏幕缩放系数，保持与 UI 视觉一致）
                 let font_size = (20.0 + (shape.stroke_width * 2.0)) * 1.5;
                 let scale = PxScale::from(font_size);
 
-                // 将 Egui 的颜色转换为 image 的 Rgba 颜色
+                // 行高计算 (基础高度 + 固定行距补偿)
+                let line_height = font_size + 6.0;
+
+                // 转换颜色
                 let text_color = Rgba([shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a()]);
 
-                let mut current_y = start_y as i32;
+                let mut current_y = start_y as f32;
 
-                // 按换行符分割，支持多行文本打印
-                for line in text.lines() {
+                // 因为在 UI 层已经将排版“固化”成了带有 \n 的纯文本
+                // 所以这里什么都不用测算，遇到 \n 就无脑换行！
+                for line in text.split('\n') {
+                    // 过滤可能残留的 Windows 回车符，避免打印出乱码小方块
+                    let clean_line = line.trim_end_matches('\r');
+
                     imageproc::drawing::draw_text_mut(
                         final_image,
                         text_color,
                         start_x as i32,
-                        current_y,
+                        current_y as i32,
                         scale,
                         &font,
-                        line,
+                        clean_line,
                     );
-                    // 动态增加 Y 轴高度进行换行（包含少许行距缓冲）
-                    current_y += (font_size + 6.0) as i32;
+
+                    // 游标向下移动一行
+                    current_y += line_height;
                 }
             }
         }
