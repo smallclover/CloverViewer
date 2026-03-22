@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui::{CentralPanel, Color32, Context, Frame, TopBottomPanel};
+use egui::{CentralPanel, Color32, Context, Frame, TopBottomPanel, Vec2, ViewportCommand};
 use rfd::FileDialog;
 use crate::{
     core::business::{ViewMode, ViewerState},
@@ -246,6 +246,18 @@ impl ViewerFeature {
                 }
             }
             OverlayMode::Settings { config } => {
+                // 1. 设置最小尺寸，防止在设置界面时被鼠标缩得太小
+                ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::new(750.0, 550.0)));
+
+                // 2. 检查当前窗口大小，如果太小，主动把它撑大！
+                let current_size = ctx.input(|i| i.viewport().inner_rect.map(|r| r.size()).unwrap_or(Vec2::ZERO));
+                if current_size.x < 750.0 || current_size.y < 550.0 {
+                    ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(
+                        current_size.x.max(750.0),
+                        current_size.y.max(550.0)
+                    )));
+                }
+
                 let mut open = true;
                 let mut action = render_settings_window(ctx, &mut open, &text, config);
 
@@ -257,6 +269,8 @@ impl ViewerFeature {
                 }
 
                 if !open || action == ModalAction::Close {
+                    // 3. 设置关闭后，恢复看图时的极小限制
+                    ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::new(100.0, 100.0)));
                     self.overlay = OverlayMode::None;
                 }
             }
