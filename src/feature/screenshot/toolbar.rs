@@ -12,7 +12,6 @@ pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2,
     let vec_phys = global_toolbar_pos_phys - global_offset_phys;
     let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
 
-    // 【修改】精确计算无缝宽度：
     // 9个按钮(288) + 9个标准间距(72) + 2个额外分隔间距(16) + 1个分割线(1) + 左右内边距(16) = 393.0
     let toolbar_width = 393.0;
     let toolbar_height = 48.0;
