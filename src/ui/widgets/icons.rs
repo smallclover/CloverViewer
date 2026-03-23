@@ -10,7 +10,8 @@ pub enum IconType {
     DrawRect,
     DrawCircle,
     DrawArrow,
-    Pen,
+    Pencil,
+    Mosaic,
     Cancel,
     Save,
     SaveToClipboard,
@@ -25,7 +26,8 @@ impl IconType {
             IconType::DrawRect => text.tooltip_draw_rect,
             IconType::DrawCircle => text.tooltip_draw_circle,
             IconType::DrawArrow => text.tooltip_draw_arrow,
-            IconType::Pen => text.tooltip_draw_pencil,
+            IconType::Pencil => text.tooltip_draw_pencil,
+            IconType::Mosaic => text.tooltip_draw_mosaic,
             IconType::Cancel => text.tooltip_cancel,
             IconType::Save => text.tooltip_save,
             IconType::SaveToClipboard => text.tooltip_save_to_clipboard,
@@ -80,7 +82,7 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
             painter.line_segment([end, arrow_p1], stroke);
             painter.line_segment([end, arrow_p2], stroke);
         }
-        IconType::Pen => {
+        IconType::Pencil => {
             // 绘制一条带有弧度的波浪线/涂鸦线来代表画笔工具
             let mut points = Vec::new();
             let segments = 12;
@@ -94,6 +96,27 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
                 points.push(Pos2::new(x, base_y + offset_y));
             }
             painter.add(egui::Shape::line(points, stroke));
+        }
+        IconType::Mosaic => {
+            // 极简马赛克图标：2x2 错位像素块，中间留 1.5 像素的呼吸间隙
+            let gap = 1.5;
+            let w = (icon_rect.width() - gap) / 2.0;
+            let h = (icon_rect.height() - gap) / 2.0;
+
+            let tl = Rect::from_min_size(icon_rect.left_top(), egui::vec2(w, h));
+            let tr = Rect::from_min_size(Pos2::new(icon_rect.left() + w + gap, icon_rect.top()), egui::vec2(w, h));
+            let bl = Rect::from_min_size(Pos2::new(icon_rect.left(), icon_rect.top() + h + gap), egui::vec2(w, h));
+            let br = Rect::from_min_size(Pos2::new(icon_rect.left() + w + gap, icon_rect.top() + h + gap), egui::vec2(w, h));
+
+            let corner_radius = 1.0; // 加一点点圆角让方块边缘不那么锐利，更精致
+
+            // 左上、右下使用实心
+            painter.rect_filled(tl, corner_radius, stroke.color);
+            painter.rect_filled(br, corner_radius, stroke.color);
+
+            // 右上、左下使用细边框的空心
+            painter.rect_stroke(tr, corner_radius, Stroke::new(1.2, stroke.color), StrokeKind::Inside);
+            painter.rect_stroke(bl, corner_radius, Stroke::new(1.2, stroke.color), StrokeKind::Inside);
         }
         IconType::Cancel => {
             let inner = icon_rect.shrink(2.0);
@@ -158,14 +181,6 @@ pub fn draw_inline_icon(ui: &mut Ui, icon_type: IconType) {
     let size = egui::vec2(14.0, 14.0);
     let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
     let painter = ui.painter();
-    //
-    // // 【核心修改】给 Help Box 的小图标也加上一个正方形淡淡的边框，让它看起来像按键
-    // painter.rect_stroke(
-    //     rect.shrink(0.5),
-    //     2.0,
-    //     Stroke::new(1.0, Color32::from_white_alpha(50)), // 半透明白色边框
-    //     StrokeKind::Outside
-    // );
 
     let stroke = Stroke::new(1.2, Color32::from_rgb(230, 230, 230));
     paint_icon(painter, rect, icon_type, stroke, Color32::from_black_alpha(200));

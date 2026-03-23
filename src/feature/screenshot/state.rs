@@ -20,7 +20,8 @@ pub enum ScreenshotTool {
     Circle,
     Arrow,
     Text,
-    Pen
+    Pen,
+    Mosaic
 }
 
 #[derive(Clone)]
@@ -46,6 +47,7 @@ pub struct ScreenshotState {
     pub current_tool: Option<ScreenshotTool>,
     pub active_color: Color32,
     pub stroke_width: f32,
+    pub mosaic_width: f32, // 【新增】马赛克专用的粗细度
     pub color_picker: ColorPicker,
     pub color_picker_anchor: Option<Rect>,
     pub shapes: Vec<DrawnShape>,
@@ -92,6 +94,7 @@ impl ScreenshotState {
             current_tool: None,
             active_color: default_color,
             stroke_width: 2.0,
+            mosaic_width: 16.0, // 【新增】马赛克默认非常粗
             color_picker: ColorPicker::new(default_color),
             color_picker_anchor: None,
             shapes: Vec::new(),
@@ -104,7 +107,7 @@ impl ScreenshotState {
             prev_window_state: prev_state,
             history: Vec::new(),
             active_text_input: None,
-            current_pen_points: Vec::new()
+            current_pen_points: Vec::new(),
         }
     }
 }

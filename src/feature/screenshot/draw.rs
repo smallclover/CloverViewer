@@ -14,23 +14,10 @@ pub fn draw_egui_shape(
     color: Color32,
 ) {
     match tool {
-        ScreenshotTool::Rect => {
-            painter.rect_stroke(rect, 0.0, Stroke::new(stroke_width, color), StrokeKind::Outside);
-        }
-        ScreenshotTool::Circle => {
-            painter.add(Shape::ellipse_stroke(
-                rect.center(),
-                rect.size() / 2.0,
-                Stroke::new(stroke_width, color),
-            ));
-        }
-        ScreenshotTool::Arrow => {
-            draw_arrow_egui(painter, start, end, stroke_width, color);
-        }
-        ScreenshotTool::Text => {
-            // Text 在 UI 层面由 canvas.rs 独立渲染，这里不处理
-        }
-        ScreenshotTool::Pen => {}
+        ScreenshotTool::Rect => { painter.rect_stroke(rect, 0.0, Stroke::new(stroke_width, color), StrokeKind::Outside); }
+        ScreenshotTool::Circle => { painter.add(Shape::ellipse_stroke(rect.center(), rect.size() / 2.0, Stroke::new(stroke_width, color))); }
+        ScreenshotTool::Arrow => { draw_arrow_egui(painter, start, end, stroke_width, color); }
+        ScreenshotTool::Text | ScreenshotTool::Pen | ScreenshotTool::Mosaic => {}
     }
 }
 
@@ -59,16 +46,9 @@ fn draw_arrow_egui(painter: &Painter, start: Pos2, end: Pos2, stroke_width: f32,
 
 /// 绘制箭头 (Tiny-Skia)
 fn draw_arrow_skia(
-    pixmap: &mut tiny_skia::PixmapMut,
-    start_x: f32,
-    start_y: f32,
-    end_x: f32,
-    end_y: f32,
-    paint: &tiny_skia::Paint,
-    stroke: &tiny_skia::Stroke,
+    pixmap: &mut tiny_skia::PixmapMut, start_x: f32, start_y: f32, end_x: f32, end_y: f32, paint: &tiny_skia::Paint, stroke: &tiny_skia::Stroke,
 ) {
     let transform = tiny_skia::Transform::identity();
-
     let dx = end_x - start_x;
     let dy = end_y - start_y;
     let len = (dx * dx + dy * dy).sqrt();
@@ -76,7 +56,6 @@ fn draw_arrow_skia(
 
     let dir_x = dx / len;
     let dir_y = dy / len;
-
     let arrow_size = 12.0 + stroke.width * 2.0;
 
     let arrow_p1_x = end_x - dir_x * arrow_size + dir_y * arrow_size * 0.5;
@@ -113,17 +92,88 @@ pub fn draw_skia_shapes_on_image(
     let final_height = final_image.height();
 
     // ==========================================
+    // 0. 优先处理马赛克 (Mosaic)
+    // ==========================================
+    let has_mosaic = shapes.iter().any(|s| s.tool == ScreenshotTool::Mosaic);
+    if has_mosaic {
+        if let Some(mut mask_pixmap) = tiny_skia::Pixmap::new(final_width, final_height) {
+            mask_pixmap.fill(tiny_skia::Color::TRANSPARENT);
+
+            let mut paint = tiny_skia::Paint::default();
+            paint.set_color_rgba8(255, 255, 255, 255);
+            paint.anti_alias = true;
+
+            for shape in shapes.iter().filter(|s| s.tool == ScreenshotTool::Mosaic) {
+                let stroke = tiny_skia::Stroke {
+                    width: shape.stroke_width, // 【修改】去掉了 * 3.0，因为我们在 UI 层默认传递了更粗的设定值
+                    line_cap: tiny_skia::LineCap::Round,
+                    line_join: tiny_skia::LineJoin::Round,
+                    ..Default::default()
+                };
+
+                if let Some(points) = &shape.points {
+                    if points.len() > 1 {
+                        let mut pb = tiny_skia::PathBuilder::new();
+                        pb.move_to(points[0].x - selection_phys.min.x, points[0].y - selection_phys.min.y);
+                        for p in points.iter().skip(1) {
+                            pb.line_to(p.x - selection_phys.min.x, p.y - selection_phys.min.y);
+                        }
+                        if let Some(path) = pb.finish() {
+                            mask_pixmap.stroke_path(&path, &paint, &stroke, tiny_skia::Transform::identity(), None);
+                        }
+                    }
+                }
+            }
+
+            let block_size = 15;
+            let mask_data = mask_pixmap.pixels();
+
+            for y_block in (0..final_height).step_by(block_size as usize) {
+                for x_block in (0..final_width).step_by(block_size as usize) {
+                    let mut needs_mosaic = false;
+                    for by in 0..block_size {
+                        let py = y_block + by;
+                        if py >= final_height { break; }
+                        for bx in 0..block_size {
+                            let px = x_block + bx;
+                            if px >= final_width { break; }
+
+                            let idx = (py * final_width + px) as usize;
+                            if mask_data[idx].alpha() > 0 {
+                                needs_mosaic = true;
+                                break;
+                            }
+                        }
+                        if needs_mosaic { break; }
+                    }
+
+                    if needs_mosaic {
+                        let base_pixel = final_image.get_pixel(x_block, y_block).clone();
+                        for by in 0..block_size {
+                            let py = y_block + by;
+                            if py >= final_height { break; }
+                            for bx in 0..block_size {
+                                let px = x_block + bx;
+                                if px >= final_width { break; }
+
+                                let idx = (py * final_width + px) as usize;
+                                if mask_data[idx].alpha() > 0 {
+                                    final_image.put_pixel(px, py, base_pixel);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ==========================================
     // 1. 使用 Tiny-Skia 渲染底层的几何图形
     // ==========================================
-    if let Some(mut pixmap) = tiny_skia::PixmapMut::from_bytes(
-        final_image,
-        final_width,
-        final_height,
-    ) {
+    if let Some(mut pixmap) = tiny_skia::PixmapMut::from_bytes(final_image, final_width, final_height) {
         for shape in shapes {
-            if shape.tool == ScreenshotTool::Text {
-                continue; // 文本跳过，留给后面处理
-            }
+            if shape.tool == ScreenshotTool::Text || shape.tool == ScreenshotTool::Mosaic { continue; }
 
             let start_x = shape.start.x - selection_phys.min.x;
             let start_y = shape.start.y - selection_phys.min.y;
@@ -139,13 +189,7 @@ pub fn draw_skia_shapes_on_image(
             paint.set_color_rgba8(shape.color.r(), shape.color.g(), shape.color.b(), shape.color.a());
             paint.anti_alias = true;
 
-            let stroke = tiny_skia::Stroke {
-                width: shape.stroke_width,
-                line_cap: tiny_skia::LineCap::Round,
-                line_join: tiny_skia::LineJoin::Round,
-                ..Default::default()
-            };
-
+            let stroke = tiny_skia::Stroke { width: shape.stroke_width, line_cap: tiny_skia::LineCap::Round, line_join: tiny_skia::LineJoin::Round, ..Default::default() };
             let transform = tiny_skia::Transform::identity();
 
             match shape.tool {
@@ -168,21 +212,13 @@ pub fn draw_skia_shapes_on_image(
                     draw_arrow_skia(&mut pixmap, start_x, start_y, end_x, end_y, &paint, &stroke);
                 }
                 ScreenshotTool::Pen => {
-                    // === 画笔在 Skia 端的抗锯齿渲染 ===
                     if let Some(points) = &shape.points {
                         if points.len() > 1 {
                             let mut pb = tiny_skia::PathBuilder::new();
-                            let first_x = points[0].x - selection_phys.min.x;
-                            let first_y = points[0].y - selection_phys.min.y;
-                            pb.move_to(first_x, first_y);
+                            pb.move_to(points[0].x - selection_phys.min.x, points[0].y - selection_phys.min.y);
 
-                            for p in points.iter().skip(1) {
-                                pb.line_to(p.x - selection_phys.min.x, p.y - selection_phys.min.y);
-                            }
-
-                            if let Some(path) = pb.finish() {
-                                pixmap.stroke_path(&path, &paint, &stroke, transform, None);
-                            }
+                            for p in points.iter().skip(1) { pb.line_to(p.x - selection_phys.min.x, p.y - selection_phys.min.y); }
+                            if let Some(path) = pb.finish() { pixmap.stroke_path(&path, &paint, &stroke, transform, None); }
                         }
                     }
                 }
@@ -220,18 +256,7 @@ pub fn draw_skia_shapes_on_image(
                 for line in text.split('\n') {
                     // 过滤可能残留的 Windows 回车符，避免打印出乱码小方块
                     let clean_line = line.trim_end_matches('\r');
-
-                    imageproc::drawing::draw_text_mut(
-                        final_image,
-                        text_color,
-                        start_x as i32,
-                        current_y as i32,
-                        scale,
-                        &font,
-                        clean_line,
-                    );
-
-                    // 游标向下移动一行
+                    imageproc::drawing::draw_text_mut(final_image, text_color, start_x as i32, current_y as i32, scale, &font, clean_line);
                     current_y += line_height;
                 }
             }

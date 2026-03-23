@@ -1,7 +1,7 @@
 use eframe::egui;
 use eframe::epaint::StrokeKind;
 use egui::{Color32, Sense, Pos2, Rect, Shape, Stroke, Vec2, UiBuilder, Frame};
-//默认颜色
+
 const COLOR_OPTIONS: [Color32; 8] = [
     Color32::from_rgb(204, 0, 0),       // Red
     Color32::from_rgb(255, 128, 0),     // Orange
@@ -12,8 +12,9 @@ const COLOR_OPTIONS: [Color32; 8] = [
     Color32::from_rgb(0, 0, 0),         // Black
     Color32::from_rgb(255, 255, 255),   // White
 ];
-// 默认线条粗细
 const WIDTH_OPTIONS: [f32; 3] = [2.0, 4.0, 8.0];
+// 马赛克专属粗细（因为马赛克本身就需要大块覆盖）
+const MOSAIC_WIDTH_OPTIONS: [f32; 3] = [8.0, 16.0, 24.0];
 
 #[derive(Clone, PartialEq)]
 pub struct ColorPicker {
@@ -32,21 +33,14 @@ impl Default for ColorPicker {
 
 impl ColorPicker {
     pub fn new(selected_color: Color32) -> Self {
-        Self {
-            selected_color,
-            is_open: false,
-        }
+        Self { selected_color, is_open: false }
     }
 
-    pub fn open(&mut self) {
-        self.is_open = true;
-    }
+    pub fn open(&mut self) { self.is_open = true; }
+    pub fn close(&mut self) { self.is_open = false; }
 
-    pub fn close(&mut self) {
-        self.is_open = false;
-    }
-
-    pub fn show(&mut self, ui: &mut egui::Ui, anchor: Option<Rect>, current_width: &mut f32) -> bool {
+    // 【修改】加入 show_colors 参数
+    pub fn show(&mut self, ui: &mut egui::Ui, anchor: Option<Rect>, current_width: &mut f32, show_colors: bool) -> bool {
         let mut color_changed = false;
 
         if self.is_open {
@@ -54,7 +48,6 @@ impl ColorPicker {
                 let ctx = ui.ctx();
                 let screen_rect = ctx.content_rect();
 
-                // --- 参数配置 ---
                 let item_size = 22.0;
                 let spacing = 8.0;
                 let inner_margin = 8.0;
@@ -63,14 +56,14 @@ impl ColorPicker {
                 let offset_y = 6.0;
                 let separator_width = 1.0;
 
-                // --- 宽度计算 ---
-                // 总控件数 = 3个粗细按钮 + 1个分隔符 + 8个颜色按钮 = 12
-                // 总间距数 = 11 个 spacing
+                // 【修改】根据是否展示颜色，动态缩减面板宽度
+                let total_items_width = if show_colors {
+                    (3.0 * item_size) + separator_width + (8.0 * item_size)
+                } else {
+                    3.0 * item_size
+                };
+                let total_spacing_width = if show_colors { 11.0 * spacing } else { 2.0 * spacing };
 
-                let total_items_width = (3.0 * item_size) + separator_width + (8.0 * item_size);
-                let total_spacing_width = 11.0 * spacing;
-
-                // 内容总宽度
                 let content_width = total_items_width + total_spacing_width;
                 let content_height = item_size;
 
@@ -84,7 +77,6 @@ impl ColorPicker {
                 let target_x = anchor_rect.center().x - window_width / 2.0;
 
                 let mut window_pos = Pos2::new(target_x, target_y);
-
                 if window_pos.x < screen_rect.min.x + 5.0 { window_pos.x = screen_rect.min.x + 5.0; }
                 if window_pos.x + window_width > screen_rect.max.x - 5.0 { window_pos.x = screen_rect.max.x - 5.0 - window_width; }
                 if window_pos.y + window_height > screen_rect.max.y - 5.0 { window_pos.y = screen_rect.max.y - 5.0 - window_height; }
@@ -122,23 +114,24 @@ impl ColorPicker {
                             ui.horizontal(|ui| {
                                 ui.spacing_mut().item_spacing = Vec2::splat(spacing);
 
-                                // 1. 粗细选择
-                                for width in WIDTH_OPTIONS.iter() {
+                                // 1. 粗细选择 (如果是马赛克就用巨大的粗细套件)
+                                let widths_to_use = if show_colors { &WIDTH_OPTIONS } else { &MOSAIC_WIDTH_OPTIONS };
+
+                                for width in widths_to_use.iter() {
                                     let (response_rect, response) = ui.allocate_exact_size(Vec2::splat(item_size), Sense::click());
 
                                     let center = response_rect.center();
-                                    let visual_radius = match *width {
-                                        2.0 => 3.5,
-                                        4.0 => 5.5,
-                                        _ => 8.0,
+                                    // 视觉半径等比缩放
+                                    let visual_radius = if show_colors {
+                                        match *width { 2.0 => 3.5, 4.0 => 5.5, _ => 8.0 }
+                                    } else {
+                                        match *width { 8.0 => 4.0, 16.0 => 6.0, _ => 8.0 }
                                     };
 
-                                    // 选中外圈
                                     if (*width - *current_width).abs() < 0.001 {
                                         ui.painter().circle_stroke(center, visual_radius + 3.0, Stroke::new(1.0, Color32::GRAY));
                                     }
 
-                                    // 实心圆点
                                     ui.painter().circle_filled(center, visual_radius, Color32::from_gray(100));
 
                                     if response.clicked() {
@@ -147,35 +140,32 @@ impl ColorPicker {
                                     }
                                 }
 
-                                // 2. 分割线 (egui 会自动在它前后加上 item_spacing)
-                                let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(separator_width, item_size), Sense::hover());
-                                ui.painter().line_segment(
-                                    [sep_rect.center_top() + Vec2::new(0.0, 2.0), sep_rect.center_bottom() - Vec2::new(0.0, 2.0)],
-                                    Stroke::new(1.0, Color32::from_gray(180))
-                                );
+                                // 【修改】只有普通画笔才绘制调色盘
+                                if show_colors {
+                                    // 2. 分割线
+                                    let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(separator_width, item_size), Sense::hover());
+                                    ui.painter().line_segment(
+                                        [sep_rect.center_top() + Vec2::new(0.0, 2.0), sep_rect.center_bottom() - Vec2::new(0.0, 2.0)],
+                                        Stroke::new(1.0, Color32::from_gray(180))
+                                    );
 
-                                // 3. 颜色选择
-                                for color in COLOR_OPTIONS.iter() {
-                                    let (response_rect, response) = ui.allocate_exact_size(Vec2::splat(item_size), Sense::click());
+                                    // 3. 颜色选择
+                                    for color in COLOR_OPTIONS.iter() {
+                                        let (response_rect, response) = ui.allocate_exact_size(Vec2::splat(item_size), Sense::click());
 
-                                    if *color == self.selected_color {
-                                        ui.painter().rect_stroke(response_rect.expand(2.0), 4.0, Stroke::new(2.0, Color32::WHITE), StrokeKind::Outside);
-                                        ui.painter().rect_stroke(response_rect.expand(2.0), 4.0, Stroke::new(1.0, Color32::GRAY), StrokeKind::Outside);
-                                    } else if *color == Color32::WHITE {
-                                        // 未选中时的白色色块：使用标准灰色边框，与背景区分更明显
-                                        ui.painter().rect_stroke(
-                                            response_rect,
-                                            4.0,
-                                            Stroke::new(1.0, Color32::GRAY), // 这里改成 Color32::GRAY (128) 或者 from_gray(100)
-                                            StrokeKind::Inside
-                                        );
-                                    }
+                                        if *color == self.selected_color {
+                                            ui.painter().rect_stroke(response_rect.expand(2.0), 4.0, Stroke::new(2.0, Color32::WHITE), StrokeKind::Outside);
+                                            ui.painter().rect_stroke(response_rect.expand(2.0), 4.0, Stroke::new(1.0, Color32::GRAY), StrokeKind::Outside);
+                                        } else if *color == Color32::WHITE {
+                                            ui.painter().rect_stroke(response_rect, 4.0, Stroke::new(1.0, Color32::GRAY), StrokeKind::Inside);
+                                        }
 
-                                    ui.painter().rect_filled(response_rect, 4.0, *color);
+                                        ui.painter().rect_filled(response_rect, 4.0, *color);
 
-                                    if response.clicked() {
-                                        self.selected_color = *color;
-                                        color_changed = true;
+                                        if response.clicked() {
+                                            self.selected_color = *color;
+                                            color_changed = true;
+                                        }
                                     }
                                 }
                             });

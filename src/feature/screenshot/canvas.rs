@@ -34,9 +34,7 @@ fn get_hovered_shape_index(
                 let dy = pos.y - center.y;
                 let dist = pos.distance(center);
 
-                if dist < 0.1 || a < 0.1 || b < 0.1 {
-                    false
-                } else {
+                if dist < 0.1 || a < 0.1 || b < 0.1 { false } else {
                     let cos_t = dx / dist;
                     let sin_t = dy / dist;
                     let r_theta = (a * b) / ((b * cos_t).powi(2) + (a * sin_t).powi(2)).sqrt();
@@ -50,11 +48,9 @@ fn get_hovered_shape_index(
                 if let Some(galley) = layout_text_shape(shape, painter) {
                     let text_rect = Rect::from_min_size(start_local, galley.size());
                     text_rect.expand(4.0).contains(pos)
-                } else {
-                    false
-                }
+                } else { false }
             },
-            ScreenshotTool::Pen => {
+            ScreenshotTool::Pen | ScreenshotTool::Mosaic => {
                 if let Some(points) = &shape.points {
                     let mut hovered = false;
                     for i in 0..points.len().saturating_sub(1) {
@@ -66,20 +62,15 @@ fn get_hovered_shape_index(
                         }
                     }
                     hovered
-                } else {
-                    false
-                }
-            }
+                } else { false }
+            },
         };
 
-        if is_hovered {
-            return Some(index);
-        }
+        if is_hovered { return Some(index); }
     }
     None
 }
 
-/// 处理与画布的交互（拖拽选区、画图、打字、移动形状）
 pub fn handle_interaction(
     ui: &mut Ui,
     state: &mut ScreenshotState,
@@ -166,7 +157,7 @@ pub fn handle_interaction(
     // ==========================================
     if is_hovering_ui {
         ui.ctx().set_cursor_icon(CursorIcon::Default);
-    } else if (is_moving_state && state.current_shape_start.is_none()) || is_dragging_sel {
+    } else if (is_moving_state && state.current_shape_start.is_none() && state.current_pen_points.is_empty()) || is_dragging_sel {
         ui.ctx().set_cursor_icon(CursorIcon::Move);
     } else if state.current_tool.is_none() && is_hovering_selection_bg {
         // 由于上面限制了 is_hovering_selection_bg，有图形时这里就不会变成 Move
@@ -207,44 +198,21 @@ pub fn handle_interaction(
                                 // 扣除输入框的 16 像素水平内边距 (左右各 8.0)
                                 // 这样模拟出来的固化排版，就和用户在框里看到的一模一样了
                                 (sel_max_x_local - start_local_x - 16.0).max(20.0)
-                            } else {
-                                1000.0
-                            };
+                            } else { 1000.0 };
 
                             let galley = ui.painter().layout(
-                                text.clone(),
-                                egui::FontId::proportional(font_size),
-                                Color32::WHITE,
-                                max_width_logical,
+                                text.clone(), egui::FontId::proportional(font_size), Color32::WHITE, max_width_logical,
                             );
 
-                            // ==========================================
-                            // 直接从底层的 Glyphs 中“榨取”最真实的排版结果
-                            // ==========================================
                             let mut baked_text = String::new();
                             let rows_len = galley.rows.len();
-
                             for (i, row) in galley.rows.iter().enumerate() {
                                 let mut row_str = String::new();
-
-                                // 直接遍历 egui 决定分配到这一行的所有字符 (glyphs)
-                                for glyph in &row.glyphs {
-                                    row_str.push(glyph.chr);
-                                }
-
-                                // 过滤掉这一行末尾可能存在的隐藏换行符
-                                // (如果用户敲了回车，egui 有时会把 '\n' 也算作一个字符放在行尾)
-                                let clean_row = row_str.trim_end_matches(&['\r', '\n'][..]);
-                                baked_text.push_str(clean_row);
-
-                                // 只要不是最后一行，我们就硬塞一个 '\n' 进去
-                                if i < rows_len - 1 {
-                                    baked_text.push('\n');
-                                }
+                                for glyph in &row.glyphs { row_str.push(glyph.chr); }
+                                baked_text.push_str(row_str.trim_end_matches(&['\r', '\n'][..]));
+                                if i < rows_len - 1 { baked_text.push('\n'); }
                             }
 
-                            // 补偿坐标偏移
-                            // 文字在视觉上是偏移了 8.0 像素的，我们将这 8 像素补偿进保存的物理坐标中
                             let start_pos_phys = pos + Vec2::new(8.0 * ppp, 8.0 * ppp);
                             let text_width_phys = galley.size().x * ppp;
                             let end_pos = start_pos_phys + Vec2::new(text_width_phys, 0.0);
@@ -256,7 +224,6 @@ pub fn handle_interaction(
                                 end: end_pos,
                                 color: state.active_color,
                                 stroke_width: state.stroke_width,
-                                // 把固化好真实换行的纯文本直接保存进去！不需要加任何新字段！
                                 text: Some(baked_text),
                                 points: None,
                             });
@@ -278,7 +245,7 @@ pub fn handle_interaction(
                 } else if can_draw && state.current_tool.is_some() {
                     if let Some(selection) = state.selection {
                         if selection.contains(global_phys) && state.current_tool != Some(ScreenshotTool::Text) {
-                            if state.current_tool == Some(ScreenshotTool::Pen) {
+                            if state.current_tool == Some(ScreenshotTool::Pen) || state.current_tool == Some(ScreenshotTool::Mosaic) {
                                 state.current_pen_points.clear();
                                 state.current_pen_points.push(global_phys);
                             } else {
@@ -336,9 +303,7 @@ pub fn handle_interaction(
 
                             // 拖拽已有画笔笔记时，也一并偏移所有坐标
                             if let Some(points) = &mut shape.points {
-                                for p in points.iter_mut() {
-                                    *p += clamped_delta;
-                                }
+                                for p in points.iter_mut() { *p += clamped_delta; }
                             }
                             state.drag_start = Some(drag_start_phys + clamped_delta);
                         }
@@ -353,8 +318,7 @@ pub fn handle_interaction(
                         state.selection = Some(sel);
                         state.drag_start = Some(current_phys);
                     }
-                }else if state.current_tool == Some(ScreenshotTool::Pen) && !state.current_pen_points.is_empty() {
-                    // 画笔进行中：不断吸取点
+                } else if (state.current_tool == Some(ScreenshotTool::Pen) || state.current_tool == Some(ScreenshotTool::Mosaic)) && !state.current_pen_points.is_empty() {
                     let mut clamped_phys = current_phys;
                     if let Some(sel) = state.selection {
                         clamped_phys = clamp_pos_to_rect(current_phys, sel);
@@ -387,10 +351,8 @@ pub fn handle_interaction(
                 } else if is_dragging_sel {
                     ui.data_mut(|d| d.remove::<bool>(dragging_sel_id));
                     state.drag_start = None;
-                    if let Some(sel) = state.selection {
-                        state.toolbar_pos = Some(sel.right_bottom());
-                    }
-                }else if !state.current_pen_points.is_empty() {
+                    if let Some(sel) = state.selection { state.toolbar_pos = Some(sel.right_bottom()); }
+                } else if !state.current_pen_points.is_empty() {
                     if state.current_pen_points.len() > 1 {
                         // 建立外框范围记录以防越界
                         let mut min_pos = state.current_pen_points[0];
@@ -401,12 +363,16 @@ pub fn handle_interaction(
                         }
 
                         state.history.push(HistoryEntry { shapes: state.shapes.clone(), selection: state.selection });
+
+                        let tool = state.current_tool.unwrap();
+                        let used_width = if tool == ScreenshotTool::Mosaic { state.mosaic_width } else { state.stroke_width };
+
                         state.shapes.push(DrawnShape {
-                            tool: ScreenshotTool::Pen,
+                            tool,
                             start: min_pos,
                             end: max_pos,
                             color: state.active_color,
-                            stroke_width: state.stroke_width,
+                            stroke_width: used_width, // 【修改】根据不同工具应用正确宽
                             text: None,
                             points: Some(state.current_pen_points.clone()),
                         });
@@ -419,13 +385,7 @@ pub fn handle_interaction(
                         if let Some(tool) = state.current_tool {
                             state.history.push(HistoryEntry { shapes: state.shapes.clone(), selection: state.selection });
                             state.shapes.push(DrawnShape {
-                                tool,
-                                start: start_pos,
-                                end: end_pos,
-                                color: state.active_color,
-                                stroke_width: state.stroke_width,
-                                text: None,
-                                points: None,
+                                tool, start: start_pos, end: end_pos, color: state.active_color, stroke_width: state.stroke_width, text: None, points: None,
                             });
                         }
                     }
@@ -463,11 +423,7 @@ pub fn render_canvas_elements(
         let vec_min = global_sel_phys.min - global_offset_phys;
         let vec_max = global_sel_phys.max - global_offset_phys;
 
-        let local_logical_rect = Rect::from_min_max(
-            Pos2::ZERO + (vec_min / ppp),
-            Pos2::ZERO + (vec_max / ppp),
-        );
-
+        let local_logical_rect = Rect::from_min_max(Pos2::ZERO + (vec_min / ppp), Pos2::ZERO + (vec_max / ppp));
         let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
         let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
 
@@ -496,18 +452,13 @@ pub fn render_canvas_elements(
                 let bg_size = galley.size() + padding * 2.0;
 
                 let mut label_pos = local_logical_rect.min - egui::vec2(0.0, bg_size.y + 5.0);
-                if label_pos.y < screen_rect_local.min.y {
-                    label_pos = local_logical_rect.min + egui::vec2(5.0, 5.0);
-                }
+                if label_pos.y < screen_rect_local.min.y { label_pos = local_logical_rect.min + egui::vec2(5.0, 5.0); }
 
                 let label_rect = Rect::from_min_size(label_pos, bg_size);
                 painter.rect_filled(label_rect, 4.0, Color32::from_black_alpha(160));
                 painter.galley(label_rect.min + padding, galley, text_color);
             }
-
-        } else {
-            painter.rect_filled(viewport_rect, 0.0, overlay_color);
-        }
+        } else { painter.rect_filled(viewport_rect, 0.0, overlay_color); }
     }
     // ==========================================
     // 渲染已经画好的图形和文字
@@ -538,28 +489,21 @@ pub fn render_canvas_elements(
             // 绘制悬停/拖拽时的淡蓝色高亮框
             if (Some(index) == hovered_index || Some(index) == dragging_index) && state.current_shape_start.is_none() {
                 let highlight_rect = if shape.tool == ScreenshotTool::Text { text_rect } else { rect };
-                painter.rect_stroke(
-                    highlight_rect.expand(2.0),
-                    2.0,
-                    Stroke::new(1.0, Color32::from_rgba_premultiplied(0, 150, 255, 100)),
-                    StrokeKind::Outside
-                );
+                painter.rect_stroke(highlight_rect.expand(2.0), 2.0, Stroke::new(1.0, Color32::from_rgba_premultiplied(0, 150, 255, 100)), StrokeKind::Outside);
             }
 
-            // 绘制图形或文本本身
             if shape.tool == ScreenshotTool::Text {
-                // 不再使用不换行的 painter.text，而是把带换行信息的 galley 直接印上去
-                if let Some(galley) = text_galley {
-                    painter.galley(start_local, galley, shape.color);
-                }
+                if let Some(galley) = text_galley { painter.galley(start_local, galley, shape.color); }
             } else if shape.tool == ScreenshotTool::Pen {
-                // 画布渲染已提交的画笔
                 if let Some(points) = &shape.points {
                     let mut local_points = Vec::with_capacity(points.len());
-                    for p in points {
-                        local_points.push(Pos2::ZERO + ((*p - global_offset_phys) / ppp));
-                    }
+                    for p in points { local_points.push(Pos2::ZERO + ((*p - global_offset_phys) / ppp)); }
                     painter.add(egui::Shape::line(local_points, Stroke::new(shape.stroke_width, shape.color)));
+                }
+            } else if shape.tool == ScreenshotTool::Mosaic {
+                // 【调用新增引擎】直接在画布中渲染马赛克遮盖层
+                if let Some(points) = &shape.points {
+                    draw_realtime_mosaic(painter, points, shape.stroke_width, global_offset_phys, ppp, &state.captures);
                 }
             } else {
                 draw_egui_shape(painter, shape.tool, rect, start_local, end_local, shape.stroke_width, shape.color);
@@ -581,12 +525,17 @@ pub fn render_canvas_elements(
 
     // 渲染正在绘制中的画笔
     if !state.current_pen_points.is_empty() {
-        let mut local_points = Vec::with_capacity(state.current_pen_points.len());
-        for p in &state.current_pen_points {
-            local_points.push(Pos2::ZERO + ((*p - global_offset_phys) / ppp));
+        if state.current_tool == Some(ScreenshotTool::Mosaic) {
+            // 【实时拖拽马赛克引擎】拖拽到哪渲染到哪
+            draw_realtime_mosaic(painter, &state.current_pen_points, state.mosaic_width, global_offset_phys, ppp, &state.captures);
+        } else {
+            let mut local_points = Vec::with_capacity(state.current_pen_points.len());
+            for p in &state.current_pen_points {
+                local_points.push(Pos2::ZERO + ((*p - global_offset_phys) / ppp));
+            }
+            let stroke = Stroke::new(state.stroke_width, state.active_color);
+            painter.add(egui::Shape::line(local_points, stroke));
         }
-        let stroke = Stroke::new(state.stroke_width, state.active_color);
-        painter.add(egui::Shape::line(local_points, stroke));
     }
 
     if state.selection.is_none() && state.current_shape_start.is_none() && state.drag_start.is_none() {
@@ -595,11 +544,7 @@ pub fn render_canvas_elements(
                 let vec_min = hover_phys_rect.min - global_offset_phys;
                 let vec_max = hover_phys_rect.max - global_offset_phys;
 
-                let local_logical_rect = Rect::from_min_max(
-                    Pos2::ZERO + (vec_min / ppp),
-                    Pos2::ZERO + (vec_max / ppp),
-                );
-
+                let local_logical_rect = Rect::from_min_max(Pos2::ZERO + (vec_min / ppp), Pos2::ZERO + (vec_max / ppp));
                 let screen_rect_local = Rect::from_min_size(Pos2::ZERO, viewport_rect.size());
                 let clipped_local_sel = local_logical_rect.intersect(screen_rect_local);
 
@@ -619,23 +564,16 @@ pub fn render_canvas_elements(
             } else {
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
                     let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
-
                     if let Some(cap_phys_rect) = find_target_screen_rect(&state.captures, global_pointer_phys) {
                         let vec_min = cap_phys_rect.min - global_offset_phys;
                         let vec_max = cap_phys_rect.max - global_offset_phys;
 
-                        let local_logical_rect = Rect::from_min_max(
-                            Pos2::ZERO + (vec_min / ppp),
-                            Pos2::ZERO + (vec_max / ppp),
-                        );
-
+                        let local_logical_rect = Rect::from_min_max(Pos2::ZERO + (vec_min / ppp), Pos2::ZERO + (vec_max / ppp));
                         paint_style_box(painter, local_logical_rect, 3.0);
                     }
                 }
             }
-        } else {
-            painter.rect_filled(viewport_rect, 0.0, overlay_color);
-        }
+        } else { painter.rect_filled(viewport_rect, 0.0, overlay_color); }
     }
 
     // ==========================================
@@ -643,13 +581,10 @@ pub fn render_canvas_elements(
     // ==========================================
     if let Some((pos_phys, mut text)) = state.active_text_input.clone() {
         let pos_local = Pos2::ZERO + ((pos_phys - global_offset_phys) / ppp);
-
         let max_width = if let Some(sel) = state.selection {
             let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
             (sel_max_x_local - pos_local.x - 16.0).max(20.0)
-        } else {
-            1000.0
-        };
+        } else { 1000.0 };
 
         egui::Area::new(Id::new("screenshot_text_input"))
             .fixed_pos(pos_local)
@@ -662,22 +597,12 @@ pub fn render_canvas_elements(
                 let text_width = galley.size().x + 15.0;
                 let dynamic_width = text_width.max(20.0).min(max_width);
 
-                let frame = egui::Frame::default()
-                    // 固定一个半透明深色背景，这样无论背景图多白多亮，都能看清框在哪
-                    .fill(Color32::from_black_alpha(150))
-                    .inner_margin(8.0)
-                    .corner_radius(4.0);
-
+                let frame = egui::Frame::default().fill(Color32::from_black_alpha(150)).inner_margin(8.0).corner_radius(4.0);
                 let frame_response = frame.show(ui, |ui| {
                     ui.set_max_width(max_width);
-
                     let response = ui.add(
                         egui::TextEdit::multiline(&mut text)
-                            .font(font_id)
-                            // 文字的颜色跟随工具栏的颜色选择器
-                            .text_color(state.active_color)
-                            .frame(false)
-                            .desired_width(dynamic_width)
+                            .font(font_id).text_color(state.active_color).frame(false).desired_width(dynamic_width)
                     );
                     response.request_focus();
                     state.active_text_input = Some((pos_phys, text));
@@ -685,14 +610,11 @@ pub fn render_canvas_elements(
 
                 let rect = frame_response.response.rect;
                 let stroke = Stroke::new(1.5, Color32::from_gray(200));
-                let dash_len = 5.0;
-                let gap_len = 4.0;
                 let painter = ui.painter();
-
-                painter.add(egui::Shape::dashed_line(&[rect.left_top(), rect.right_top()], stroke, dash_len, gap_len));
-                painter.add(egui::Shape::dashed_line(&[rect.right_top(), rect.right_bottom()], stroke, dash_len, gap_len));
-                painter.add(egui::Shape::dashed_line(&[rect.right_bottom(), rect.left_bottom()], stroke, dash_len, gap_len));
-                painter.add(egui::Shape::dashed_line(&[rect.left_bottom(), rect.left_top()], stroke, dash_len, gap_len));
+                painter.add(egui::Shape::dashed_line(&[rect.left_top(), rect.right_top()], stroke, 5.0, 4.0));
+                painter.add(egui::Shape::dashed_line(&[rect.right_top(), rect.right_bottom()], stroke, 5.0, 4.0));
+                painter.add(egui::Shape::dashed_line(&[rect.right_bottom(), rect.left_bottom()], stroke, 5.0, 4.0));
+                painter.add(egui::Shape::dashed_line(&[rect.left_bottom(), rect.left_top()], stroke, 5.0, 4.0));
             });
     }
 }
@@ -736,26 +658,84 @@ fn dist_to_line_segment(p: Pos2, v: Pos2, w: Pos2) -> f32 {
 }
 
 fn clamp_pos_to_rect(pos: Pos2, rect: Rect) -> Pos2 {
-    Pos2::new(
-        pos.x.clamp(rect.min.x, rect.max.x),
-        pos.y.clamp(rect.min.y, rect.max.y),
-    )
+    Pos2::new(pos.x.clamp(rect.min.x, rect.max.x), pos.y.clamp(rect.min.y, rect.max.y))
 }
 
-// === 辅助函数：统一处理文本的动态排版与固定换行 ===
-fn layout_text_shape(
-    shape: &DrawnShape,
-    painter: &egui::Painter,
-) -> Option<std::sync::Arc<egui::Galley>> {
+fn layout_text_shape(shape: &DrawnShape, painter: &egui::Painter) -> Option<std::sync::Arc<egui::Galley>> {
     let text = shape.text.as_ref()?;
     let font_size = 20.0 + (shape.stroke_width * 2.0);
+    Some(painter.layout_no_wrap(text.clone(), egui::FontId::proportional(font_size), shape.color))
+}
 
-    // 因为保存下来的 shape.text 已经饱含了完美的 \n，
-    // 所以这里改用 `layout_no_wrap`！Egui 会忠实于这些 \n 进行渲染，
-    // 彻底杜绝了因为极微小的浮点数宽度误差导致的文字跳动和意外换行。
-    Some(painter.layout_no_wrap(
-        text.clone(),
-        egui::FontId::proportional(font_size),
-        shape.color,
-    ))
+// ==========================================
+// 【新增】黑科技：UI 级实时马赛克渲染引擎
+// ==========================================
+fn draw_realtime_mosaic(
+    painter: &egui::Painter,
+    points: &[Pos2],
+    mosaic_width: f32,
+    global_offset_phys: Pos2,
+    ppp: f32,
+    captures: &[crate::feature::screenshot::capture::CapturedScreen],
+) {
+    if points.is_empty() { return; }
+
+    let block_size_phys = 15.0;
+    let mut grid_cells = std::collections::HashSet::new();
+
+    // 根据马赛克的粗细计算触及半径
+    let radius_phys = (mosaic_width * ppp) / 2.0;
+
+    // 1. 将画笔触及的点映射为马赛克网格区域
+    for &p_phys in points {
+        let min_x = ((p_phys.x - radius_phys) / block_size_phys).floor() as i32;
+        let max_x = ((p_phys.x + radius_phys) / block_size_phys).ceil() as i32;
+        let min_y = ((p_phys.y - radius_phys) / block_size_phys).floor() as i32;
+        let max_y = ((p_phys.y + radius_phys) / block_size_phys).ceil() as i32;
+
+        for cy in min_y..=max_y {
+            for cx in min_x..=max_x {
+                let cell_center_x = (cx as f32 + 0.5) * block_size_phys;
+                let cell_center_y = (cy as f32 + 0.5) * block_size_phys;
+
+                // 圆形碰撞探测：只要网格中心落入画笔触及半径，就算覆盖
+                if p_phys.distance(Pos2::new(cell_center_x, cell_center_y)) <= radius_phys + (block_size_phys * 0.707) {
+                    grid_cells.insert((cx, cy));
+                }
+            }
+        }
+    }
+
+    // 2. 抓取原图像素，并生成对应的方块渲染在屏幕上
+    for (cx, cy) in grid_cells {
+        let phys_x = cx as f32 * block_size_phys;
+        let phys_y = cy as f32 * block_size_phys;
+
+        let mut color = Color32::TRANSPARENT;
+        let cell_center_phys = Pos2::new(phys_x + block_size_phys * 0.5, phys_y + block_size_phys * 0.5);
+
+        // 从原始截图中窃取对应坐标的颜色
+        for cap in captures {
+            let rect = Rect::from_min_size(
+                Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
+                Vec2::new(cap.screen_info.width as f32, cap.screen_info.height as f32)
+            );
+            if rect.contains(cell_center_phys) {
+                let local_x = (cell_center_phys.x - rect.min.x) as u32;
+                let local_y = (cell_center_phys.y - rect.min.y) as u32;
+                if local_x < cap.raw_image.width() && local_y < cap.raw_image.height() {
+                    let p = cap.raw_image.get_pixel(local_x, local_y);
+                    color = Color32::from_rgb(p[0], p[1], p[2]);
+                }
+                break;
+            }
+        }
+
+        // 把窃取来的颜色画在 UI 的方格子里，大功告成！
+        if color != Color32::TRANSPARENT {
+            let local_min = Pos2::ZERO + ((Pos2::new(phys_x, phys_y) - global_offset_phys) / ppp);
+            let local_rect = Rect::from_min_size(local_min, Vec2::splat(block_size_phys / ppp));
+            painter.rect_filled(local_rect, 0.0, color);
+        }
+    }
 }

@@ -94,7 +94,9 @@ pub fn render_help_box(
                             draw_icon_row(IconType::DrawRect, text_bundle.tooltip_draw_rect);
                             draw_icon_row(IconType::DrawCircle, text_bundle.tooltip_draw_circle);
                             draw_icon_row(IconType::DrawArrow, text_bundle.tooltip_draw_arrow);
-                            draw_icon_row(IconType::Pen, text_bundle.tooltip_draw_pencil);
+                            draw_icon_row(IconType::Pencil, text_bundle.tooltip_draw_pencil);
+                            draw_icon_row(IconType::Mosaic, text_bundle.tooltip_draw_mosaic);
+                            draw_icon_row(IconType::Text, text_bundle.tooltip_draw_text);
                             draw_icon_row(IconType::Save, text_bundle.tooltip_save);
                             draw_icon_row(IconType::SaveToClipboard, text_bundle.tooltip_save_to_clipboard);
                         });
