@@ -1,5 +1,5 @@
 use eframe::epaint::StrokeKind;
-use egui::{Color32, Rect, Response, Sense, Stroke, Ui, vec2};
+use egui::{Color32, Rect, Response, Sense, Stroke, Ui, vec2, Pos2};
 use crate::i18n::lang::TextBundle;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -10,6 +10,7 @@ pub enum IconType {
     DrawRect,
     DrawCircle,
     DrawArrow,
+    Pen,
     Cancel,
     Save,
     SaveToClipboard,
@@ -24,6 +25,7 @@ impl IconType {
             IconType::DrawRect => text.tooltip_draw_rect,
             IconType::DrawCircle => text.tooltip_draw_circle,
             IconType::DrawArrow => text.tooltip_draw_arrow,
+            IconType::Pen => text.tooltip_draw_pencil,
             IconType::Cancel => text.tooltip_cancel,
             IconType::Save => text.tooltip_save,
             IconType::SaveToClipboard => text.tooltip_save_to_clipboard,
@@ -77,6 +79,21 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
             let arrow_p2 = end - dir * arrow_size - vec2(dir.y, -dir.x) * arrow_size;
             painter.line_segment([end, arrow_p1], stroke);
             painter.line_segment([end, arrow_p2], stroke);
+        }
+        IconType::Pen => {
+            // 绘制一条带有弧度的波浪线/涂鸦线来代表画笔工具
+            let mut points = Vec::new();
+            let segments = 12;
+            for i in 0..=segments {
+                let t = i as f32 / segments as f32;
+                // 从左下到右上的对角线基础
+                let x = egui::lerp(icon_rect.left()..=icon_rect.right(), t);
+                let base_y = egui::lerp(icon_rect.bottom()..=icon_rect.top(), t);
+                // 加上正弦波形产生曲线感
+                let offset_y = (t * std::f32::consts::PI * 2.5).sin() * (icon_rect.height() * 0.25);
+                points.push(Pos2::new(x, base_y + offset_y));
+            }
+            painter.add(egui::Shape::line(points, stroke));
         }
         IconType::Cancel => {
             let inner = icon_rect.shrink(2.0);

@@ -19,7 +19,8 @@ pub enum ScreenshotTool {
     Rect,
     Circle,
     Arrow,
-    Text
+    Text,
+    Pen
 }
 
 #[derive(Clone)]
@@ -30,6 +31,7 @@ pub struct DrawnShape {
     pub color: Color32,
     pub stroke_width: f32,
     pub text: Option<String>,
+    pub points: Option<Vec<Pos2>>,
 }
 
 pub struct ScreenshotState {
@@ -59,6 +61,8 @@ pub struct ScreenshotState {
     pub history: Vec<HistoryEntry>,
     // 记录文本输入状态：Option<(文本所在的物理坐标, 文本内容)>
     pub active_text_input: Option<(Pos2, String)>,
+    // 当前正在绘制的画笔轨迹
+    pub current_pen_points: Vec<Pos2>,
 }
 
 #[derive(Clone)]
@@ -99,7 +103,8 @@ impl ScreenshotState {
             window_configured: false,
             prev_window_state: prev_state,
             history: Vec::new(),
-            active_text_input: None
+            active_text_input: None,
+            current_pen_points: Vec::new()
         }
     }
 }

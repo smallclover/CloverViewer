@@ -12,7 +12,7 @@ pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2,
     let vec_phys = global_toolbar_pos_phys - global_offset_phys;
     let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
 
-    let toolbar_width = 298.0;
+    let toolbar_width = 338.0;
     let toolbar_height = 48.0;
     let padding = 10.0;
 
@@ -149,6 +149,14 @@ fn draw_screenshot_toolbar(
                     state.current_tool = Some(ScreenshotTool::Text);
                 }
                 handle_tool_interaction(ui, &text_button, ScreenshotTool::Text, state);
+
+                // === 5. 画笔 ===
+                let is_pen = state.current_tool == Some(ScreenshotTool::Pen);
+                let pen_button = draw_icon_button(ui, is_pen, IconType::Pen, &text);
+                if pen_button.clicked() {
+                    state.current_tool = Some(ScreenshotTool::Pen);
+                }
+                handle_tool_interaction(ui, &pen_button, ScreenshotTool::Pen, state);
 
                 let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(1.0, 16.0), egui::Sense::hover());
                 ui.painter().line_segment(

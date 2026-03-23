@@ -30,6 +30,7 @@ pub fn draw_egui_shape(
         ScreenshotTool::Text => {
             // Text 在 UI 层面由 canvas.rs 独立渲染，这里不处理
         }
+        ScreenshotTool::Pen => {}
     }
 }
 
@@ -165,6 +166,25 @@ pub fn draw_skia_shapes_on_image(
                 }
                 ScreenshotTool::Arrow => {
                     draw_arrow_skia(&mut pixmap, start_x, start_y, end_x, end_y, &paint, &stroke);
+                }
+                ScreenshotTool::Pen => {
+                    // === 画笔在 Skia 端的抗锯齿渲染 ===
+                    if let Some(points) = &shape.points {
+                        if points.len() > 1 {
+                            let mut pb = tiny_skia::PathBuilder::new();
+                            let first_x = points[0].x - selection_phys.min.x;
+                            let first_y = points[0].y - selection_phys.min.y;
+                            pb.move_to(first_x, first_y);
+
+                            for p in points.iter().skip(1) {
+                                pb.line_to(p.x - selection_phys.min.x, p.y - selection_phys.min.y);
+                            }
+
+                            if let Some(path) = pb.finish() {
+                                pixmap.stroke_path(&path, &paint, &stroke, transform, None);
+                            }
+                        }
+                    }
                 }
                 _ => {}
             }

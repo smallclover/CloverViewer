@@ -53,6 +53,22 @@ fn get_hovered_shape_index(
                 } else {
                     false
                 }
+            },
+            ScreenshotTool::Pen => {
+                if let Some(points) = &shape.points {
+                    let mut hovered = false;
+                    for i in 0..points.len().saturating_sub(1) {
+                        let p1 = Pos2::ZERO + ((points[i] - global_offset_phys) / ppp);
+                        let p2 = Pos2::ZERO + ((points[i+1] - global_offset_phys) / ppp);
+                        if dist_to_line_segment(pos, p1, p2) <= grab_tolerance {
+                            hovered = true;
+                            break;
+                        }
+                    }
+                    hovered
+                } else {
+                    false
+                }
             }
         };
 
@@ -242,6 +258,7 @@ pub fn handle_interaction(
                                 stroke_width: state.stroke_width,
                                 // 把固化好真实换行的纯文本直接保存进去！不需要加任何新字段！
                                 text: Some(baked_text),
+                                points: None,
                             });
                         }
                     } else {
@@ -261,8 +278,13 @@ pub fn handle_interaction(
                 } else if can_draw && state.current_tool.is_some() {
                     if let Some(selection) = state.selection {
                         if selection.contains(global_phys) && state.current_tool != Some(ScreenshotTool::Text) {
-                            state.current_shape_start = Some(global_phys);
-                            state.current_shape_end = Some(global_phys);
+                            if state.current_tool == Some(ScreenshotTool::Pen) {
+                                state.current_pen_points.clear();
+                                state.current_pen_points.push(global_phys);
+                            } else {
+                                state.current_shape_start = Some(global_phys);
+                                state.current_shape_end = Some(global_phys);
+                            }
                         }
                     }
                 } else if is_hovering_selection_bg && state.current_tool.is_none() {
@@ -311,6 +333,13 @@ pub fn handle_interaction(
                             let clamped_delta = Vec2::new(dx, dy);
                             shape.start += clamped_delta;
                             shape.end += clamped_delta;
+
+                            // 拖拽已有画笔笔记时，也一并偏移所有坐标
+                            if let Some(points) = &mut shape.points {
+                                for p in points.iter_mut() {
+                                    *p += clamped_delta;
+                                }
+                            }
                             state.drag_start = Some(drag_start_phys + clamped_delta);
                         }
                     }
@@ -323,6 +352,18 @@ pub fn handle_interaction(
                         sel = sel.translate(delta_phys);
                         state.selection = Some(sel);
                         state.drag_start = Some(current_phys);
+                    }
+                }else if state.current_tool == Some(ScreenshotTool::Pen) && !state.current_pen_points.is_empty() {
+                    // 画笔进行中：不断吸取点
+                    let mut clamped_phys = current_phys;
+                    if let Some(sel) = state.selection {
+                        clamped_phys = clamp_pos_to_rect(current_phys, sel);
+                    }
+                    if let Some(last) = state.current_pen_points.last() {
+                        // 防止鼠标移动过于平滑录入无意义的重复坐标
+                        if last.distance(clamped_phys) > 2.0 {
+                            state.current_pen_points.push(clamped_phys);
+                        }
                     }
                 } else if let Some(_) = state.current_shape_start {
                     let mut clamped_phys = current_phys;
@@ -349,6 +390,28 @@ pub fn handle_interaction(
                     if let Some(sel) = state.selection {
                         state.toolbar_pos = Some(sel.right_bottom());
                     }
+                }else if !state.current_pen_points.is_empty() {
+                    if state.current_pen_points.len() > 1 {
+                        // 建立外框范围记录以防越界
+                        let mut min_pos = state.current_pen_points[0];
+                        let mut max_pos = state.current_pen_points[0];
+                        for p in &state.current_pen_points {
+                            min_pos = min_pos.min(*p);
+                            max_pos = max_pos.max(*p);
+                        }
+
+                        state.history.push(HistoryEntry { shapes: state.shapes.clone(), selection: state.selection });
+                        state.shapes.push(DrawnShape {
+                            tool: ScreenshotTool::Pen,
+                            start: min_pos,
+                            end: max_pos,
+                            color: state.active_color,
+                            stroke_width: state.stroke_width,
+                            text: None,
+                            points: Some(state.current_pen_points.clone()),
+                        });
+                    }
+                    state.current_pen_points.clear();
                 } else if let Some(start_pos) = state.current_shape_start {
                     let end_pos = state.current_shape_end.unwrap_or(current_phys);
 
@@ -362,6 +425,7 @@ pub fn handle_interaction(
                                 color: state.active_color,
                                 stroke_width: state.stroke_width,
                                 text: None,
+                                points: None,
                             });
                         }
                     }
@@ -488,6 +552,15 @@ pub fn render_canvas_elements(
                 if let Some(galley) = text_galley {
                     painter.galley(start_local, galley, shape.color);
                 }
+            } else if shape.tool == ScreenshotTool::Pen {
+                // 画布渲染已提交的画笔
+                if let Some(points) = &shape.points {
+                    let mut local_points = Vec::with_capacity(points.len());
+                    for p in points {
+                        local_points.push(Pos2::ZERO + ((*p - global_offset_phys) / ppp));
+                    }
+                    painter.add(egui::Shape::line(local_points, Stroke::new(shape.stroke_width, shape.color)));
+                }
             } else {
                 draw_egui_shape(painter, shape.tool, rect, start_local, end_local, shape.stroke_width, shape.color);
             }
@@ -504,6 +577,16 @@ pub fn render_canvas_elements(
                 draw_egui_shape(painter, tool, rect, start_local, end_local, state.stroke_width, state.active_color);
             }
         }
+    }
+
+    // 渲染正在绘制中的画笔
+    if !state.current_pen_points.is_empty() {
+        let mut local_points = Vec::with_capacity(state.current_pen_points.len());
+        for p in &state.current_pen_points {
+            local_points.push(Pos2::ZERO + ((*p - global_offset_phys) / ppp));
+        }
+        let stroke = Stroke::new(state.stroke_width, state.active_color);
+        painter.add(egui::Shape::line(local_points, stroke));
     }
 
     if state.selection.is_none() && state.current_shape_start.is_none() && state.drag_start.is_none() {
