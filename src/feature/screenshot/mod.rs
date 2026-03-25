@@ -6,6 +6,7 @@ pub mod magnifier;
 pub mod draw;
 pub mod help_box;
 pub mod canvas;
+pub mod ocr;
 
 use eframe::egui::Context;
 use crate::core::hotkeys::HotkeyAction;
@@ -60,7 +61,48 @@ impl Feature for ScreenshotFeature {
         // 这里假设 copy_requested 已经在 app.rs 中同步到 self.state
 
         // 调用截图系统处理逻辑
-        handle_screenshot_system(ctx, &mut self.is_active, &mut self.state, common);
+        let ocr_image_opt = handle_screenshot_system(ctx, &mut self.is_active, &mut self.state, common);
+
+        if let Some(image) = ocr_image_opt {
+            // 1. 开启右侧面板状态
+            common.ocr_state.is_panel_open = true;
+            common.ocr_state.is_processing = true;
+            common.ocr_state.text = None;
+
+            // ==========================================
+            // 将图片存入临时目录，伪装成打开本地文件
+            // ==========================================
+            // 获取系统临时目录 (如 AppData/Local/Temp)
+            let temp_dir = std::env::temp_dir().join("CloverViewer");
+            let _ = std::fs::create_dir_all(&temp_dir); // 确保干净的专属目录存在
+
+            //TODO 当缓存积累到一定程度需要清理
+
+            // 加上时间戳，否则每次都从LRU里面的缓存读取
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis();
+            let temp_path = temp_dir.join(format!("ocr_temp_{}.png", timestamp));
+
+
+            // 保存图片并发送给 Viewer
+            if let Err(e) = image.save(&temp_path) {
+                eprintln!("[ERROR] 无法保存 OCR 临时图片: {}", e);
+            } else {
+                // 利用现有的消息通道，通知 Viewer 加载这张图！
+                let _ = common.path_sender.send(temp_path);
+            }
+
+            // 2. 建立多线程通道，启动 Windows OCR 引擎
+            let (tx, rx) = std::sync::mpsc::channel();
+            common.ocr_state.receiver = Some(rx);
+
+            std::thread::spawn(move || {
+                let result = ocr::engine::recognize_text(image);
+                let _ = tx.send(result);
+            });
+        }
 
         // 检测是否退出截图模式
         if !self.is_active {

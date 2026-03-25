@@ -37,9 +37,9 @@ pub use crate::feature::screenshot::state::{
 // capture.rs
 /// 处理截图系统的更新
 /// `is_active` - 是否处于截图模式，函数内部可将其设为 false 以退出截图模式
-pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_state: &mut ScreenshotState, common: &CommonState) {
+pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_state: &mut ScreenshotState, common: &CommonState) -> Option<image::DynamicImage> {
     if !*is_active {
-        return;
+        return None;
     }
 
     // 1. 发起和轮询截图阶段
@@ -52,7 +52,7 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
         if should_exit {
             *is_active = false;
         }
-        return;
+        return None;
     }
 
     // 2. 截图完成，全屏展开逻辑
@@ -107,9 +107,20 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
     // 3. 绘制截图 UI
     let action = draw_screenshot_ui(ctx, screenshot_state, &common.device_info);
 
+    let mut ocr_result_image = None;
     // 4. 退出截图模式，使用缓存的正常坐标恢复
     if action != ScreenshotAction::None {
-        handle_save_action(action, screenshot_state);
+
+        if action == ScreenshotAction::Ocr {
+            // 如果是 OCR，极速裁剪图片，包装为 DynamicImage 并暂存
+            if let Some(rgba_img) = extract_cropped_image(screenshot_state) {
+                ocr_result_image = Some(image::DynamicImage::ImageRgba8(rgba_img));
+            }
+        } else {
+            // 普通保存走老路子
+            handle_save_action(action, screenshot_state);
+        }
+
         //开启截图模式之后，将不再显示住窗口
         let config = get_context_config(ctx);
         let force_hide_to_tray = config.screenshot_hides_main_window;
@@ -117,7 +128,12 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
         let effective_prev_state = if force_hide_to_tray {
             WindowPrevState::Tray
         } else {
-            screenshot_state.prev_window_state
+            // 如果是ocr模式，那无论如何都显示主窗口
+            if action == ScreenshotAction::Ocr {
+                WindowPrevState::Normal
+            }else{
+                screenshot_state.prev_window_state
+            }
         };
         unlock_cursor();
 
@@ -164,6 +180,8 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
 
         ctx.request_repaint();
     }
+    // 将图片交给 App 外层！
+    ocr_result_image
 }
 
 pub fn draw_screenshot_ui(
@@ -395,62 +413,64 @@ fn handle_capture_process(
 
 fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut ScreenshotState) {
     if final_action == ScreenshotAction::SaveAndClose || final_action == ScreenshotAction::SaveToClipboard {
-        if let Some(selection_phys) = screenshot_state.selection {
-            if selection_phys.is_positive() {
-                let captures_data: Vec<_> = screenshot_state.captures.iter().map(|c| {
-                    (
-                        c.raw_image.clone(),
-                        Rect::from_min_size(
-                            egui::pos2(c.screen_info.x as f32, c.screen_info.y as f32),
-                            egui::vec2(c.screen_info.width as f32, c.screen_info.height as f32),
-                        )
-                    )
-                }).collect();
-                let shapes = screenshot_state.shapes.clone();
-
-                thread::spawn(move || {
-                    let final_width = selection_phys.width().round() as u32;
-                    let final_height = selection_phys.height().round() as u32;
-                    if final_width == 0 || final_height == 0 { return; }
-
-                    let mut final_image = RgbaImage::new(final_width, final_height);
-
-                    for (_, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
-                        let intersection = selection_phys.intersect(*monitor_rect_phys);
-                        if !intersection.is_positive() { continue; }
-
-                        let crop_x = (intersection.min.x - monitor_rect_phys.min.x).max(0.0).round() as u32;
-                        let crop_y = (intersection.min.y - monitor_rect_phys.min.y).max(0.0).round() as u32;
-                        let crop_w = intersection.width().round() as u32;
-                        let crop_h = intersection.height().round() as u32;
-
-                        if crop_x + crop_w > raw_image.width() || crop_y + crop_h > raw_image.height() {
-                            continue;
-                        }
-
-                        let cropped_part = image::imageops::crop_imm(&**raw_image, crop_x, crop_y, crop_w, crop_h).to_image();
-                        let paste_x = (intersection.min.x - selection_phys.min.x).max(0.0).round() as u32;
-                        let paste_y = (intersection.min.y - selection_phys.min.y).max(0.0).round() as u32;
-                        let _ = final_image.copy_from(&cropped_part, paste_x, paste_y);
+        // 利用刚写好的函数瞬间切出图片，再丢给线程去写硬盘/剪贴板
+        if let Some(final_image) = extract_cropped_image(screenshot_state) {
+            thread::spawn(move || {
+                if final_action == ScreenshotAction::SaveAndClose {
+                    if let Ok(profile) = std::env::var("USERPROFILE") {
+                        let desktop = PathBuf::from(profile).join("Desktop");
+                        let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+                        let path = desktop.join(format!("screenshot_{}.png", timestamp));
+                        if let Err(e) = final_image.save(&path) { eprintln!("[ERROR] Save failed: {}", e); } else { println!("[SUCCESS] Saved to {:?}", path); }
                     }
-
-                    draw_skia_shapes_on_image(&mut final_image, &shapes, selection_phys);
-
-                    if final_action == ScreenshotAction::SaveAndClose {
-                        if let Ok(profile) = std::env::var("USERPROFILE") {
-                            let desktop = PathBuf::from(profile).join("Desktop");
-                            let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-                            let path = desktop.join(format!("screenshot_{}.png", timestamp));
-                            if let Err(e) = final_image.save(&path) { eprintln!("[ERROR] Save failed: {}", e); } else { println!("[SUCCESS] Saved to {:?}", path); }
-                        }
-                    } else if final_action == ScreenshotAction::SaveToClipboard {
-                        if let Ok(mut clipboard) = Clipboard::new() {
-                            let image_data = ImageData { width: final_image.width() as usize, height: final_image.height() as usize, bytes: Cow::from(final_image.into_raw()) };
-                            if let Err(e) = clipboard.set_image(image_data) { eprintln!("[ERROR] Failed to copy image to clipboard: {}", e); } else { println!("[SUCCESS] Copied image to clipboard."); }
-                        }
+                } else if final_action == ScreenshotAction::SaveToClipboard {
+                    if let Ok(mut clipboard) = Clipboard::new() {
+                        let image_data = ImageData { width: final_image.width() as usize, height: final_image.height() as usize, bytes: Cow::from(final_image.into_raw()) };
+                        if let Err(e) = clipboard.set_image(image_data) { eprintln!("[ERROR] Failed to copy image to clipboard: {}", e); } else { println!("[SUCCESS] Copied image to clipboard."); }
                     }
-                });
-            }
+                }
+            });
         }
     }
+}
+
+pub fn extract_cropped_image(screenshot_state: &ScreenshotState) -> Option<RgbaImage> {
+    let selection_phys = screenshot_state.selection?;
+    if !selection_phys.is_positive() { return None; }
+
+    let captures_data: Vec<_> = screenshot_state.captures.iter().map(|c| {
+        (
+            c.raw_image.clone(),
+            Rect::from_min_size(
+                egui::pos2(c.screen_info.x as f32, c.screen_info.y as f32),
+                egui::vec2(c.screen_info.width as f32, c.screen_info.height as f32),
+            )
+        )
+    }).collect();
+
+    let final_width = selection_phys.width().round() as u32;
+    let final_height = selection_phys.height().round() as u32;
+    if final_width == 0 || final_height == 0 { return None; }
+
+    let mut final_image = RgbaImage::new(final_width, final_height);
+
+    for (_, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
+        let intersection = selection_phys.intersect(*monitor_rect_phys);
+        if !intersection.is_positive() { continue; }
+
+        let crop_x = (intersection.min.x - monitor_rect_phys.min.x).max(0.0).round() as u32;
+        let crop_y = (intersection.min.y - monitor_rect_phys.min.y).max(0.0).round() as u32;
+        let crop_w = intersection.width().round() as u32;
+        let crop_h = intersection.height().round() as u32;
+
+        if crop_x + crop_w > raw_image.width() || crop_y + crop_h > raw_image.height() { continue; }
+
+        let cropped_part = image::imageops::crop_imm(&**raw_image, crop_x, crop_y, crop_w, crop_h).to_image();
+        let paste_x = (intersection.min.x - selection_phys.min.x).max(0.0).round() as u32;
+        let paste_y = (intersection.min.y - selection_phys.min.y).max(0.0).round() as u32;
+        let _ = final_image.copy_from(&cropped_part, paste_x, paste_y);
+    }
+
+    draw_skia_shapes_on_image(&mut final_image, &screenshot_state.shapes, selection_phys);
+    Some(final_image)
 }

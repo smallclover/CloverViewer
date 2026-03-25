@@ -32,6 +32,7 @@ use crate::{
         },
     },
 };
+use crate::feature::screenshot::ocr::ocr_panel;
 
 pub mod view;
 pub mod panels;
@@ -72,6 +73,20 @@ impl Feature for ViewerFeature {
         // 只在 Viewer 模式下处理
         if *mode != AppMode::Viewer {
             return;
+        }
+
+        // ==========================================
+        // 监听后台 OCR 识别结果
+        // ==========================================
+        if let Some(rx) = &common.ocr_state.receiver {
+            if let Ok(result) = rx.try_recv() {
+                common.ocr_state.is_processing = false;
+                match result {
+                    Ok(text) => common.ocr_state.text = Some(text),
+                    Err(err) => common.ocr_state.text = Some(format!("识别失败:\n{}", err)),
+                }
+                common.ocr_state.receiver = None; // 接收完毕，清理通道
+            }
         }
 
         //处理看图模式下的输入事件
@@ -172,7 +187,7 @@ impl ViewerFeature {
 
         // 2. 底部面板 (内联实现，避免依赖 AppState)
         self.draw_bottom_panel(ctx);
-
+        ocr_panel::show(ctx, &mut common.ocr_state);
         // 3. 中央面板
         let background_frame = Frame::NONE.fill(Color32::from_rgb(25, 25, 25));
         CentralPanel::default().frame(background_frame).show(ctx, |ui| {

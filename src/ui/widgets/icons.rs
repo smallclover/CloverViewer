@@ -15,6 +15,7 @@ pub enum IconType {
     Cancel,
     Save,
     SaveToClipboard,
+    Ocr
 }
 
 impl IconType {
@@ -31,6 +32,7 @@ impl IconType {
             IconType::Cancel => text.tooltip_cancel,
             IconType::Save => text.tooltip_save,
             IconType::SaveToClipboard => text.tooltip_save_to_clipboard,
+            IconType::Ocr => text.tooltip_ocr,
         }
     }
 }
@@ -137,6 +139,14 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
             let top_rect = Rect::from_min_max(clip_rect.min - vec2(-2.0, 2.0), clip_rect.max - vec2(2.0, clip_rect.height()));
             painter.rect_filled(top_rect, 0.0, bg_color);
             painter.rect_stroke(top_rect, 1.0, stroke, StrokeKind::Outside);
+        }
+        IconType::Ocr => {
+            let r = icon_rect.shrink(1.0);
+            painter.rect_stroke(r, 1.0, stroke, StrokeKind::Outside);
+            let pad = 3.0;
+            painter.line_segment([r.left_top() + vec2(pad, pad), r.right_top() + vec2(-pad, pad)], stroke);
+            painter.line_segment([r.left_top() + vec2(pad, pad + 3.0), r.right_top() + vec2(-pad, pad + 3.0)], stroke);
+            painter.line_segment([r.left_top() + vec2(pad, pad + 6.0), r.left_top() + vec2(r.width() - pad - 2.0, pad + 6.0)], stroke);
         }
     }
 }

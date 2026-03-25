@@ -3,6 +3,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use eframe::egui::Context;
 use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
+use crate::feature::screenshot::ocr::state::OcrState;
 use crate::model::config::Config;
 use crate::model::device::DeviceInfo;
 use crate::model::window_state::WindowState;
@@ -28,6 +29,7 @@ pub struct CommonState {
     pub device_info: DeviceInfo,
     /// 当点击托盘且窗口处于隐藏状态时设置为 true，app.rs 的 update loop 会重置模式并清除此标志
     pub tray_restore_requested: Arc<Mutex<bool>>,
+    pub ocr_state: OcrState,
 }
 
 impl AppState {
@@ -65,6 +67,7 @@ impl CommonState {
             window_state: win_s,
             device_info: DeviceInfo::load(),
             tray_restore_requested: Arc::new(Mutex::new(false)),
+            ocr_state: OcrState::default()
         }
     }
 }

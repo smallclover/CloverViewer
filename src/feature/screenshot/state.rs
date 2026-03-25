@@ -12,6 +12,7 @@ pub enum ScreenshotAction {
     Close,
     SaveAndClose,
     SaveToClipboard,
+    Ocr,
 }
 
 #[derive(PartialEq, Clone, Copy)]

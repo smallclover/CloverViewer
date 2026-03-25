@@ -12,8 +12,8 @@ pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2,
     let vec_phys = global_toolbar_pos_phys - global_offset_phys;
     let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
 
-    // 9个按钮(288) + 9个标准间距(72) + 2个额外分隔间距(16) + 1个分割线(1) + 左右内边距(16) = 393.0
-    let toolbar_width = 393.0;
+    // 10个按钮(320) + 10个标准间距(80) + 2个额外分隔间距(16) + 1个分割线(1) + 左右内边距(16) = 433.0
+    let toolbar_width = 433.0;
     let toolbar_height = 48.0;
     let padding = 10.0;
 
@@ -170,6 +170,9 @@ fn draw_screenshot_toolbar(
             // =========================
             // 【右侧布局】行为动作专区
             // =========================
+            if draw_icon_button(ui, false, IconType::Ocr, &text).clicked() {
+                action = ScreenshotAction::Ocr; // <--- 触发 OCR
+            }
             // 顺序恢复视觉上的从左到右自然排布
             if draw_icon_button(ui, false, IconType::Cancel, &text).clicked() {
                 action = ScreenshotAction::Close;
