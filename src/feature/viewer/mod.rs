@@ -229,22 +229,23 @@ impl ViewerFeature {
     }
 
     /// 底部面板（内联实现）
-    fn draw_bottom_panel(&self, ctx: &Context) {
+    fn draw_bottom_panel(&mut self, ctx: &Context) {
         let text = get_i18n_text(ctx);
 
         TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(10.0);
 
+                // 直接修改 view_mode
                 if draw_icon_button(ui, self.state.view_mode == ViewMode::Grid, IconType::Grid, &text).clicked() {
-                    // 注意：self.state.view_mode 是不可变的，我们需要另一种方式
-                    // 暂时用 clone 方式处理
+                    self.state.view_mode = ViewMode::Grid;
                 }
 
                 ui.add_space(4.0);
 
+                // 直接修改 view_mode
                 if draw_icon_button(ui, self.state.view_mode == ViewMode::Single, IconType::Single, &text).clicked() {
-                    // 同上
+                    self.state.view_mode = ViewMode::Single;
                 }
             });
         });
