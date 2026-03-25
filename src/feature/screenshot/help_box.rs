@@ -97,6 +97,7 @@ pub fn render_help_box(
                             draw_icon_row(IconType::Pencil, text_bundle.tooltip_draw_pencil);
                             draw_icon_row(IconType::Mosaic, text_bundle.tooltip_draw_mosaic);
                             draw_icon_row(IconType::Text, text_bundle.tooltip_draw_text);
+                            draw_icon_row(IconType::Ocr, text_bundle.tooltip_ocr);
                             draw_icon_row(IconType::Save, text_bundle.tooltip_save);
                             draw_icon_row(IconType::SaveToClipboard, text_bundle.tooltip_save_to_clipboard);
                         });

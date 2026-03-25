@@ -154,6 +154,10 @@ fn draw_screenshot_toolbar(
             if text_button.clicked() { state.current_tool = Some(ScreenshotTool::Text); }
             handle_tool_interaction(ui, &text_button, ScreenshotTool::Text, state);
 
+            if draw_icon_button(ui, false, IconType::Ocr, &text).clicked() {
+                action = ScreenshotAction::Ocr; // <--- 触发 OCR
+            }
+
             // =========================
             // 【视觉分割】居中对称的分割线
             // =========================
@@ -170,9 +174,6 @@ fn draw_screenshot_toolbar(
             // =========================
             // 【右侧布局】行为动作专区
             // =========================
-            if draw_icon_button(ui, false, IconType::Ocr, &text).clicked() {
-                action = ScreenshotAction::Ocr; // <--- 触发 OCR
-            }
             // 顺序恢复视觉上的从左到右自然排布
             if draw_icon_button(ui, false, IconType::Cancel, &text).clicked() {
                 action = ScreenshotAction::Close;
