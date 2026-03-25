@@ -61,6 +61,8 @@ pub struct TextBundle {
     pub about_desc: &'static str,
     pub about_github: &'static str,
     pub about_close: &'static str,
+    pub about_thankful_head: &'static str,
+    pub about_thankful_main: &'static str,
 
     // Viewer
     pub viewer_error: &'static str,
@@ -138,9 +140,11 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     shortcut_key_modified: "请按下按键...",
 
     about_title: "关于项目",
-    about_desc: "Rust 图片查看器",
+    about_desc: "Rust实现的图片查看器和截图工具",
     about_github: "GitHub 源码地址",
     about_close: "我知道了",
+    about_thankful_head: "献给我的妻子",
+    about_thankful_main: "谢谢她不嫌弃我把无数个周末都花在对着电脑屏幕发呆上",
 
     viewer_error: "文件损坏或格式不支持",
     viewer_drag_hint: "拖拽或打开文件夹",
@@ -208,9 +212,11 @@ pub const EN_TEXT: TextBundle = TextBundle {
     shortcut_key_modified: "Please Press The Key…",
 
     about_title: "About",
-    about_desc: "Rust Image Viewer",
+    about_desc: "Image viewer and screenshot tool implemented in Rust",
     about_github: "GitHub Repository",
     about_close: "Close",
+    about_thankful_head: "Dedicated to my wife",
+    about_thankful_main: "who didn't mind me spending countless weekends staring at a monitor",
 
     viewer_error: "File damaged or format not supported",
     viewer_drag_hint: "Drag and drop or open a folder",
@@ -278,9 +284,11 @@ pub const JA_TEXT: TextBundle = TextBundle {
     shortcut_key_modified: "キーを押してください…",
 
     about_title: "プロジェクトについて",
-    about_desc: "Rust 画像ビューア",
+    about_desc: "Rust製の画像ビューアおよびスクリーンショットツール",
     about_github: "GitHub ソースコード",
     about_close: "閉じる",
+    about_thankful_head: "私の妻に捧げます",
+    about_thankful_main: "数え切れないほどの週末をモニターの前で過ごす私を、文句も言わずに見守ってくれたことに感謝して",
 
     viewer_error: "ファイルが破損しているか、形式がサポートされていません",
     viewer_drag_hint: "ドラッグ＆ドロップまたはフォルダを開く",

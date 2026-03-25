@@ -18,6 +18,16 @@ pub fn render_about_window(ctx: &Context, open: &mut bool) {
                 "https://github.com/smallclover/CloverViewer",
             );
             ui.add_space(12.0);
+            // 改进后的代码
+            let thankful_text = format!("{}\n{}", text.about_thankful_head, text.about_thankful_main);
+
+            // 使用 RichText 将字体设置为斜体，并用 weak() 稍微降低一点透明度/对比度
+            ui.label(
+                egui::RichText::new(thankful_text)
+                    .italics()
+                    .weak()
+            );
+            ui.add_space(24.0);
 
             if ui.button(text.about_close).clicked() {
                 action = ModalAction::Close;
