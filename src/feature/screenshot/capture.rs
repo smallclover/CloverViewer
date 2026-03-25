@@ -169,7 +169,8 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
                 if let Some((w, h)) = config.window_size {
                     ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(w, h)));
                 }
-
+                // 恢复窗口的显示层次，否则会一直在最顶部
+                ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
                 ctx.send_viewport_cmd(ViewportCommand::Visible(true));
                 ctx.send_viewport_cmd(ViewportCommand::Focus);
             }
