@@ -10,6 +10,9 @@ mod utils;
 mod os;
 
 fn main() -> eframe::Result<()> {
+    // 初始化日志系统
+    core::logging::init_logging();
+
     let instance = single_instance::SingleInstance::new("CloverViewer").unwrap();
     if !instance.is_single() {
         return Ok(());
