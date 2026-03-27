@@ -7,8 +7,9 @@ use std::{
     env
 };
 use crate::{
+    core::config_manager::ConfigManager,
     model::{
-        config::{load_config, save_config, update_context_config, Config},
+        config::{load_config, update_context_config, Config},
         state::{AppState},
         mode::AppMode,
     },
@@ -68,9 +69,9 @@ pub fn run() -> eframe::Result<()> {
 }
 
 pub struct CloverApp {
-    state: AppState,
-    config: Arc<Config>,
     _tray: TrayIcon,
+    state: AppState,
+    config_manager: ConfigManager,
     viewer_feature: ViewerFeature,
     screenshot_feature: ScreenshotFeature,
 }
@@ -95,6 +96,9 @@ impl CloverApp {
         // 创建托盘，使用 tray_restore_requested 标志在点击时通知模式需要重置
         let tray = init_tray(&cc, &state.common.window_state.visible, &state.common.window_state.allow_quit, hwnd_usize, &state.common.tray_restore_requested);
 
+        // 创建 ConfigManager 用于防抖保存配置
+        let config_manager = ConfigManager::new(Arc::clone(&config_arc));
+
         // 创建 ViewerFeature（持有自己的 ViewerState 副本）
         let mut viewer_feature = ViewerFeature::new();
 
@@ -104,9 +108,9 @@ impl CloverApp {
         }
 
         Self {
-            state,
-            config: config_arc,
             _tray: tray,
+            state,
+            config_manager,
             viewer_feature,
             screenshot_feature: ScreenshotFeature::new(),
         }
@@ -178,16 +182,17 @@ impl CloverApp {
 
         // 从最小化恢复
         if was_minimized && !is_minimized {
-            println!("从最小化恢复，config 中窗口位置: {:?}, 尺寸: {:?}", self.config.window_pos, self.config.window_size);
+            let current_config = self.config_manager.config();
+            println!("从最小化恢复，config 中窗口位置: {:?}, 尺寸: {:?}", current_config.window_pos, current_config.window_size);
             ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
             ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
             ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
 
             // 移回截图前的原始位置和尺寸
-            if let Some((x, y))  = self.config.window_pos {
+            if let Some((x, y))  = current_config.window_pos {
                     ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
             }
-            if let Some((w, h))  = self.config.window_size {
+            if let Some((w, h))  = current_config.window_size {
                 ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(w, h)));
             }
         }
@@ -205,24 +210,25 @@ impl CloverApp {
                 let current_size = (inner.width(), inner.height());
 
                 // 检查是否发生变化
-                let pos_changed = self.config.window_pos != Some(current_pos);
-                let size_changed = self.config.window_size != Some(current_size);
+                let current_config = self.config_manager.config();
+                let pos_changed = current_config.window_pos != Some(current_pos);
+                let size_changed = current_config.window_size != Some(current_size);
 
                 // 鼠标没有任何按键被按下，说明用户的拖拽或缩放动作已经结束
                 let no_mouse_down = !ctx.input(|i| i.pointer.any_down());
 
                 if (pos_changed || size_changed) && no_mouse_down {
                     // 更新内存配置
-                    let mut new_config = (*self.config).clone();
+                    let mut new_config = (*current_config).clone();
                     new_config.window_pos = Some(current_pos);
                     new_config.window_size = Some(current_size);
-                    self.config = Arc::new(new_config);
+                    let new_config_arc = Arc::new(new_config);
 
-                    // 写入 config.json 永久保存
-                    save_config(&self.config);
+                    // 更新并触发保存
+                    self.config_manager.update_and_save(Arc::clone(&new_config_arc));
 
                     // 更新 Context 里的配置（保证全局同步）
-                    update_context_config(ctx, &self.config);
+                    update_context_config(ctx, &new_config_arc);
 
                 }
             }
@@ -233,10 +239,14 @@ impl CloverApp {
     fn handle_update_config(&mut self, ctx: &Context){
         if let Some(ModalAction::Apply) = self.viewer_feature.get_pending_config_action() {
             if let Some(config) = self.viewer_feature.take_pending_config() {
-                self.config = Arc::new(config);
-                save_config(&self.config);
-                self.state.reload_hotkeys(&self.config);
-                update_context_config(ctx, &self.config);
+                let new_config_arc = Arc::new(config);
+
+                // 直接立刻保存（因为这是手动点确认修改的，无需防抖）
+                self.config_manager.update_and_save(Arc::clone(&new_config_arc));
+                self.config_manager.save_now();
+
+                self.state.reload_hotkeys(&new_config_arc);
+                update_context_config(ctx, &new_config_arc)
             }
         }
     }
@@ -248,6 +258,9 @@ impl eframe::App for CloverApp {
         self.handle_cache_win_pos(ctx, frame);
         // 全局输入处理
         self.handle_global_input(ctx);
+
+        // 每帧检查是否需要保存配置（防抖）
+        self.config_manager.update();
 
         // 检查是否从托盘恢复，若是则重置模式为 Viewer
         if let Ok(mut flag) = self.state.common.tray_restore_requested.lock() {
@@ -269,5 +282,10 @@ impl eframe::App for CloverApp {
                 self.screenshot_feature.update(ctx, common, &mut self.state.mode);
             },
         }
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        // 应用退出时强制保存配置
+        self.config_manager.save_now();
     }
 }
