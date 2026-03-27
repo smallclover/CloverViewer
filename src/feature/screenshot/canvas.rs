@@ -594,17 +594,59 @@ pub fn render_canvas_elements(
                 let font_id = egui::FontId::proportional(font_size);
 
                 let galley = ui.painter().layout_no_wrap(text.clone(), font_id.clone(), Color32::WHITE);
-                let text_width = galley.size().x + 15.0;
-                let dynamic_width = text_width.max(20.0).min(max_width);
+                let text_width = galley.size().x + 8.0;
+                let dynamic_width = text_width.max(10.0).min(max_width);
 
                 let frame = egui::Frame::default().fill(Color32::from_black_alpha(150)).inner_margin(8.0).corner_radius(4.0);
                 let frame_response = frame.show(ui, |ui| {
                     ui.set_max_width(max_width);
+
+                    let mut pure_enter_pressed = false;
+
+                    // --- 核心拦截逻辑 ---
+                    ui.input_mut(|i| {
+                        let shift_pressed = i.modifiers.shift;
+
+                        // 判断这帧有没有输入实质性的文字（非换行符，比如输入法刚敲进去的汉字）
+                        let has_valid_text = i.events.iter().any(|e| {
+                            matches!(e, egui::Event::Text(t) if t != "\n" && t != "\r\n")
+                        });
+
+                        i.events.retain(|event| {
+                            match event {
+                                // 1. 拦截按键事件中的 Enter
+                                egui::Event::Key { key: egui::Key::Enter, pressed: true, .. } => {
+                                    if shift_pressed {
+                                        true // 放行 Shift + Enter，允许换行
+                                    } else {
+                                        // 既没按 Shift，也没输入汉字，说明是纯纯地敲了个回车（比如想确认完成输入）
+                                        if !has_valid_text {
+                                            pure_enter_pressed = true;
+                                        }
+                                        false // 吞掉普通的 Enter，绝对不准换行
+                                    }
+                                }
+                                // 2. 拦截输入法确认汉字时，可能偷偷塞进来的换行文本
+                                egui::Event::Text(t) if t == "\n" || t == "\r\n" => {
+                                    shift_pressed // 只有按了 Shift 的时候，才允许换行符进入输入框
+                                }
+                                _ => true,
+                            }
+                        });
+                    });
+
+                    // --- 渲染输入框 ---
                     let response = ui.add(
                         egui::TextEdit::multiline(&mut text)
-                            .font(font_id).text_color(state.active_color).frame(false).desired_width(dynamic_width)
+                            .font(font_id)
+                            .text_color(state.active_color)
+                            .frame(false)
+                            .desired_rows(1)
+                            .desired_width(dynamic_width)
                     );
+
                     response.request_focus();
+
                     state.active_text_input = Some((pos_phys, text));
                 });
 
