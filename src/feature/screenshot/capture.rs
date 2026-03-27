@@ -150,7 +150,7 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
                 ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
                 ctx.send_viewport_cmd(ViewportCommand::Visible(false));
                 // 调用系统 API 隐藏到托盘,似乎没用，暂时注释掉
-                // show_window_hide(common.window_state.hwnd_isize);
+                // show_window_hide(common.window_state.hwnd_usize);
             }
             WindowPrevState::Minimized => {
                 ctx.send_viewport_cmd(ViewportCommand::Visible(true));

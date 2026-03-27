@@ -7,7 +7,7 @@ use crate::os::window::{show_window_restore, show_window_restore_offscreen};
 use crate::utils::image::load_tray_icon;
 /// 创建托盘
 /// `tray_restore_requested` - 当点击托盘且窗口处于隐藏状态时设置为 true，app.rs 的 update loop 会重置模式并清除此标志
-pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_isize: isize, tray_restore_requested: &Arc<Mutex<bool>>) -> TrayIcon {
+pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_usize: usize, tray_restore_requested: &Arc<Mutex<bool>>) -> TrayIcon {
 
     let tray_menu = Menu::new();
     // 创建常规的菜单项
@@ -39,11 +39,11 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
             let mut vis = visible_for_tray.lock().unwrap();
             if !*vis {
                 // 隐藏状态下恢复
-                show_window_restore(hwnd_isize);
+                show_window_restore(hwnd_usize);
                 *vis = true;
                 // 设置标志，通知 app.rs 的 update loop 重置模式为 Viewer
                 if let Ok(mut flag) = tray_restore_for_tray.lock() {
-                    *flag = true; 
+                    *flag = true;
                 }
                 let config = get_context_config(&ctx);
                 if let Some((x, y)) = config.window_pos {
@@ -82,7 +82,7 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
             // 不是最小化的时候
             let info = ctx_2.input(|i| i.viewport().clone());
             if info.minimized == Some(false) {
-                show_window_restore_offscreen(hwnd_isize);
+                show_window_restore_offscreen(hwnd_usize);
             }
 
             *vis = true;

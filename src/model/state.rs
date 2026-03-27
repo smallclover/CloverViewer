@@ -25,7 +25,7 @@ pub struct CommonState {
     pub toast_system: ToastSystem,
     pub toast_manager: ToastManager,
     hotkey_manager: HotkeyManager,
-    pub window_state: WindowState,
+    pub window_state: Arc<WindowState>,
     pub device_info: DeviceInfo,
     /// 当点击托盘且窗口处于隐藏状态时设置为 true，app.rs 的 update loop 会重置模式并清除此标志
     pub tray_restore_requested: Arc<Mutex<bool>>,
@@ -33,7 +33,7 @@ pub struct CommonState {
 }
 
 impl AppState {
-    pub fn new(ctx: &Context, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: isize) -> Self {
+    pub fn new(ctx: &Context, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: usize) -> Self {
         Self {
             mode: AppMode::Viewer,
             common: CommonState::new(ctx, visible_hotkey, allow_quit, hwnd),
@@ -51,20 +51,19 @@ impl AppState {
 }
 
 impl CommonState {
-    pub fn new(ctx: &Context, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: isize) -> Self {
+    pub fn new(ctx: &Context, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: usize) -> Self {
         let toast_system = ToastSystem::new();
         let toast_manager = toast_system.manager();
         let (path_sender, path_receiver) = mpsc::channel();
-        let win_m = WindowState::new(Arc::clone(&visible_hotkey), Arc::clone(&allow_quit), hwnd);
-        let win_s = WindowState::new(visible_hotkey, allow_quit, hwnd);
+        let window_state = WindowState::new(Arc::clone(&visible_hotkey), Arc::clone(&allow_quit), hwnd);
 
         Self {
             path_sender,
             path_receiver,
             toast_system,
             toast_manager,
-            hotkey_manager: HotkeyManager::new(ctx, win_m),
-            window_state: win_s,
+            hotkey_manager: HotkeyManager::new(ctx, Arc::clone(&window_state)),
+            window_state,
             device_info: DeviceInfo::load(),
             tray_restore_requested: Arc::new(Mutex::new(false)),
             ocr_state: OcrState::default()

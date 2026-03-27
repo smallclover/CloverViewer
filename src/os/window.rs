@@ -35,8 +35,8 @@ use windows::Win32::UI::WindowsAndMessaging::{BringWindowToTop, ClipCursor, GetC
 //     unsafe { let _ = ShowWindow(window_handle, SW_MINIMIZE); }
 // }
 
-pub fn show_window_restore(hwnd_isize: isize){
-    let window_handle = get_window_handle(hwnd_isize);
+pub fn show_window_restore(hwnd_usize: usize){
+    let window_handle = get_window_handle(hwnd_usize);
     unsafe { let _ = ShowWindow(window_handle, SW_RESTORE); }
 }
 // pub fn show_window_show(hwnd_isize: isize){
@@ -44,8 +44,8 @@ pub fn show_window_restore(hwnd_isize: isize){
 //     unsafe { let _ = ShowWindow(window_handle, SW_SHOW); }
 // }
 
-pub fn show_window_restore_offscreen(hwnd_isize: isize) {
-    let window_handle = get_window_handle(hwnd_isize);
+pub fn show_window_restore_offscreen(hwnd_usize: usize) {
+    let window_handle = get_window_handle(hwnd_usize);
 
     unsafe {
         // 1. 在 Restore 之前，强制同步把窗口移到十万八千里外
@@ -66,29 +66,29 @@ pub fn show_window_restore_offscreen(hwnd_isize: isize) {
     }
 }
 
-pub fn show_window_hide(hwnd_isize: isize){
-    let window_handle = get_window_handle(hwnd_isize);
+pub fn show_window_hide(hwnd_usize: usize){
+    let window_handle = get_window_handle(hwnd_usize);
     unsafe { let _ = ShowWindow(window_handle, SW_HIDE); }
 }
 
-pub fn get_window_handle(hwnd_isize: isize) -> HWND {
-    HWND(hwnd_isize as *mut std::ffi::c_void)
+pub fn get_window_handle(hwnd_usize: usize) -> HWND {
+    HWND(hwnd_usize as *mut std::ffi::c_void)
 }
 
-pub fn get_hwnd_isize(cc: &eframe::CreationContext<'_>) -> isize {
+pub fn get_hwnd_usize(cc: &eframe::CreationContext<'_>) -> usize {
 
-    // 获取原生句柄并转为 isize 以支持跨线程
+    // 获取原生句柄并转为 usize 以支持跨线程
     let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
         panic!("Unsupported platform");
     };
-    
-    handle.hwnd.get()
+
+    handle.hwnd.get() as usize
 }
 
 /// 强制获取焦点，否则最小化状态下无法退出截图状态
-pub fn force_get_focus(hwnd_isize: isize) {
+pub fn force_get_focus(hwnd_usize: usize) {
     unsafe {
-        let window_handle = get_window_handle(hwnd_isize);
+        let window_handle = get_window_handle(hwnd_usize);
         let fg_hwnd = GetForegroundWindow();
 
         // 如果焦点已经是我们的窗口，直接返回

@@ -12,7 +12,7 @@ use crate::{
         state::{AppState},
         mode::AppMode,
     },
-    os::window::get_hwnd_isize,
+    os::window::get_hwnd_usize,
     utils::image::load_icon,
     ui::{
         widgets::{
@@ -85,15 +85,15 @@ impl CloverApp {
 
         let visible = Arc::new(Mutex::new(true));
         let allow_quit = Arc::new(Mutex::new(false));
-        let hwnd_isize = get_hwnd_isize(&cc);
+        let hwnd_usize = get_hwnd_usize(&cc);
 
         let config_arc = Arc::new(config);
         init_config_arc(&cc.egui_ctx, &Arc::clone(&config_arc));
 
-        let state = AppState::new(&cc.egui_ctx, visible, allow_quit, hwnd_isize);
+        let state = AppState::new(&cc.egui_ctx, visible, allow_quit, hwnd_usize);
 
         // 创建托盘，使用 tray_restore_requested 标志在点击时通知模式需要重置
-        let tray = init_tray(&cc, &state.common.window_state.visible, &state.common.window_state.allow_quit, hwnd_isize, &state.common.tray_restore_requested);
+        let tray = init_tray(&cc, &state.common.window_state.visible, &state.common.window_state.allow_quit, hwnd_usize, &state.common.tray_restore_requested);
 
         // 创建 ViewerFeature（持有自己的 ViewerState 副本）
         let mut viewer_feature = ViewerFeature::new();
@@ -131,7 +131,7 @@ impl CloverApp {
             if config.minimize_on_close && !*aq {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
                 *vis = false;
-                show_window_hide(self.state.common.window_state.hwnd_isize);
+                show_window_hide(self.state.common.window_state.hwnd_usize);
             }
         }
 

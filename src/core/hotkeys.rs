@@ -1,4 +1,4 @@
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc};
 use eframe::egui::Context;
 use egui::ViewportCommand;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
@@ -26,7 +26,7 @@ pub struct HotkeyManager {
 }
 
 impl HotkeyManager {
-    pub fn new(ctx: &Context, window_state: WindowState) -> Self {
+    pub fn new(ctx: &Context, window_state: Arc<WindowState>) -> Self {
         let hotkeys_manager = GlobalHotKeyManager::new().unwrap();
         let config = get_context_config(ctx);
         // 初始化时直接从 Config 解析
@@ -34,7 +34,7 @@ impl HotkeyManager {
             .unwrap_or(HotKey::new(Some(Modifiers::ALT), Code::KeyS));
 
         let copy_hotkey = parse_hotkey_str(&config.hotkeys.copy_screenshot)
-            .unwrap_or(HotKey::new(Some(Modifiers::CONTROL), Code::KeyC));
+            .unwrap_or(HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyC));
 
         // 注册显示截图的热键
         hotkeys_manager.register(show_hotkey).unwrap();
@@ -68,8 +68,8 @@ impl HotkeyManager {
             if prev_state != WindowPrevState::Normal {
                 if prev_state == WindowPrevState::Tray {
                     // 使用 Win32 API 在屏幕外唤醒！
-                    show_window_restore_offscreen(window_state.hwnd_isize);
-                    force_get_focus(window_state.hwnd_isize);
+                    show_window_restore_offscreen(window_state.hwnd_usize);
+                    force_get_focus(window_state.hwnd_usize);
                     *visible = true;
                     ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                 }else{
