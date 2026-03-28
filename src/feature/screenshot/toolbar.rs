@@ -1,6 +1,5 @@
 use eframe::egui::{self, Color32, Pos2, Rect, Vec2, Ui, Painter, Stroke, StrokeKind};
 use egui::{Response, UiBuilder};
-use crate::i18n::lang::{get_i18n_text};
 use crate::ui::widgets::icons::{draw_icon_button, IconType};
 use super::capture::{ScreenshotState, ScreenshotTool, ScreenshotAction};
 
@@ -102,7 +101,6 @@ fn draw_screenshot_toolbar(
     toolbar_rect: Rect,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
-    let text = get_i18n_text(ui.ctx());
 
     // --- 1. 绘制背景 ---
     painter.rect_filled(toolbar_rect, 8.0, Color32::WHITE);
@@ -125,36 +123,36 @@ fn draw_screenshot_toolbar(
             // 【左侧布局】绘画工具专区
             // =========================
             let is_rect = state.current_tool == Some(ScreenshotTool::Rect);
-            let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect, &text);
+            let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect);
             if rect_button.clicked() { state.current_tool = Some(ScreenshotTool::Rect); }
             handle_tool_interaction(ui, &rect_button, ScreenshotTool::Rect, state);
 
             let is_circle = state.current_tool == Some(ScreenshotTool::Circle);
-            let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle, &text);
+            let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle);
             if circle_button.clicked() { state.current_tool = Some(ScreenshotTool::Circle); }
             handle_tool_interaction(ui, &circle_button, ScreenshotTool::Circle, state);
 
             let is_arrow = state.current_tool == Some(ScreenshotTool::Arrow);
-            let arrow_button = draw_icon_button(ui, is_arrow, IconType::DrawArrow, &text);
+            let arrow_button = draw_icon_button(ui, is_arrow, IconType::DrawArrow);
             if arrow_button.clicked() { state.current_tool = Some(ScreenshotTool::Arrow); }
             handle_tool_interaction(ui, &arrow_button, ScreenshotTool::Arrow, state);
 
             let is_pen = state.current_tool == Some(ScreenshotTool::Pen);
-            let pen_button = draw_icon_button(ui, is_pen, IconType::Pencil, &text);
+            let pen_button = draw_icon_button(ui, is_pen, IconType::Pencil);
             if pen_button.clicked() { state.current_tool = Some(ScreenshotTool::Pen); }
             handle_tool_interaction(ui, &pen_button, ScreenshotTool::Pen, state);
 
             let is_mosaic = state.current_tool == Some(ScreenshotTool::Mosaic);
-            let mosaic_button = draw_icon_button(ui, is_mosaic, IconType::Mosaic, &text);
+            let mosaic_button = draw_icon_button(ui, is_mosaic, IconType::Mosaic);
             if mosaic_button.clicked() { state.current_tool = Some(ScreenshotTool::Mosaic); }
             handle_tool_interaction(ui, &mosaic_button, ScreenshotTool::Mosaic, state);
 
             let is_text = state.current_tool == Some(ScreenshotTool::Text);
-            let text_button = draw_icon_button(ui, is_text, IconType::Text, &text);
+            let text_button = draw_icon_button(ui, is_text, IconType::Text);
             if text_button.clicked() { state.current_tool = Some(ScreenshotTool::Text); }
             handle_tool_interaction(ui, &text_button, ScreenshotTool::Text, state);
 
-            if draw_icon_button(ui, false, IconType::Ocr, &text).clicked() {
+            if draw_icon_button(ui, false, IconType::Ocr).clicked() {
                 action = ScreenshotAction::Ocr; // <--- 触发 OCR
             }
 
@@ -175,15 +173,15 @@ fn draw_screenshot_toolbar(
             // 【右侧布局】行为动作专区
             // =========================
             // 顺序恢复视觉上的从左到右自然排布
-            if draw_icon_button(ui, false, IconType::Cancel, &text).clicked() {
+            if draw_icon_button(ui, false, IconType::Cancel).clicked() {
                 action = ScreenshotAction::Close;
             }
 
-            if draw_icon_button(ui, false, IconType::SaveToClipboard, &text).clicked() {
+            if draw_icon_button(ui, false, IconType::SaveToClipboard).clicked() {
                 action = ScreenshotAction::SaveToClipboard;
             }
 
-            if draw_icon_button(ui, false, IconType::Save, &text).clicked() {
+            if draw_icon_button(ui, false, IconType::Save).clicked() {
                 action = ScreenshotAction::SaveAndClose;
             }
         });

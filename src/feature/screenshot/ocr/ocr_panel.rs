@@ -1,5 +1,6 @@
 use egui::{Context, ScrollArea, SidePanel, TextEdit};
 use crate::feature::screenshot::ocr::state::OcrState;
+use crate::ui::widgets::icons::{draw_icon_button, IconType};
 
 pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
     if !ocr_state.is_panel_open {
@@ -14,7 +15,7 @@ pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
                 ui.heading("📝 文字识别 (OCR)");
                 // 靠右放置一个关闭按钮
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("❌").clicked() {
+                    if draw_icon_button(ui, false, IconType::Cancel).clicked() {
                         ocr_state.is_panel_open = false;
                     }
                 });

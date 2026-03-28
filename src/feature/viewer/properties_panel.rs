@@ -3,6 +3,7 @@ use crate::core::business::ViewerState;
 use crate::i18n::lang::{get_i18n_text, TextBundle};
 use crate::model::image_meta::ImageProperties;
 use crate::model::mode::OverlayMode;
+use crate::ui::widgets::icons::{draw_icon_button, IconType};
 
 pub fn draw_properties_panel(
     ctx: &Context,
@@ -27,7 +28,7 @@ pub fn draw_properties_panel(
             ui.horizontal(|ui| {
                 ui.heading(text.img_prop);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if ui.button("X").clicked() {
+                    if draw_icon_button(ui, false, IconType::Cancel).clicked() {
                         is_open = false;
                     }
                 });

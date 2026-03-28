@@ -6,3 +6,5 @@ pub mod tray;
 pub mod toggle;
 pub mod about;
 pub mod settings;
+pub mod context_menu;
+pub mod menu;

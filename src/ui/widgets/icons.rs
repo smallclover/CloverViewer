@@ -1,6 +1,6 @@
 use eframe::epaint::StrokeKind;
 use egui::{Color32, Rect, Response, Sense, Stroke, Ui, vec2, Pos2};
-use crate::i18n::lang::TextBundle;
+use crate::i18n::lang::{get_i18n_text, TextBundle};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum IconType {
@@ -152,10 +152,11 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
 }
 
 /// 供工具栏使用：带交互背景、正方形边框的大尺寸（32x32）按钮
-pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, text: &TextBundle) -> Response {
+pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType) -> Response {
+    let text = get_i18n_text(ui.ctx());
     let button_size = vec2(32.0, 32.0);
     let (rect, response) = ui.allocate_exact_size(button_size, Sense::click_and_drag());
-    response.clone().on_hover_text(icon_type.tooltip(text));
+    response.clone().on_hover_text(icon_type.tooltip(&text));
 
     let painter = ui.painter();
     let rounded_rect = rect.shrink(1.0);

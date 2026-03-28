@@ -17,21 +17,17 @@ use crate::{
         mode::{AppMode, OverlayMode},
         state::CommonState
     },
-    ui::{
-        menus::{
-            context_menu::{handle_context_menu_action, render_context_menu, ContextMenuAction},
-            menu::{draw_menu, MenuAction},
-        },
-        widgets::{
-            about::render_about_window,
-            icons::{draw_icon_button, IconType},
-            loading::global_loading,
-            modal::ModalAction,
-            settings::render_settings_window,
-        },
+    ui::widgets::{
+        about::render_about_window,
+        icons::{draw_icon_button, IconType},
+        loading::global_loading,
+        modal::ModalAction,
+        settings::render_settings_window,
     },
 };
 use crate::feature::screenshot::ocr::ocr_panel;
+use crate::ui::widgets::context_menu::{handle_context_menu_action, render_context_menu, ContextMenuAction};
+use crate::ui::widgets::menu::{draw_menu, MenuAction};
 
 pub mod properties_panel;
 pub mod single_view;
@@ -232,21 +228,19 @@ impl ViewerFeature {
 
     /// 底部面板（内联实现）
     fn draw_bottom_panel(&mut self, ctx: &Context) {
-        let text = get_i18n_text(ctx);
-
         TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.add_space(10.0);
 
                 // 直接修改 view_mode
-                if draw_icon_button(ui, self.state.view_mode == ViewMode::Grid, IconType::Grid, &text).clicked() {
+                if draw_icon_button(ui, self.state.view_mode == ViewMode::Grid, IconType::Grid).clicked() {
                     self.state.view_mode = ViewMode::Grid;
                 }
 
                 ui.add_space(4.0);
 
                 // 直接修改 view_mode
-                if draw_icon_button(ui, self.state.view_mode == ViewMode::Single, IconType::Single, &text).clicked() {
+                if draw_icon_button(ui, self.state.view_mode == ViewMode::Single, IconType::Single).clicked() {
                     self.state.view_mode = ViewMode::Single;
                 }
             });
