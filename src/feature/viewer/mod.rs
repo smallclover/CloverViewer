@@ -1,22 +1,21 @@
 use eframe::egui;
 use egui::{CentralPanel, Color32, Context, Frame, TopBottomPanel, Vec2, ViewportCommand};
 use rfd::FileDialog;
+use grid_view::draw_grid_view;
+use single_view::draw_single_view;
 use crate::{
     core::{
         business::{ViewMode, ViewerState},
         hotkeys::HotkeyAction,
-    },
+    }
+    ,
     feature::Feature,
-    feature::viewer::view::{
-        grid_view::draw_grid_view,
-        single_view::draw_single_view
-    },
     i18n::lang::get_i18n_text,
     model::{
         config::Config,
+        image_meta::SUPPORTED_IMAGE_EXTENSIONS,
         mode::{AppMode, OverlayMode},
-        state::CommonState,
-        image_meta::SUPPORTED_IMAGE_EXTENSIONS
+        state::CommonState
     },
     ui::{
         menus::{
@@ -34,8 +33,11 @@ use crate::{
 };
 use crate::feature::screenshot::ocr::ocr_panel;
 
-pub mod view;
-pub mod panels;
+pub mod properties_panel;
+pub mod single_view;
+pub mod grid_view;
+pub mod preview;
+pub mod arrows;
 
 /// ViewerFeature - 图片查看器功能模块
 pub struct ViewerFeature {
@@ -203,7 +205,7 @@ impl ViewerFeature {
 
         // 4. 属性面板
         if matches!(self.overlay, OverlayMode::Properties) {
-            crate::feature::viewer::panels::properties_panel::draw_properties_panel(
+            properties_panel::draw_properties_panel(
                 ctx,
                 &mut self.overlay,
                 &self.state,

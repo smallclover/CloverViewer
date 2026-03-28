@@ -6,10 +6,10 @@ use egui::{
 use crate::{
     core::business::ViewerState,
     model::mode::OverlayMode,
-    feature::viewer::view::preview::show_preview_window,
 };
+use crate::feature::viewer::preview::show_preview_window;
 use crate::i18n::lang::get_i18n_text;
-use crate::feature::viewer::view::arrows::{draw_arrows, Nav};
+use crate::feature::viewer::arrows::{draw_arrows, Nav};
 
 pub fn draw_single_view(
     ctx: &Context,
