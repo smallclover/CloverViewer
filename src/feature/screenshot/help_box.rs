@@ -34,10 +34,11 @@ pub fn render_help_box(
         let margin = 24.0;
         let target_pos = Pos2::new(screen_logical.min.x + margin, screen_logical.max.y - margin);
 
+        //  扩大估算范围：高度给到 350，宽度给到 300，并向外扩张 10 像素作为触碰容差
         let estimated_rect = Rect::from_min_max(
-            Pos2::new(target_pos.x, target_pos.y - 150.0),
-            Pos2::new(target_pos.x + 250.0, target_pos.y),
-        );
+            Pos2::new(target_pos.x, target_pos.y - 350.0),
+            Pos2::new(target_pos.x + 300.0, target_pos.y),
+        ).expand(10.0);
 
         if !sel_logical.intersects(estimated_rect) {
             let text_bundle = get_i18n_text(ui.ctx());
