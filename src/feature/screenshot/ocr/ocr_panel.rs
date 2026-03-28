@@ -15,7 +15,7 @@ pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
                 ui.heading("📝 文字识别 (OCR)");
                 // 靠右放置一个关闭按钮
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if draw_icon_button(ui, false, IconType::Cancel).clicked() {
+                    if draw_icon_button(ui, false, IconType::Cancel,20.0).clicked() {
                         ocr_state.is_panel_open = false;
                     }
                 });

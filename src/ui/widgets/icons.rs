@@ -134,11 +134,20 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
             painter.line_segment([icon_rect.left_top() + vec2(0.0, 2.0), icon_rect.right_top() + vec2(0.0, 2.0)], stroke);
         }
         IconType::SaveToClipboard => {
-            let clip_rect = icon_rect.shrink(1.0);
-            painter.rect_stroke(clip_rect, 2.0, stroke, StrokeKind::Outside);
-            let top_rect = Rect::from_min_max(clip_rect.min - vec2(-2.0, 2.0), clip_rect.max - vec2(2.0, clip_rect.height()));
-            painter.rect_filled(top_rect, 0.0, bg_color);
-            painter.rect_stroke(top_rect, 1.0, stroke, StrokeKind::Outside);
+            // 调整尺寸让图标看起来紧凑
+            let rect_size = icon_rect.size() * 0.75;
+            let offset = icon_rect.size() * 0.25;
+
+            // 后面的方块 (右下移)
+            let back_rect = Rect::from_min_size(icon_rect.min + offset, rect_size);
+            // 这里使用 bg_color 填充以覆盖线条重叠部分，使其看起来有层级
+            painter.rect_filled(back_rect, 1.0, bg_color);
+            painter.rect_stroke(back_rect, 1.0, stroke, StrokeKind::Outside);
+
+            // 前面的方块 (左上)
+            let fore_rect = Rect::from_min_size(icon_rect.min, rect_size);
+            painter.rect_filled(fore_rect, 1.0, bg_color);
+            painter.rect_stroke(fore_rect, 1.0, stroke, StrokeKind::Outside);
         }
         IconType::Ocr => {
             let r = icon_rect.shrink(1.0);
@@ -152,15 +161,16 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
 }
 
 /// 供工具栏使用：带交互背景、正方形边框的大尺寸（32x32）按钮
-pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType) -> Response {
+pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, size: f32) -> Response {
     let text = get_i18n_text(ui.ctx());
-    let button_size = vec2(32.0, 32.0);
+    let button_size = vec2(size, size);
     let (rect, response) = ui.allocate_exact_size(button_size, Sense::click_and_drag());
     response.clone().on_hover_text(icon_type.tooltip(&text));
 
     let painter = ui.painter();
     let rounded_rect = rect.shrink(1.0);
-    let corner_radius = 4.0;
+    // 动态计算圆角：例如尺寸的 12.5%，但不小于 2.0
+    let corner_radius = (size * 0.125).max(2.0);
 
     // 1. 绘制正方形的背景色 (Hover 或 选中状态)
     if selected {
@@ -179,8 +189,12 @@ pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType) -> Res
 
     // 3. 绘制内部的几何图标
     let icon_color = if selected { Color32::from_rgb(0, 120, 215) } else { Color32::from_gray(80) };
-    let stroke = Stroke::new(1.5, icon_color);
-    let icon_rect = rect.shrink(8.0);
+    // 动态计算线宽：大尺寸线粗一点，小尺寸线细一点
+    let stroke_width = (size / 24.0).clamp(1.0, 2.5);
+    let stroke = Stroke::new(stroke_width, icon_color);
+
+    // 动态内边距：按钮尺寸的 25% 作为 padding (例如 32的padding是8)
+    let icon_rect = rect.shrink(size * 0.25);
 
     paint_icon(painter, icon_rect, icon_type, stroke, Color32::WHITE);
 
@@ -190,7 +204,7 @@ pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType) -> Res
 /// 供 Help Box 使用：纯静态展示，完美融入 13pt 文本行内
 pub fn draw_inline_icon(ui: &mut Ui, icon_type: IconType) {
     let size = egui::vec2(14.0, 14.0);
-    let (rect, _) = ui.allocate_exact_size(size, egui::Sense::hover());
+    let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
     let painter = ui.painter();
 
     let stroke = Stroke::new(1.2, Color32::from_rgb(230, 230, 230));

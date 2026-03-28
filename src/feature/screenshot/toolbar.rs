@@ -123,36 +123,36 @@ fn draw_screenshot_toolbar(
             // 【左侧布局】绘画工具专区
             // =========================
             let is_rect = state.current_tool == Some(ScreenshotTool::Rect);
-            let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect);
+            let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect,32.0);
             if rect_button.clicked() { state.current_tool = Some(ScreenshotTool::Rect); }
             handle_tool_interaction(ui, &rect_button, ScreenshotTool::Rect, state);
 
             let is_circle = state.current_tool == Some(ScreenshotTool::Circle);
-            let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle);
+            let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle,32.0);
             if circle_button.clicked() { state.current_tool = Some(ScreenshotTool::Circle); }
             handle_tool_interaction(ui, &circle_button, ScreenshotTool::Circle, state);
 
             let is_arrow = state.current_tool == Some(ScreenshotTool::Arrow);
-            let arrow_button = draw_icon_button(ui, is_arrow, IconType::DrawArrow);
+            let arrow_button = draw_icon_button(ui, is_arrow, IconType::DrawArrow,32.0);
             if arrow_button.clicked() { state.current_tool = Some(ScreenshotTool::Arrow); }
             handle_tool_interaction(ui, &arrow_button, ScreenshotTool::Arrow, state);
 
             let is_pen = state.current_tool == Some(ScreenshotTool::Pen);
-            let pen_button = draw_icon_button(ui, is_pen, IconType::Pencil);
+            let pen_button = draw_icon_button(ui, is_pen, IconType::Pencil,32.0);
             if pen_button.clicked() { state.current_tool = Some(ScreenshotTool::Pen); }
             handle_tool_interaction(ui, &pen_button, ScreenshotTool::Pen, state);
 
             let is_mosaic = state.current_tool == Some(ScreenshotTool::Mosaic);
-            let mosaic_button = draw_icon_button(ui, is_mosaic, IconType::Mosaic);
+            let mosaic_button = draw_icon_button(ui, is_mosaic, IconType::Mosaic,32.0);
             if mosaic_button.clicked() { state.current_tool = Some(ScreenshotTool::Mosaic); }
             handle_tool_interaction(ui, &mosaic_button, ScreenshotTool::Mosaic, state);
 
             let is_text = state.current_tool == Some(ScreenshotTool::Text);
-            let text_button = draw_icon_button(ui, is_text, IconType::Text);
+            let text_button = draw_icon_button(ui, is_text, IconType::Text,32.0);
             if text_button.clicked() { state.current_tool = Some(ScreenshotTool::Text); }
             handle_tool_interaction(ui, &text_button, ScreenshotTool::Text, state);
 
-            if draw_icon_button(ui, false, IconType::Ocr).clicked() {
+            if draw_icon_button(ui, false, IconType::Ocr,32.0).clicked() {
                 action = ScreenshotAction::Ocr; // <--- 触发 OCR
             }
 
@@ -173,15 +173,15 @@ fn draw_screenshot_toolbar(
             // 【右侧布局】行为动作专区
             // =========================
             // 顺序恢复视觉上的从左到右自然排布
-            if draw_icon_button(ui, false, IconType::Cancel).clicked() {
+            if draw_icon_button(ui, false, IconType::Cancel,32.0).clicked() {
                 action = ScreenshotAction::Close;
             }
 
-            if draw_icon_button(ui, false, IconType::SaveToClipboard).clicked() {
+            if draw_icon_button(ui, false, IconType::SaveToClipboard,32.0).clicked() {
                 action = ScreenshotAction::SaveToClipboard;
             }
 
-            if draw_icon_button(ui, false, IconType::Save).clicked() {
+            if draw_icon_button(ui, false, IconType::Save,32.0).clicked() {
                 action = ScreenshotAction::SaveAndClose;
             }
         });

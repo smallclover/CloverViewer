@@ -233,14 +233,14 @@ impl ViewerFeature {
                 ui.add_space(10.0);
 
                 // 直接修改 view_mode
-                if draw_icon_button(ui, self.state.view_mode == ViewMode::Grid, IconType::Grid).clicked() {
+                if draw_icon_button(ui, self.state.view_mode == ViewMode::Grid, IconType::Grid,32.0).clicked() {
                     self.state.view_mode = ViewMode::Grid;
                 }
 
                 ui.add_space(4.0);
 
                 // 直接修改 view_mode
-                if draw_icon_button(ui, self.state.view_mode == ViewMode::Single, IconType::Single).clicked() {
+                if draw_icon_button(ui, self.state.view_mode == ViewMode::Single, IconType::Single,32.0).clicked() {
                     self.state.view_mode = ViewMode::Single;
                 }
             });

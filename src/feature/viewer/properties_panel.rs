@@ -1,6 +1,6 @@
-use egui::{Align, Context, Layout, Ui, CursorIcon};
+use egui::{Align, Context, Layout, Ui, CursorIcon, SidePanel, Grid};
 use crate::core::business::ViewerState;
-use crate::i18n::lang::{get_i18n_text, TextBundle};
+use crate::i18n::lang::{get_i18n_text};
 use crate::model::image_meta::ImageProperties;
 use crate::model::mode::OverlayMode;
 use crate::ui::widgets::icons::{draw_icon_button, IconType};
@@ -17,7 +17,7 @@ pub fn draw_properties_panel(
 
     let text = get_i18n_text(ctx);
 
-    egui::SidePanel::right("properties_panel")
+    SidePanel::right("properties_panel")
         .resizable(true)
         .default_width(250.0)
         .show(ctx, |ui| {
@@ -28,7 +28,7 @@ pub fn draw_properties_panel(
             ui.horizontal(|ui| {
                 ui.heading(text.img_prop);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if draw_icon_button(ui, false, IconType::Cancel).clicked() {
+                    if draw_icon_button(ui, false, IconType::Cancel,20.0).clicked() {
                         is_open = false;
                     }
                 });
@@ -36,7 +36,7 @@ pub fn draw_properties_panel(
             ui.separator();
 
             if let Some(props) = &viewer.current_properties {
-                render_properties_content(ui, props, &text);
+                render_properties_content(ui, props);
             } else {
                 ui.label("No image loaded.");
             }
@@ -47,11 +47,13 @@ pub fn draw_properties_panel(
     }
 }
 
-fn render_properties_content(ui: &mut Ui, properties: &ImageProperties, text: &TextBundle) {
-    egui::Grid::new("properties_grid")
+fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
+
+    let text = get_i18n_text(ui.ctx());
+
+    Grid::new("properties_grid")
         .num_columns(2)
         .spacing([40.0, 4.0])
-        .striped(true)
         .show(ui, |ui| {
             ui.label(format!("{}:",text.img_name));
             ui.label(&properties.name);
@@ -66,7 +68,14 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties, text: &T
             ui.end_row();
 
             ui.label(format!("{}:",text.img_path));
-            ui.label(properties.path.to_string_lossy().to_string());
+            ui.horizontal(|ui| {
+                let path_str = properties.path.to_string_lossy().to_string();
+                ui.add(egui::Label::new(&path_str).wrap());
+
+                if draw_icon_button(ui, false, IconType::SaveToClipboard, 20.0).clicked() {
+                    ui.ctx().copy_text(path_str);
+                }
+            });
             ui.end_row();
         });
 }

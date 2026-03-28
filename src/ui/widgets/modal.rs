@@ -70,7 +70,7 @@ impl ModalFrame {
                 ui.horizontal(|ui| {
                     ui.heading(title);
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if draw_icon_button(ui, false, IconType::Cancel).clicked() {
+                        if draw_icon_button(ui, false, IconType::Cancel, 32.0).clicked() {
                             close_clicked = true;
                         }
                     });
