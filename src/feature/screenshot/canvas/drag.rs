@@ -1,4 +1,4 @@
-use eframe::egui::{Pos2, Rect, Vec2};
+use eframe::egui::{Rect, Vec2};
 
 use crate::feature::screenshot::canvas::shape::ShapeRender;
 use crate::feature::screenshot::capture::DrawnShape;
@@ -43,7 +43,3 @@ pub fn move_selection(selection: &mut Rect, delta: Vec2) {
     *selection = selection.translate(delta);
 }
 
-/// 处理拖拽开始时的位置记录
-pub fn drag_start(pos: Pos2) -> Pos2 {
-    pos
-}

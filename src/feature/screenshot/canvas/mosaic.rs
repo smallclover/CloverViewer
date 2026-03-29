@@ -205,6 +205,5 @@ pub fn generate_mosaic_texture(
     Some(MosaicCache {
         texture,
         phys_rect,
-        ppp: 1.0, // 物理像素 1:1
     })
 }

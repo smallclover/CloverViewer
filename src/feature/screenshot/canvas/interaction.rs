@@ -405,7 +405,6 @@ fn on_drag_start(
                     canvas_state.resize_start_state = Some(ResizeStartState {
                         start: shape.start,
                         end: shape.end,
-                        stroke_width: shape.stroke_width,
                     });
                     return;
                 }

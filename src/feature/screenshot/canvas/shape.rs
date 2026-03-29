@@ -25,11 +25,6 @@ pub trait ShapeRender {
     /// 应用移动偏移
     fn translate(&mut self, delta: Vec2);
 
-    /// 创建深拷贝
-    fn clone_shape(&self) -> Self
-    where
-        Self: Sized;
-
     /// 返回该形状的控制点列表（本地坐标），以及对应的 hit radius
     fn resize_handles(&self, global_offset_phys: Pos2, ppp: f32) -> Vec<(Pos2, f32)>;
 
@@ -228,10 +223,6 @@ impl ShapeRender for DrawnShape {
                 *p += delta;
             }
         }
-    }
-
-    fn clone_shape(&self) -> Self {
-        self.clone()
     }
 
     fn resize_handles(&self, global_offset_phys: Pos2, ppp: f32) -> Vec<(Pos2, f32)> {

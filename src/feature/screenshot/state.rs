@@ -47,8 +47,6 @@ pub struct MosaicCache {
     pub texture: TextureHandle,
     /// 纹理对应的物理坐标范围
     pub phys_rect: Rect,
-    /// 缩放比例（ppp）
-    pub ppp: f32,
 }
 
 pub struct ScreenshotState {

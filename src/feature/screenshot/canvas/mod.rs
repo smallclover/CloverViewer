@@ -14,7 +14,6 @@ use eframe::egui::{Id, Pos2, Ui};
 pub struct ResizeStartState {
     pub start: Pos2,
     pub end: Pos2,
-    pub stroke_width: f32,
 }
 
 /// 画布运行时状态，在帧间通过 egui temp data 持久化
