@@ -12,6 +12,11 @@ pub fn render_canvas_elements(
     ppp: f32,
     is_hovered: bool,
 ) {
+    // 先调用需要可变借用 ui 的函数
+    crate::feature::screenshot::canvas::text_input::render_text_input(
+        ui, state, global_offset_phys, ppp,
+    );
+
     let painter = ui.painter();
     let viewport_rect = ui.ctx().viewport_rect();
 
@@ -100,9 +105,33 @@ pub fn render_canvas_elements(
         painter, state, global_offset_phys, ppp, viewport_rect,
     );
 
-    crate::feature::screenshot::canvas::text_input::render_text_input(
-        ui, state, global_offset_phys, ppp,
-    );
+    // 绘制选中图形的控制点和选中边框
+    if let Some(selected_idx) = selected_index {
+        if let Some(shape) = state.shapes.get(selected_idx) {
+            if shape.supports_resize() {
+                // 绘制选中边框（蓝色实线）
+                let bbox = shape.bounding_rect(global_offset_phys, ppp);
+                let selection_border_color = Color32::from_rgb(0, 150, 255);
+                painter.rect_stroke(
+                    bbox.expand(2.0),
+                    2.0,
+                    Stroke::new(1.0, selection_border_color),
+                    StrokeKind::Outside,
+                );
+
+                // 绘制控制点
+                let handles = shape.resize_handles(global_offset_phys, ppp);
+                let handle_fill = Color32::WHITE;
+                let handle_stroke = Stroke::new(1.0, Color32::from_rgb(60, 60, 60));
+
+                for (local_pos, _) in handles {
+                    let rect = Rect::from_center_size(local_pos, eframe::egui::vec2(10.0, 10.0));
+                    painter.rect_filled(rect, 0.0, handle_fill);
+                    painter.rect_stroke(rect, 0.0, handle_stroke, StrokeKind::Inside);
+                }
+            }
+        }
+    }
 }
 
 fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {

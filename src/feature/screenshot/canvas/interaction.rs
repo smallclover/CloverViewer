@@ -4,8 +4,8 @@ use crate::feature::screenshot::{
     canvas::{
         drag,
         hit_test,
-        shape::{clamp_pos_to_rect},
-        CanvasState,
+        shape::{clamp_pos_to_rect, ShapeRender},
+        ResizeStartState, CanvasState,
     },
     capture::{DrawnShape, HistoryEntry, ScreenshotState, ScreenshotTool},
 };
@@ -39,7 +39,7 @@ pub fn handle_interaction(
         is_pointer_down,
     );
 
-    update_cursor(ui, state, canvas_state, global_offset_phys, ppp, is_hovering_ui);
+    update_cursor(ui, state, &canvas_state, global_offset_phys, ppp, is_hovering_ui);
 
     if response.clicked() {
         handle_click(
@@ -58,7 +58,7 @@ pub fn handle_interaction(
             let global_phys = global_offset_phys + (press_pos.to_vec2() * ppp);
 
             if response.drag_started() {
-                on_drag_start(ui, state, canvas_state, global_phys);
+                on_drag_start(ui, state, canvas_state, global_phys, global_offset_phys, ppp, press_pos);
             }
             if response.dragged() {
                 on_dragged(ui, state, canvas_state, global_offset_phys, ppp, press_pos);
@@ -81,6 +81,22 @@ fn check_hovering_ui(ui: &Ui, state: &ScreenshotState, toolbar_rect: Option<Rect
     }
 }
 
+/// 获取悬停的控制点索引（如果有选中的 shape）
+fn get_hovered_handle(
+    local_pos: Pos2,
+    shape: &DrawnShape,
+    global_offset_phys: Pos2,
+    ppp: f32,
+) -> Option<usize> {
+    let handles = shape.resize_handles(global_offset_phys, ppp);
+    for (index, (handle_pos, hit_radius)) in handles.iter().enumerate() {
+        if local_pos.distance(*handle_pos) <= *hit_radius {
+            return Some(index);
+        }
+    }
+    None
+}
+
 fn update_hover_state(
     ui: &Ui,
     state: &ScreenshotState,
@@ -93,6 +109,21 @@ fn update_hover_state(
     if !is_pointer_down {
         if let Some(pos) = ui.ctx().pointer_latest_pos() {
             if !is_hovering_ui {
+                // 先检查是否悬停在选中图形的控制点上
+                if let Some(selected_idx) = canvas_state.selected_shape {
+                    if let Some(shape) = state.shapes.get(selected_idx) {
+                        if shape.supports_resize() {
+                            if let Some(_handle) = get_hovered_handle(pos, shape, global_offset_phys, ppp) {
+                                // 找到悬停的控制点，不更新 hovered_shape（保持选中状态）
+                                // 控制点命中优先，但不需要存储在 hovered_shape 中
+                                // 我们会在 update_cursor 和 on_drag_start 中单独处理
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                // 否则检查 shape body
                 canvas_state.hovered_shape = hit_test::get_hovered_shape_index(
                     pos,
                     &state.shapes,
@@ -122,6 +153,54 @@ fn update_cursor(
         return;
     }
 
+    // 检查是否悬停在选中图形的控制点上
+    if let Some(pos) = ui.ctx().pointer_latest_pos() {
+        if let Some(selected_idx) = canvas_state.selected_shape {
+            if let Some(shape) = state.shapes.get(selected_idx) {
+                if shape.supports_resize() {
+                    if let Some(handle) = get_hovered_handle(pos, shape, global_offset_phys, ppp) {
+                        // 根据 handle 索引设置对应的光标
+                        let cursor = match shape.tool {
+                            ScreenshotTool::Arrow => {
+                                // 箭头：根据方向显示对应的 resize 光标
+                                let dx = (shape.end.x - shape.start.x).abs();
+                                let dy = (shape.end.y - shape.start.y).abs();
+                                if dx > dy * 2.0 {
+                                    // 主要是水平方向
+                                    CursorIcon::ResizeHorizontal
+                                } else if dy > dx * 2.0 {
+                                    // 主要是垂直方向
+                                    CursorIcon::ResizeVertical
+                                } else {
+                                    // 对角线方向，根据斜率判断
+                                    let is_same_direction =
+                                        (shape.end.x - shape.start.x) * (shape.end.y - shape.start.y) >= 0.0;
+                                    if is_same_direction {
+                                        CursorIcon::ResizeNwSe
+                                    } else {
+                                        CursorIcon::ResizeNeSw
+                                    }
+                                }
+                            }
+                            _ => {
+                                // Rect/Circle/Text: 8 控制点
+                                match handle {
+                                    0 | 2 => CursorIcon::ResizeNwSe, // NW, SE
+                                    1 | 3 => CursorIcon::ResizeNeSw, // NE, SW
+                                    4 | 6 => CursorIcon::ResizeVertical, // N, S
+                                    5 | 7 => CursorIcon::ResizeHorizontal, // E, W
+                                    _ => CursorIcon::Crosshair,
+                                }
+                            }
+                        };
+                        ui.ctx().set_cursor_icon(cursor);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     let is_moving_state =
         canvas_state.hovered_shape.is_some() || canvas_state.dragging_shape.is_some();
 
@@ -140,7 +219,7 @@ fn update_cursor(
 
     // 更新指针判断逻辑
     let cursor = if canvas_state.hovered_shape.is_some() && is_alt_down {
-        CursorIcon::Copy // 悬浮在图形上且按下 Alt，显示复制指针？似乎没有作用
+        CursorIcon::Copy // 悬浮在图形上且按下 Alt，显示复制指针
     } else if (is_moving_state
         && state.current_shape_start.is_none()
         && state.current_pen_points.is_empty())
@@ -170,12 +249,45 @@ fn handle_click(
         return;
     }
 
+    // 检查是否点击在选中图形的控制点上
+    if let Some(pos) = response.interact_pointer_pos() {
+        if let Some(selected_idx) = canvas_state.selected_shape {
+            if let Some(shape) = state.shapes.get(selected_idx) {
+                if shape.supports_resize() {
+                    if let Some(_handle) = get_hovered_handle(pos, shape, global_offset_phys, ppp) {
+                        // 点击在控制点上，开始 resize 拖拽，不取消选中
+                        // 具体的 resize 逻辑在 on_drag_start 中处理
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     let is_moving_state =
         canvas_state.hovered_shape.is_some() || canvas_state.dragging_shape.is_some();
     let can_draw = !is_moving_state && !canvas_state.dragging_selection;
 
-    // 无工具时：选择窗口或屏幕区域
+    // 第一优先级：点击图形选中它（无论当前工具是什么）
+    if let Some(hovered_idx) = canvas_state.hovered_shape {
+        canvas_state.selected_shape = Some(hovered_idx);
+        // 选中后清空工具，方便后续操作
+        state.current_tool = None;
+        return;
+    }
+
+    // 无工具时：选择窗口或屏幕区域，或取消选中
     if state.current_tool.is_none() {
+        // 如果点击在空白处，取消图形选中（但不取消截图区域）
+        if !is_moving_state {
+            canvas_state.selected_shape = None;
+        }
+
+        // 如果已经有截图区域且其中有图形，保持现有选择，不重新选择
+        if state.selection.is_some() && !state.shapes.is_empty() {
+            return;
+        }
+
         if let Some(hovered) = state.hovered_window {
             state.selection = Some(hovered);
             state.toolbar_pos = Some(hovered.right_bottom());
@@ -268,9 +380,40 @@ fn commit_text_shape(
     });
 }
 
-fn on_drag_start(ui: &Ui, state: &mut ScreenshotState, canvas_state: &mut CanvasState, global_phys: Pos2) {
-    let interaction_hovered = canvas_state.hovered_shape;
+fn on_drag_start(
+    ui: &Ui,
+    state: &mut ScreenshotState,
+    canvas_state: &mut CanvasState,
+    global_phys: Pos2,
+    global_offset_phys: Pos2,
+    ppp: f32,
+    local_pos: Pos2,
+) {
+    // ========== 第一优先级：选中图形的控制点拖拽 ==========
+    // 只要有选中的图形，优先检查是否命中控制点
+    if let Some(selected_idx) = canvas_state.selected_shape {
+        if let Some(shape) = state.shapes.get(selected_idx) {
+            if shape.supports_resize() {
+                if let Some(handle) = get_hovered_handle(local_pos, shape, global_offset_phys, ppp) {
+                    // 开始 resize 拖拽
+                    state.history.push(HistoryEntry {
+                        shapes: state.shapes.clone(),
+                        selection: state.selection,
+                    });
+                    canvas_state.dragging_shape = Some(selected_idx);
+                    canvas_state.dragging_handle = Some(handle);
+                    canvas_state.resize_start_state = Some(ResizeStartState {
+                        start: shape.start,
+                        end: shape.end,
+                        stroke_width: shape.stroke_width,
+                    });
+                    return;
+                }
+            }
+        }
+    }
 
+    let interaction_hovered = canvas_state.hovered_shape;
     let is_moving_state =
         canvas_state.hovered_shape.is_some() || canvas_state.dragging_shape.is_some();
     let can_draw = !is_moving_state && !canvas_state.dragging_selection;
@@ -325,6 +468,13 @@ fn on_drag_start(ui: &Ui, state: &mut ScreenshotState, canvas_state: &mut Canvas
         state.toolbar_pos = None;
         state.color_picker.close();
     } else if can_draw {
+        // 如果已有选择区域且其中有图形，不允许创建新选择区域
+        if let Some(sel) = state.selection {
+            if sel.contains(global_phys) && !state.shapes.is_empty() {
+                // 在选择区域内且有图形，不创建新选择
+                return;
+            }
+        }
         state.drag_start = Some(global_phys);
         state.toolbar_pos = None;
         state.color_picker.close();
@@ -337,12 +487,24 @@ fn on_dragged(
     canvas_state: &mut CanvasState,
     global_offset_phys: Pos2,
     ppp: f32,
-    press_pos: Pos2,
+    _press_pos: Pos2,
 ) {
-    let current_phys =
-        global_offset_phys + (ui.ctx().pointer_latest_pos().unwrap_or(press_pos).to_vec2() * ppp);
+    // 获取当前鼠标位置（使用最新的指针位置）
+    let current_phys = ui.ctx().pointer_latest_pos().map(|pos| {
+        global_offset_phys + (pos.to_vec2() * ppp)
+    });
 
-    if let Some(index) = canvas_state.dragging_shape {
+    // 如果没有当前鼠标位置，则跳过本次处理
+    let Some(current_phys) = current_phys else { return };
+
+    // 检查是否处于 resize 模式（拖拽控制点）
+    if let (Some(shape_idx), Some(handle_idx), Some(start_state)) =
+        (canvas_state.dragging_shape, canvas_state.dragging_handle, canvas_state.resize_start_state)
+    {
+        if let Some(shape) = state.shapes.get_mut(shape_idx) {
+            shape.apply_resize(handle_idx, current_phys, &start_state, state.selection);
+        }
+    } else if let Some(index) = canvas_state.dragging_shape {
         if let Some(drag_start_phys) = canvas_state.drag_start_phys {
             let delta_phys = current_phys - drag_start_phys;
             if let Some(shape) = state.shapes.get_mut(index) {
@@ -390,6 +552,9 @@ fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut CanvasState) {
     if canvas_state.dragging_shape.is_some() {
         canvas_state.dragging_shape = None;
         canvas_state.drag_start_phys = None;
+        // 清理 resize 相关状态
+        canvas_state.dragging_handle = None;
+        canvas_state.resize_start_state = None;
     } else if canvas_state.dragging_selection {
         canvas_state.dragging_selection = false;
         canvas_state.drag_start_phys = None;
@@ -453,10 +618,19 @@ fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut CanvasState) {
         }
         state.current_shape_start = None;
         state.current_shape_end = None;
-    } else if state.drag_start.is_some() {
-        state.drag_start = None;
+    } else if state.drag_start.take().is_some() {
+        // 使用拖拽结束时的当前选择区域（在 on_dragged 中已更新）
         if let Some(sel) = state.selection {
             if sel.width() > 10.0 && sel.height() > 10.0 {
+                // 重新选择区域时，清除已有图形
+                if !state.shapes.is_empty() {
+                    state.history.push(HistoryEntry {
+                        shapes: state.shapes.clone(),
+                        selection: state.selection,
+                    });
+                    state.shapes.clear();
+                    canvas_state.selected_shape = None;
+                }
                 state.history.push(HistoryEntry {
                     shapes: state.shapes.clone(),
                     selection: state.selection,

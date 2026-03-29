@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use eframe::egui::{Color32, Galley, Painter, Pos2, Rect, Stroke, StrokeKind, Vec2};
 
+use crate::feature::screenshot::canvas::ResizeStartState;
 use crate::feature::screenshot::capture::{DrawnShape, ScreenshotTool};
 use crate::feature::screenshot::draw::draw_egui_shape;
 
@@ -28,6 +29,18 @@ pub trait ShapeRender {
     fn clone_shape(&self) -> Self
     where
         Self: Sized;
+
+    /// 返回该形状的控制点列表（本地坐标），以及对应的 hit radius
+    fn resize_handles(&self, global_offset_phys: Pos2, ppp: f32) -> Vec<(Pos2, f32)>;
+
+    /// 应用 resize：基于基准态、当前鼠标位置、handle 索引，更新 shape
+    fn apply_resize(
+        &mut self,
+        handle: usize,
+        current_phys: Pos2,
+        start_state: &ResizeStartState,
+        selection: Option<Rect>,
+    );
 }
 
 impl DrawnShape {
@@ -67,6 +80,23 @@ impl DrawnShape {
 impl ShapeRender for DrawnShape {
     fn bounding_rect(&self, global_offset_phys: Pos2, ppp: f32) -> Rect {
         let start_local = phys_to_local(self.start, global_offset_phys, ppp);
+
+        // --- 核心修改：文本框特殊处理 ---
+        if self.tool == ScreenshotTool::Text {
+            // 如果存在 galley 缓存，优先使用真实的文本排版尺寸作为包围盒，
+            // 这样 8 个控制点就能完美贴合文字的实际边界！
+            if let Some(galley) = &self.cached_galley {
+                return Rect::from_min_size(start_local, galley.size());
+            }
+
+            // 降级处理：如果没有排版缓存（例如还没执行 render）
+            let end_local = phys_to_local(self.end, global_offset_phys, ppp);
+            let width = (end_local.x - start_local.x).abs();
+            let height = (end_local.y - start_local.y).abs();
+            return Rect::from_min_size(start_local, eframe::egui::vec2(width, height));
+        }
+
+        // 其他工具（Rect, Circle 等）的默认处理逻辑
         let end_local = phys_to_local(self.end, global_offset_phys, ppp);
         Rect::from_two_pos(start_local, end_local)
     }
@@ -202,6 +232,178 @@ impl ShapeRender for DrawnShape {
 
     fn clone_shape(&self) -> Self {
         self.clone()
+    }
+
+    fn resize_handles(&self, global_offset_phys: Pos2, ppp: f32) -> Vec<(Pos2, f32)> {
+        if !self.supports_resize() {
+            return Vec::new();
+        }
+
+        let hit_radius = 15.0; // 本地坐标下的命中半径（足够大以确保容易命中）
+
+        match self.tool {
+            ScreenshotTool::Arrow => {
+                // 箭头只有起点和终点两个控制点
+                // 直接使用 start 和 end 的本地坐标，而不是通过 bounding_rect 计算
+                // 因为 bounding_rect 的 left_top/right_bottom 与 start/end 可能不对应
+                let start_local = phys_to_local(self.start, global_offset_phys, ppp);
+                let end_local = phys_to_local(self.end, global_offset_phys, ppp);
+                vec![
+                    (start_local, hit_radius), // 0: start
+                    (end_local, hit_radius),   // 1: end
+                ]
+            }
+            ScreenshotTool::Text => {
+                // 【核心修改】文本工具只保留 4 个角的控制点
+                let rect = self.bounding_rect(global_offset_phys, ppp);
+                vec![
+                    (rect.left_top(), hit_radius),     // 0: NW (左上)
+                    (rect.right_top(), hit_radius),    // 1: NE (右上)
+                    (rect.right_bottom(), hit_radius), // 2: SE (右下)
+                    (rect.left_bottom(), hit_radius),  // 3: SW (左下)
+                ]
+            }
+            _ => {
+                // Rect, Circle, Text: 8 控制点
+                //
+                // 0 ─── 4 ─── 1
+                // │           │
+                // 7           5
+                // │           │
+                // 3 ─── 6 ─── 2
+                let rect = self.bounding_rect(global_offset_phys, ppp);
+                let center = rect.center();
+                vec![
+                    (rect.left_top(), hit_radius),                    // 0 NW
+                    (rect.right_top(), hit_radius),                   // 1 NE
+                    (rect.right_bottom(), hit_radius),                // 2 SE
+                    (rect.left_bottom(), hit_radius),                 // 3 SW
+                    (Pos2::new(center.x, rect.min.y), hit_radius),    // 4 N
+                    (Pos2::new(rect.max.x, center.y), hit_radius),    // 5 E
+                    (Pos2::new(center.x, rect.max.y), hit_radius),    // 6 S
+                    (Pos2::new(rect.min.x, center.y), hit_radius),    // 7 W
+                ]
+            }
+        }
+    }
+
+    fn apply_resize(
+        &mut self,
+        handle: usize,
+        current_phys: Pos2,
+        start_state: &ResizeStartState,
+        selection: Option<Rect>,
+    ) {
+        let min_size = 4.0;
+        let clamped = clamp_pos_to_rect(current_phys, selection.unwrap_or(Rect::EVERYTHING));
+
+        let mut new_start = self.start;
+        let mut new_end = self.end;
+
+        match self.tool {
+            ScreenshotTool::Arrow => {
+                // 箭头只有两个控制点
+                match handle {
+                    0 => new_start = clamped, // 起点
+                    1 => new_end = clamped,   // 终点
+                    _ => {}
+                }
+            }
+            _ => {
+                // Rect, Circle, Text: 8 控制点
+                match handle {
+                    0 => { // NW: 移动 start，固定 end
+                        new_start = clamped;
+                        new_end = start_state.end;
+                    }
+                    1 => { // NE: 移动 end.x 和 start.y，固定 start.x 和 end.y
+                        new_start = Pos2::new(start_state.start.x, clamped.y);
+                        new_end = Pos2::new(clamped.x, start_state.end.y);
+                    }
+                    2 => { // SE: 移动 end，固定 start
+                        new_start = start_state.start;
+                        new_end = clamped;
+                    }
+                    3 => { // SW: 移动 start.x 和 end.y，固定 end.x 和 start.y
+                        new_start = Pos2::new(clamped.x, start_state.start.y);
+                        new_end = Pos2::new(start_state.end.x, clamped.y);
+                    }
+                    4 => { // N: 移动 start.y，固定 start.x 和 end
+                        new_start = Pos2::new(start_state.start.x, clamped.y);
+                        new_end = start_state.end;
+                    }
+                    5 => { // E: 移动 end.x，固定 start 和 end.y
+                        new_start = start_state.start;
+                        new_end = Pos2::new(clamped.x, start_state.end.y);
+                    }
+                    6 => { // S: 移动 end.y，固定 start 和 end.x
+                        new_start = start_state.start;
+                        new_end = Pos2::new(start_state.end.x, clamped.y);
+                    }
+                    7 => { // W: 移动 start.x，固定 start.y 和 end
+                        new_start = Pos2::new(clamped.x, start_state.start.y);
+                        new_end = start_state.end;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // 检查最小尺寸保护（对于文本框，只检查宽度）
+        let w = (new_end.x - new_start.x).abs();
+        let h = (new_end.y - new_start.y).abs();
+        if self.tool == ScreenshotTool::Text {
+            // 文本框：宽度至少 10px，高度至少 4px
+            if w < 10.0 || h < min_size {
+                return;
+            }
+        } else if w < min_size || h < min_size {
+            return; // 不改变，保持上一帧状态
+        }
+
+        if self.tool == ScreenshotTool::Text {
+            // 使用增量缩放（相比上一帧），避免依赖错乱的 start_state.end
+            let prev_w = (self.end.x - self.start.x).abs();
+            let new_w = (new_end.x - new_start.x).abs();
+
+            if prev_w > 1.0 {
+                let ratio = new_w / prev_w;
+                let sw0 = self.stroke_width;
+
+                // 修正 1：解决“拖好久才放大一点”。
+                // 反推公式：我们想要的是 font_size_新 = ratio * font_size_旧
+                // 即: 20.0 + sw1 * 2.0 = ratio * (20.0 + sw0 * 2.0)
+                let mut sw1 = ratio * (10.0 + sw0) - 10.0;
+                sw1 = sw1.clamp(1.0, 48.0);
+                self.stroke_width = sw1;
+
+                // 修正 2：解决“再次点击缩回去”。
+                // 计算在 clamp (最大值/最小值) 限制下，实际上真实达成的缩放比例
+                let actual_ratio = (10.0 + sw1) / (10.0 + sw0);
+
+                let actual_new_w = prev_w * actual_ratio;
+                let actual_new_h = (self.end.y - self.start.y).abs() * actual_ratio;
+
+                let sign_x = (new_end.x - new_start.x).signum();
+                let sign_y = (new_end.y - new_start.y).signum();
+
+                self.start = new_start;
+                // 极其关键：将 end 坐标严格“锁死”在实际排版的边界上，切断与越界鼠标坐标的联系！
+                self.end = Pos2::new(
+                    new_start.x + actual_new_w * sign_x,
+                    new_start.y + actual_new_h * sign_y,
+                );
+            } else {
+                // 如果是刚刚创建文字第一次轻微拖动，初始化基准坐标
+                self.start = new_start;
+                self.end = new_end;
+            }
+            self.invalidate_galley();
+        } else {
+            // 矩形、圆形、箭头的常规更新逻辑
+            self.start = new_start;
+            self.end = new_end;
+        }
     }
 }
 
