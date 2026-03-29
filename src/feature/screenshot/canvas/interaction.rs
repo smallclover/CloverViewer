@@ -58,7 +58,7 @@ pub fn handle_interaction(
             let global_phys = global_offset_phys + (press_pos.to_vec2() * ppp);
 
             if response.drag_started() {
-                on_drag_start(state, canvas_state, global_phys);
+                on_drag_start(ui, state, canvas_state, global_phys);
             }
             if response.dragged() {
                 on_dragged(ui, state, canvas_state, global_offset_phys, ppp, press_pos);
@@ -135,7 +135,13 @@ fn update_cursor(
         }
     }
 
-    let cursor = if (is_moving_state
+    // 检测 Alt 键状态
+    let is_alt_down = ui.ctx().input(|i| i.modifiers.alt);
+
+    // 更新指针判断逻辑
+    let cursor = if canvas_state.hovered_shape.is_some() && is_alt_down {
+        CursorIcon::Copy // 悬浮在图形上且按下 Alt，显示复制指针？似乎没有作用
+    } else if (is_moving_state
         && state.current_shape_start.is_none()
         && state.current_pen_points.is_empty())
         || canvas_state.dragging_selection
@@ -262,7 +268,7 @@ fn commit_text_shape(
     });
 }
 
-fn on_drag_start(state: &mut ScreenshotState, canvas_state: &mut CanvasState, global_phys: Pos2) {
+fn on_drag_start(ui: &Ui, state: &mut ScreenshotState, canvas_state: &mut CanvasState, global_phys: Pos2) {
     let interaction_hovered = canvas_state.hovered_shape;
 
     let is_moving_state =
@@ -276,13 +282,29 @@ fn on_drag_start(state: &mut ScreenshotState, canvas_state: &mut CanvasState, gl
     }
 
     if let Some(index) = interaction_hovered {
-        canvas_state.dragging_shape = Some(index);
-        canvas_state.selected_shape = Some(index);
-        canvas_state.drag_start_phys = Some(global_phys);
+        // 在修改 shapes 之前记录历史，这样撤销时才能正确删除复制出来的图形
         state.history.push(HistoryEntry {
             shapes: state.shapes.clone(),
             selection: state.selection,
         });
+
+        // 检查是否按下了 Alt 键
+        if ui.ctx().input(|i| i.modifiers.alt) {
+            // 克隆当前图形
+            let cloned_shape = state.shapes[index].clone();
+            state.shapes.push(cloned_shape);
+
+            // 将拖拽目标和选中目标切换为刚刚生成的新图形
+            let new_index = state.shapes.len() - 1;
+            canvas_state.dragging_shape = Some(new_index);
+            canvas_state.selected_shape = Some(new_index);
+        } else {
+            // 正常拖拽当前图形
+            canvas_state.dragging_shape = Some(index);
+            canvas_state.selected_shape = Some(index);
+        }
+
+        canvas_state.drag_start_phys = Some(global_phys);
     } else if can_draw && state.current_tool.is_some() {
         if let Some(selection) = state.selection {
             if selection.contains(global_phys) && state.current_tool != Some(ScreenshotTool::Text) {
