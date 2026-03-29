@@ -47,14 +47,38 @@ pub fn render_canvas_elements(
         // 马赛克特殊处理：需要 captures
         if shape.tool == ScreenshotTool::Mosaic {
             if let Some(points) = &shape.points {
-                crate::feature::screenshot::canvas::mosaic::draw_realtime_mosaic(
-                    painter,
-                    points,
-                    shape.stroke_width,
-                    global_offset_phys,
-                    ppp,
-                    &state.captures,
-                );
+                // 检查是否有缓存纹理
+                if let Some(ref cache) = shape.cached_mosaic {
+                    // 使用缓存纹理
+                    let local_min = phys_to_local(cache.phys_rect.min, global_offset_phys, ppp);
+                    let local_max = phys_to_local(cache.phys_rect.max, global_offset_phys, ppp);
+                    let local_rect = Rect::from_min_max(local_min, local_max);
+                    painter.image(
+                        cache.texture.id(),
+                        local_rect,
+                        Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                        Color32::WHITE,
+                    );
+                } else {
+                    // 实时渲染并生成缓存
+                    crate::feature::screenshot::canvas::mosaic::draw_realtime_mosaic(
+                        painter,
+                        points,
+                        shape.stroke_width,
+                        global_offset_phys,
+                        ppp,
+                        &state.captures,
+                    );
+                    // 异步生成纹理缓存（下一帧使用）
+                    if let Some(cache) = crate::feature::screenshot::canvas::mosaic::generate_mosaic_texture(
+                        ui.ctx(),
+                        points,
+                        shape.stroke_width,
+                        &state.captures,
+                    ) {
+                        shape.cached_mosaic = Some(std::sync::Arc::new(cache));
+                    }
+                }
             }
             if is_highlighted {
                 let start_local = phys_to_local(shape.start, global_offset_phys, ppp);

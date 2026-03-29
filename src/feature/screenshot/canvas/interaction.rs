@@ -258,6 +258,7 @@ fn commit_text_shape(
         text: Some(baked_text),
         points: None,
         cached_galley: None,
+        cached_mosaic: None,
     });
 }
 
@@ -403,6 +404,7 @@ fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut CanvasState) {
                 text: None,
                 points: Some(state.current_pen_points.clone()),
                 cached_galley: None,
+                cached_mosaic: None,
             });
         }
         state.current_pen_points.clear();
@@ -423,6 +425,7 @@ fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut CanvasState) {
                     text: None,
                     points: None,
                     cached_galley: None,
+                    cached_mosaic: None,
                 });
             }
         }

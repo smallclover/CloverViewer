@@ -36,6 +36,19 @@ pub struct DrawnShape {
     pub points: Option<Vec<Pos2>>,
     /// 运行时缓存：文本的 egui Galley，避免每帧重排版
     pub cached_galley: Option<Arc<egui::Galley>>,
+    /// 运行时缓存：马赛克的纹理，避免每帧采样原图
+    pub cached_mosaic: Option<Arc<MosaicCache>>,
+}
+
+/// 马赛克纹理缓存
+#[derive(Clone)]
+pub struct MosaicCache {
+    /// 纹理句柄
+    pub texture: TextureHandle,
+    /// 纹理对应的物理坐标范围
+    pub phys_rect: Rect,
+    /// 缩放比例（ppp）
+    pub ppp: f32,
 }
 
 pub struct ScreenshotState {
