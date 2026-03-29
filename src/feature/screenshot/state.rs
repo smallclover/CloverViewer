@@ -34,6 +34,8 @@ pub struct DrawnShape {
     pub stroke_width: f32,
     pub text: Option<String>,
     pub points: Option<Vec<Pos2>>,
+    /// 运行时缓存：文本的 egui Galley，避免每帧重排版
+    pub cached_galley: Option<Arc<egui::Galley>>,
 }
 
 pub struct ScreenshotState {
@@ -48,7 +50,7 @@ pub struct ScreenshotState {
     pub current_tool: Option<ScreenshotTool>,
     pub active_color: Color32,
     pub stroke_width: f32,
-    pub mosaic_width: f32, // 【新增】马赛克专用的粗细度
+    pub mosaic_width: f32, // 马赛克专用的粗细度
     pub color_picker: ColorPicker,
     pub color_picker_anchor: Option<Rect>,
     pub shapes: Vec<DrawnShape>,

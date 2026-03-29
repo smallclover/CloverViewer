@@ -16,7 +16,7 @@ use xcap::Monitor;
 use arboard::{Clipboard, ImageData};
 use eframe::emath::Vec2;
 use egui::WindowLevel;
-use crate::feature::screenshot::canvas::{handle_interaction, render_canvas_elements};
+use crate::feature::screenshot::canvas::{self, CanvasState};
 use crate::model::{
     config::get_context_config,
     device::{DeviceInfo, MonitorInfo},
@@ -242,9 +242,10 @@ pub fn draw_screenshot_ui(
 
             let local_toolbar_rect = calculate_toolbar_rect(state, global_offset_phys, ppp);
 
-            handle_interaction(ui, state, global_offset_phys, ppp, local_toolbar_rect);
-
-            render_canvas_elements(ui, state, global_offset_phys, ppp, is_hovered);
+            let mut canvas_state = CanvasState::load_from_ui(ui);
+            canvas::interaction::handle_interaction(ui, state, &mut canvas_state, global_offset_phys, ppp, local_toolbar_rect);
+            canvas::render::render_canvas_elements(ui, state, &canvas_state, global_offset_phys, ppp, is_hovered);
+            canvas_state.save_to_ui(ui);
 
             // [新增] 绘制左下角快捷键与工具栏帮助说明框
             help_box::render_help_box(ui, state, global_offset_phys, ppp);
