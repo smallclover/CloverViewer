@@ -33,6 +33,7 @@ pub fn render_current_preview(
                 state.mosaic_width,
                 global_offset_phys,
                 ppp,
+                state.selection,
                 &state.captures,
             );
         } else {

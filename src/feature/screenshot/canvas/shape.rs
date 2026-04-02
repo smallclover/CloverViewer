@@ -138,7 +138,7 @@ impl ShapeRender for DrawnShape {
                     false
                 }
             }
-            ScreenshotTool::Pen | ScreenshotTool::Mosaic => {
+            ScreenshotTool::Pen => {
                 if let Some(points) = &self.points {
                     for i in 0..points.len().saturating_sub(1) {
                         let p1 = phys_to_local(points[i], global_offset_phys, ppp);
@@ -152,6 +152,7 @@ impl ShapeRender for DrawnShape {
                     false
                 }
             }
+            ScreenshotTool::Mosaic => false,
         }
     }
 

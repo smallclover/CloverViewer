@@ -2,6 +2,7 @@ use eframe::egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2
 use image::{RgbaImage, Rgba};
 use ab_glyph::{FontRef, PxScale};
 use crate::feature::screenshot::capture::{DrawnShape, ScreenshotTool};
+use crate::feature::screenshot::canvas::mosaic::apply_mosaic_to_cropped_image;
 
 /// 渲染 UI 时的实时绘图 (Egui)
 pub fn draw_egui_shape(
@@ -91,80 +92,9 @@ pub fn draw_skia_shapes_on_image(
     let final_width = final_image.width();
     let final_height = final_image.height();
 
-    // ==========================================
-    // 0. 优先处理马赛克 (Mosaic)
-    // ==========================================
-    let has_mosaic = shapes.iter().any(|s| s.tool == ScreenshotTool::Mosaic);
-    if has_mosaic {
-        if let Some(mut mask_pixmap) = tiny_skia::Pixmap::new(final_width, final_height) {
-            mask_pixmap.fill(tiny_skia::Color::TRANSPARENT);
-
-            let mut paint = tiny_skia::Paint::default();
-            paint.set_color_rgba8(255, 255, 255, 255);
-            paint.anti_alias = true;
-
-            for shape in shapes.iter().filter(|s| s.tool == ScreenshotTool::Mosaic) {
-                let stroke = tiny_skia::Stroke {
-                    width: shape.stroke_width, // 【修改】去掉了 * 3.0，因为我们在 UI 层默认传递了更粗的设定值
-                    line_cap: tiny_skia::LineCap::Round,
-                    line_join: tiny_skia::LineJoin::Round,
-                    ..Default::default()
-                };
-
-                if let Some(points) = &shape.points {
-                    if points.len() > 1 {
-                        let mut pb = tiny_skia::PathBuilder::new();
-                        pb.move_to(points[0].x - selection_phys.min.x, points[0].y - selection_phys.min.y);
-                        for p in points.iter().skip(1) {
-                            pb.line_to(p.x - selection_phys.min.x, p.y - selection_phys.min.y);
-                        }
-                        if let Some(path) = pb.finish() {
-                            mask_pixmap.stroke_path(&path, &paint, &stroke, tiny_skia::Transform::identity(), None);
-                        }
-                    }
-                }
-            }
-
-            let block_size = 15;
-            let mask_data = mask_pixmap.pixels();
-
-            for y_block in (0..final_height).step_by(block_size as usize) {
-                for x_block in (0..final_width).step_by(block_size as usize) {
-                    let mut needs_mosaic = false;
-                    for by in 0..block_size {
-                        let py = y_block + by;
-                        if py >= final_height { break; }
-                        for bx in 0..block_size {
-                            let px = x_block + bx;
-                            if px >= final_width { break; }
-
-                            let idx = (py * final_width + px) as usize;
-                            if mask_data[idx].alpha() > 0 {
-                                needs_mosaic = true;
-                                break;
-                            }
-                        }
-                        if needs_mosaic { break; }
-                    }
-
-                    if needs_mosaic {
-                        let base_pixel = final_image.get_pixel(x_block, y_block).clone();
-                        for by in 0..block_size {
-                            let py = y_block + by;
-                            if py >= final_height { break; }
-                            for bx in 0..block_size {
-                                let px = x_block + bx;
-                                if px >= final_width { break; }
-
-                                let idx = (py * final_width + px) as usize;
-                                if mask_data[idx].alpha() > 0 {
-                                    final_image.put_pixel(px, py, base_pixel);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+    for shape in shapes.iter().filter(|s| s.tool == ScreenshotTool::Mosaic) {
+        if let Some(points) = &shape.points {
+            apply_mosaic_to_cropped_image(final_image, points, shape.stroke_width, selection_phys);
         }
     }
 

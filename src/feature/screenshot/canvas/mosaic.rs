@@ -1,27 +1,21 @@
 use eframe::egui::{Color32, ColorImage, Context, Painter, Pos2, Rect, Vec2};
+use image::RgbaImage;
 use std::collections::HashSet;
 
 use crate::feature::screenshot::capture::CapturedScreen;
 use crate::feature::screenshot::state::MosaicCache;
 
-/// 实时马赛克渲染（采样原图）
-pub fn draw_realtime_mosaic(
-    painter: &Painter,
+fn mosaic_radius_phys(mosaic_width: f32, ppp: f32) -> f32 {
+    (mosaic_width * ppp) / 2.0
+}
+
+fn collect_mosaic_grid_cells(
     points: &[Pos2],
-    mosaic_width: f32,
-    global_offset_phys: Pos2,
-    ppp: f32,
-    captures: &[CapturedScreen],
-) {
-    if points.is_empty() {
-        return;
-    }
+    radius_phys: f32,
+    block_size_phys: f32,
+) -> HashSet<(i32, i32)> {
+    let mut grid_cells = HashSet::new();
 
-    let block_size_phys = 15.0;
-    let mut grid_cells: HashSet<(i32, i32)> = HashSet::new();
-    let radius_phys = (mosaic_width * ppp) / 2.0;
-
-    // 将画笔触及的点映射为马赛克网格区域
     for &p_phys in points {
         let min_x = ((p_phys.x - radius_phys) / block_size_phys).floor() as i32;
         let max_x = ((p_phys.x + radius_phys) / block_size_phys).ceil() as i32;
@@ -33,7 +27,6 @@ pub fn draw_realtime_mosaic(
                 let cell_center_x = (cx as f32 + 0.5) * block_size_phys;
                 let cell_center_y = (cy as f32 + 0.5) * block_size_phys;
 
-                // 圆形碰撞探测
                 if p_phys.distance(Pos2::new(cell_center_x, cell_center_y))
                     <= radius_phys + (block_size_phys * 0.707)
                 {
@@ -43,8 +36,68 @@ pub fn draw_realtime_mosaic(
         }
     }
 
+    grid_cells
+}
+
+fn clip_mosaic_cells(
+    grid_cells: HashSet<(i32, i32)>,
+    block_size_phys: f32,
+    selection: Option<Rect>,
+) -> Vec<(i32, i32, Rect)> {
+    grid_cells
+        .into_iter()
+        .filter_map(|(cx, cy)| {
+            let cell_rect_phys = Rect::from_min_size(
+                Pos2::new(cx as f32 * block_size_phys, cy as f32 * block_size_phys),
+                Vec2::splat(block_size_phys),
+            );
+            let clipped_rect_phys = if let Some(selection) = selection {
+                cell_rect_phys.intersect(selection)
+            } else {
+                cell_rect_phys
+            };
+
+            if clipped_rect_phys.is_positive() {
+                Some((cx, cy, clipped_rect_phys))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn collect_clipped_mosaic_cells(
+    points: &[Pos2],
+    mosaic_width: f32,
+    ppp: f32,
+    block_size_phys: f32,
+    selection: Option<Rect>,
+) -> Vec<(i32, i32, Rect)> {
+    let radius_phys = mosaic_radius_phys(mosaic_width, ppp);
+    let grid_cells = collect_mosaic_grid_cells(points, radius_phys, block_size_phys);
+    clip_mosaic_cells(grid_cells, block_size_phys, selection)
+}
+
+/// 实时马赛克渲染（采样原图）
+pub fn draw_realtime_mosaic(
+    painter: &Painter,
+    points: &[Pos2],
+    mosaic_width: f32,
+    global_offset_phys: Pos2,
+    ppp: f32,
+    selection: Option<Rect>,
+    captures: &[CapturedScreen],
+) {
+    if points.is_empty() {
+        return;
+    }
+
+    let block_size_phys = 15.0;
+    let clipped_cells =
+        collect_clipped_mosaic_cells(points, mosaic_width, ppp, block_size_phys, selection);
+
     // 抓取原图像素并渲染方块
-    for (cx, cy) in grid_cells {
+    for (cx, cy, clipped_rect_phys) in clipped_cells {
         let phys_x = cx as f32 * block_size_phys;
         let phys_y = cy as f32 * block_size_phys;
 
@@ -69,8 +122,8 @@ pub fn draw_realtime_mosaic(
         }
 
         if color != Color32::TRANSPARENT {
-            let local_min = Pos2::ZERO + ((Pos2::new(phys_x, phys_y) - global_offset_phys) / ppp);
-            let local_rect = Rect::from_min_size(local_min, Vec2::splat(block_size_phys / ppp));
+            let local_min = Pos2::ZERO + ((clipped_rect_phys.min - global_offset_phys) / ppp);
+            let local_rect = Rect::from_min_size(local_min, clipped_rect_phys.size() / ppp);
             painter.rect_filled(local_rect, 0.0, color);
         }
     }
@@ -82,6 +135,8 @@ pub fn generate_mosaic_texture(
     ctx: &Context,
     points: &[Pos2],
     mosaic_width: f32,
+    ppp: f32,
+    selection: Option<Rect>,
     captures: &[CapturedScreen],
 ) -> Option<MosaicCache> {
     if points.is_empty() {
@@ -89,44 +144,32 @@ pub fn generate_mosaic_texture(
     }
 
     let block_size_phys = 15.0_f32;
-    let mut grid_cells: HashSet<(i32, i32)> = HashSet::new();
-    let radius_phys = mosaic_width / 2.0;
+    let clipped_cells =
+        collect_clipped_mosaic_cells(points, mosaic_width, ppp, block_size_phys, selection);
 
-    // 计算所有触及的网格单元
-    for &p_phys in points {
-        let min_x = ((p_phys.x - radius_phys) / block_size_phys).floor() as i32;
-        let max_x = ((p_phys.x + radius_phys) / block_size_phys).ceil() as i32;
-        let min_y = ((p_phys.y - radius_phys) / block_size_phys).floor() as i32;
-        let max_y = ((p_phys.y + radius_phys) / block_size_phys).ceil() as i32;
-
-        for cy in min_y..=max_y {
-            for cx in min_x..=max_x {
-                let cell_center_x = (cx as f32 + 0.5) * block_size_phys;
-                let cell_center_y = (cy as f32 + 0.5) * block_size_phys;
-
-                if p_phys.distance(Pos2::new(cell_center_x, cell_center_y))
-                    <= radius_phys + (block_size_phys * 0.707)
-                {
-                    grid_cells.insert((cx, cy));
-                }
-            }
-        }
-    }
-
-    if grid_cells.is_empty() {
+    if clipped_cells.is_empty() {
         return None;
     }
 
-    // 计算边界框
-    let min_cx = grid_cells.iter().map(|(cx, _)| *cx).min().unwrap();
-    let max_cx = grid_cells.iter().map(|(cx, _)| *cx).max().unwrap();
-    let min_cy = grid_cells.iter().map(|(_, cy)| *cy).min().unwrap();
-    let max_cy = grid_cells.iter().map(|(_, cy)| *cy).max().unwrap();
+    let min_x_phys = clipped_cells
+        .iter()
+        .map(|(_, _, rect)| rect.min.x)
+        .fold(f32::INFINITY, f32::min);
+    let min_y_phys = clipped_cells
+        .iter()
+        .map(|(_, _, rect)| rect.min.y)
+        .fold(f32::INFINITY, f32::min);
+    let max_x_phys = clipped_cells
+        .iter()
+        .map(|(_, _, rect)| rect.max.x)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let max_y_phys = clipped_cells
+        .iter()
+        .map(|(_, _, rect)| rect.max.y)
+        .fold(f32::NEG_INFINITY, f32::max);
 
-    let min_x_phys = min_cx as f32 * block_size_phys;
-    let min_y_phys = min_cy as f32 * block_size_phys;
-    let width_phys = (max_cx - min_cx + 1) as f32 * block_size_phys;
-    let height_phys = (max_cy - min_cy + 1) as f32 * block_size_phys;
+    let width_phys = max_x_phys - min_x_phys;
+    let height_phys = max_y_phys - min_y_phys;
 
     // 创建图像（使用像素尺寸，1:1 映射物理像素）
     let img_width = width_phys.ceil() as usize;
@@ -139,13 +182,13 @@ pub fn generate_mosaic_texture(
     // 填充像素
     let mut pixels: Vec<u8> = vec![0; img_width * img_height * 4];
 
-    for (cx, cy) in grid_cells {
+    for (cx, cy, clipped_rect_phys) in clipped_cells {
         let phys_x = cx as f32 * block_size_phys;
         let phys_y = cy as f32 * block_size_phys;
 
         // 计算相对于边界框的偏移
-        let rel_x = phys_x - min_x_phys;
-        let rel_y = phys_y - min_y_phys;
+        let rel_x = clipped_rect_phys.min.x - min_x_phys;
+        let rel_y = clipped_rect_phys.min.y - min_y_phys;
 
         // 采样颜色
         let cell_center_phys = Pos2::new(phys_x + block_size_phys * 0.5, phys_y + block_size_phys * 0.5);
@@ -172,10 +215,12 @@ pub fn generate_mosaic_texture(
         }
 
         // 填充该网格单元对应的像素块
-        let start_x = rel_x as usize;
-        let start_y = rel_y as usize;
-        let end_x = ((rel_x + block_size_phys) as usize).min(img_width);
-        let end_y = ((rel_y + block_size_phys) as usize).min(img_height);
+        let start_x = rel_x.floor() as usize;
+        let start_y = rel_y.floor() as usize;
+        let end_x = (rel_x + clipped_rect_phys.width()).ceil() as usize;
+        let end_y = (rel_y + clipped_rect_phys.height()).ceil() as usize;
+        let end_x = end_x.min(img_width);
+        let end_y = end_y.min(img_height);
 
         for y in start_y..end_y {
             for x in start_x..end_x {
@@ -206,4 +251,51 @@ pub fn generate_mosaic_texture(
         texture,
         phys_rect,
     })
+}
+
+pub fn apply_mosaic_to_cropped_image(
+    final_image: &mut RgbaImage,
+    points: &[Pos2],
+    mosaic_width: f32,
+    selection_phys: Rect,
+) {
+    if points.is_empty() {
+        return;
+    }
+
+    let block_size_phys = 15.0_f32;
+    let clipped_cells = collect_clipped_mosaic_cells(
+        points,
+        mosaic_width,
+        1.0,
+        block_size_phys,
+        Some(selection_phys),
+    );
+
+    if clipped_cells.is_empty() {
+        return;
+    }
+
+    for (_, _, clipped_rect_phys) in clipped_cells {
+        let sample_x = clipped_rect_phys.center().x - selection_phys.min.x;
+        let sample_y = clipped_rect_phys.center().y - selection_phys.min.y;
+        let sample_x = sample_x.floor().clamp(0.0, (final_image.width().saturating_sub(1)) as f32) as u32;
+        let sample_y = sample_y.floor().clamp(0.0, (final_image.height().saturating_sub(1)) as f32) as u32;
+        let pixel = *final_image.get_pixel(sample_x, sample_y);
+
+        let start_x = (clipped_rect_phys.min.x - selection_phys.min.x).floor().max(0.0) as u32;
+        let start_y = (clipped_rect_phys.min.y - selection_phys.min.y).floor().max(0.0) as u32;
+        let end_x = (clipped_rect_phys.max.x - selection_phys.min.x)
+            .ceil()
+            .min(final_image.width() as f32) as u32;
+        let end_y = (clipped_rect_phys.max.y - selection_phys.min.y)
+            .ceil()
+            .min(final_image.height() as f32) as u32;
+
+        for y in start_y..end_y {
+            for x in start_x..end_x {
+                final_image.put_pixel(x, y, pixel);
+            }
+        }
+    }
 }

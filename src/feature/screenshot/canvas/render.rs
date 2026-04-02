@@ -72,6 +72,7 @@ pub fn render_canvas_elements(
                         shape.stroke_width,
                         global_offset_phys,
                         ppp,
+                        state.selection,
                         &state.captures,
                     );
                     // 异步生成纹理缓存（下一帧使用）
@@ -79,6 +80,8 @@ pub fn render_canvas_elements(
                         ui.ctx(),
                         points,
                         shape.stroke_width,
+                        ppp,
+                        state.selection,
                         &state.captures,
                     ) {
                         shape.cached_mosaic = Some(std::sync::Arc::new(cache));
@@ -132,6 +135,8 @@ pub fn render_canvas_elements(
             }
         }
     }
+
+    render_selection_frame(painter, state, global_offset_phys, ppp, viewport_rect);
 }
 
 fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {
@@ -158,13 +163,7 @@ fn render_overlay(
         let clipped_local_sel = local_logical_rect.intersect(viewport_rect);
 
         if clipped_local_sel.is_positive() {
-            paint_selection_overlay(
-                painter,
-                clipped_local_sel,
-                viewport_rect,
-                1.0,
-                overlay_color,
-            );
+            paint_selection_shade(painter, clipped_local_sel, viewport_rect, overlay_color);
 
             if viewport_rect.expand(1.0).contains(local_logical_rect.min) {
                 let w = global_sel_phys.width().round() as u32;
@@ -222,11 +221,10 @@ fn render_overlay(
     }
 }
 
-fn paint_selection_overlay(
+fn paint_selection_shade(
     painter: &Painter,
     clipped_local_sel: Rect,
     viewport_rect: Rect,
-    line_width: f32,
     overlay_color: Color32,
 ) {
     let top = Rect::from_min_max(
@@ -250,8 +248,6 @@ fn paint_selection_overlay(
     painter.rect_filled(bottom, 0.0, overlay_color);
     painter.rect_filled(left, 0.0, overlay_color);
     painter.rect_filled(right, 0.0, overlay_color);
-
-    paint_style_box(painter, clipped_local_sel, line_width);
 }
 
 fn paint_hover_window_overlay(
@@ -327,5 +323,27 @@ fn paint_style_box(painter: &Painter, rect: Rect, line_width: f32) {
             painter.rect_filled(anchor_rect, 0.0, anchor_fill);
             painter.rect_stroke(anchor_rect, 0.0, anchor_stroke, StrokeKind::Inside);
         }
+    }
+}
+
+fn render_selection_frame(
+    painter: &Painter,
+    state: &ScreenshotState,
+    global_offset_phys: Pos2,
+    ppp: f32,
+    viewport_rect: Rect,
+) {
+    let Some(global_sel_phys) = state.selection else {
+        return;
+    };
+
+    let vec_min = global_sel_phys.min - global_offset_phys;
+    let vec_max = global_sel_phys.max - global_offset_phys;
+    let local_logical_rect =
+        Rect::from_min_max(Pos2::ZERO + (vec_min / ppp), Pos2::ZERO + (vec_max / ppp));
+    let clipped_local_sel = local_logical_rect.intersect(viewport_rect);
+
+    if clipped_local_sel.is_positive() {
+        paint_style_box(painter, clipped_local_sel, 1.0);
     }
 }
