@@ -18,18 +18,18 @@ pub fn render_text_input(
             1000.0
         };
 
-        eframe::egui::Area::new(Id::new("screenshot_text_input"))
+        egui::Area::new(Id::new("screenshot_text_input"))
             .fixed_pos(pos_local)
-            .order(eframe::egui::Order::Foreground)
+            .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
                 let font_size = 20.0 + (state.stroke_width * 2.0);
-                let font_id = eframe::egui::FontId::proportional(font_size);
+                let font_id = egui::FontId::proportional(font_size);
 
                 let galley = ui.painter().layout_no_wrap(text.clone(), font_id.clone(), Color32::WHITE);
                 let text_width = galley.size().x + 8.0;
                 let dynamic_width = text_width.max(10.0).min(max_width);
 
-                let frame = eframe::egui::Frame::default()
+                let frame = egui::Frame::default()
                     .fill(Color32::from_black_alpha(150))
                     .inner_margin(8.0)
                     .corner_radius(4.0);
@@ -42,13 +42,13 @@ pub fn render_text_input(
                     ui.input_mut(|i| {
                         let shift_pressed = i.modifiers.shift;
                         let has_valid_text = i.events.iter().any(|e| {
-                            matches!(e, eframe::egui::Event::Text(t) if t != "\n" && t != "\r\n")
+                            matches!(e, egui::Event::Text(t) if t != "\n" && t != "\r\n")
                         });
 
                         i.events.retain(|event| {
                             match event {
-                                eframe::egui::Event::Key {
-                                    key: eframe::egui::Key::Enter,
+                                egui::Event::Key {
+                                    key: egui::Key::Enter,
                                     pressed: true,
                                     ..
                                 } => {
@@ -61,7 +61,7 @@ pub fn render_text_input(
                                         false
                                     }
                                 }
-                                eframe::egui::Event::Text(t) if t == "\n" || t == "\r\n" => {
+                                egui::Event::Text(t) if t == "\n" || t == "\r\n" => {
                                     shift_pressed
                                 }
                                 _ => true,
@@ -70,7 +70,7 @@ pub fn render_text_input(
                     });
 
                     let response = ui.add(
-                        eframe::egui::TextEdit::multiline(&mut text)
+                        egui::TextEdit::multiline(&mut text)
                             .font(font_id)
                             .text_color(state.active_color)
                             .frame(false)
@@ -85,25 +85,25 @@ pub fn render_text_input(
                 let rect = frame_response.response.rect;
                 let stroke = Stroke::new(1.5, Color32::from_gray(200));
                 let painter = ui.painter();
-                painter.add(eframe::egui::Shape::dashed_line(
+                painter.add(egui::Shape::dashed_line(
                     &[rect.left_top(), rect.right_top()],
                     stroke,
                     5.0,
                     4.0,
                 ));
-                painter.add(eframe::egui::Shape::dashed_line(
+                painter.add(egui::Shape::dashed_line(
                     &[rect.right_top(), rect.right_bottom()],
                     stroke,
                     5.0,
                     4.0,
                 ));
-                painter.add(eframe::egui::Shape::dashed_line(
+                painter.add(egui::Shape::dashed_line(
                     &[rect.right_bottom(), rect.left_bottom()],
                     stroke,
                     5.0,
                     4.0,
                 ));
-                painter.add(eframe::egui::Shape::dashed_line(
+                painter.add(egui::Shape::dashed_line(
                     &[rect.left_bottom(), rect.left_top()],
                     stroke,
                     5.0,

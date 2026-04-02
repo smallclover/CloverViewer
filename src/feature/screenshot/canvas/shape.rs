@@ -1,10 +1,11 @@
 use std::sync::Arc;
-
 use eframe::egui::{Color32, Galley, Painter, Pos2, Rect, Stroke, StrokeKind, Vec2};
 
-use crate::feature::screenshot::canvas::ResizeStartState;
-use crate::feature::screenshot::capture::{DrawnShape, ScreenshotTool};
-use crate::feature::screenshot::draw::draw_egui_shape;
+use crate::feature::screenshot::{
+    canvas::ResizeStartState,
+    capture::{DrawnShape, ScreenshotTool},
+    draw::draw_egui_shape
+};
 
 /// Shape 渲染与交互能力接口
 pub trait ShapeRender {
@@ -48,7 +49,7 @@ impl DrawnShape {
         let font_size = 20.0 + (self.stroke_width * 2.0);
         let galley = painter.layout_no_wrap(
             text.clone(),
-            eframe::egui::FontId::proportional(font_size),
+            egui::FontId::proportional(font_size),
             self.color,
         );
         self.cached_galley = Some(galley.clone());
@@ -66,7 +67,7 @@ impl DrawnShape {
         let font_size = 20.0 + (self.stroke_width * 2.0);
         Some(painter.layout_no_wrap(
             text.clone(),
-            eframe::egui::FontId::proportional(font_size),
+            egui::FontId::proportional(font_size),
             self.color,
         ))
     }
