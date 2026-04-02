@@ -78,6 +78,26 @@ fn collect_clipped_mosaic_cells(
     clip_mosaic_cells(grid_cells, block_size_phys, selection)
 }
 
+fn sample_mosaic_color(captures: &[CapturedScreen], cell_center_phys: Pos2) -> Color32 {
+    for cap in captures {
+        let rect = Rect::from_min_size(
+            Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
+            Vec2::new(cap.screen_info.width as f32, cap.screen_info.height as f32),
+        );
+        if rect.contains(cell_center_phys) {
+            let local_x = (cell_center_phys.x - rect.min.x) as u32;
+            let local_y = (cell_center_phys.y - rect.min.y) as u32;
+            if local_x < cap.raw_image.width() && local_y < cap.raw_image.height() {
+                let p = cap.raw_image.get_pixel(local_x, local_y);
+                return Color32::from_rgb(p[0], p[1], p[2]);
+            }
+            break;
+        }
+    }
+
+    Color32::TRANSPARENT
+}
+
 /// 实时马赛克渲染（采样原图）
 pub fn draw_realtime_mosaic(
     painter: &Painter,
@@ -101,25 +121,8 @@ pub fn draw_realtime_mosaic(
         let phys_x = cx as f32 * block_size_phys;
         let phys_y = cy as f32 * block_size_phys;
 
-        let mut color = Color32::TRANSPARENT;
         let cell_center_phys = Pos2::new(phys_x + block_size_phys * 0.5, phys_y + block_size_phys * 0.5);
-
-        // 从原始截图中采样颜色
-        for cap in captures {
-            let rect = Rect::from_min_size(
-                Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
-                Vec2::new(cap.screen_info.width as f32, cap.screen_info.height as f32),
-            );
-            if rect.contains(cell_center_phys) {
-                let local_x = (cell_center_phys.x - rect.min.x) as u32;
-                let local_y = (cell_center_phys.y - rect.min.y) as u32;
-                if local_x < cap.raw_image.width() && local_y < cap.raw_image.height() {
-                    let p = cap.raw_image.get_pixel(local_x, local_y);
-                    color = Color32::from_rgb(p[0], p[1], p[2]);
-                }
-                break;
-            }
-        }
+        let color = sample_mosaic_color(captures, cell_center_phys);
 
         if color != Color32::TRANSPARENT {
             let local_min = Pos2::ZERO + ((clipped_rect_phys.min - global_offset_phys) / ppp);
@@ -192,23 +195,7 @@ pub fn generate_mosaic_texture(
 
         // 采样颜色
         let cell_center_phys = Pos2::new(phys_x + block_size_phys * 0.5, phys_y + block_size_phys * 0.5);
-        let mut color = Color32::TRANSPARENT;
-
-        for cap in captures {
-            let rect = Rect::from_min_size(
-                Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
-                Vec2::new(cap.screen_info.width as f32, cap.screen_info.height as f32),
-            );
-            if rect.contains(cell_center_phys) {
-                let local_x = (cell_center_phys.x - rect.min.x) as u32;
-                let local_y = (cell_center_phys.y - rect.min.y) as u32;
-                if local_x < cap.raw_image.width() && local_y < cap.raw_image.height() {
-                    let p = cap.raw_image.get_pixel(local_x, local_y);
-                    color = Color32::from_rgb(p[0], p[1], p[2]);
-                }
-                break;
-            }
-        }
+        let color = sample_mosaic_color(captures, cell_center_phys);
 
         if color == Color32::TRANSPARENT {
             continue;
