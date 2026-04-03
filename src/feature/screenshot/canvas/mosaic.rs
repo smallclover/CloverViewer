@@ -4,6 +4,7 @@ use std::collections::HashSet;
 
 use crate::feature::screenshot::capture::CapturedScreen;
 use crate::feature::screenshot::state::MosaicCache;
+use super::MOSAIC_BLOCK_SIZE;
 
 fn mosaic_radius_phys(mosaic_width: f32, ppp: f32) -> f32 {
     (mosaic_width * ppp) / 2.0
@@ -112,7 +113,7 @@ pub fn draw_realtime_mosaic(
         return;
     }
 
-    let block_size_phys = 15.0;
+    let block_size_phys = MOSAIC_BLOCK_SIZE;
     let clipped_cells =
         collect_clipped_mosaic_cells(points, mosaic_width, ppp, block_size_phys, selection);
 
@@ -146,7 +147,7 @@ pub fn generate_mosaic_texture(
         return None;
     }
 
-    let block_size_phys = 15.0_f32;
+    let block_size_phys = MOSAIC_BLOCK_SIZE;
     let clipped_cells =
         collect_clipped_mosaic_cells(points, mosaic_width, ppp, block_size_phys, selection);
 
@@ -250,7 +251,7 @@ pub fn apply_mosaic_to_cropped_image(
         return;
     }
 
-    let block_size_phys = 15.0_f32;
+    let block_size_phys = MOSAIC_BLOCK_SIZE;
     let clipped_cells = collect_clipped_mosaic_cells(
         points,
         mosaic_width,

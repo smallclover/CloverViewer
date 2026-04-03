@@ -2,7 +2,7 @@ use std::sync::Arc;
 use eframe::egui::{Color32, Galley, Painter, Pos2, Rect, Stroke, StrokeKind, Vec2};
 
 use crate::feature::screenshot::{
-    canvas::ResizeStartState,
+    canvas::{ResizeStartState, phys_to_local, HIT_TEST_RADIUS, GRAB_TOLERANCE_MIN, GRAB_TOLERANCE_MAX, MIN_SHAPE_SIZE},
     capture::{DrawnShape, ScreenshotTool},
     draw::draw_egui_shape
 };
@@ -101,7 +101,7 @@ impl ShapeRender for DrawnShape {
         let start_local = phys_to_local(self.start, global_offset_phys, ppp);
         let end_local = phys_to_local(self.end, global_offset_phys, ppp);
         let shape_rect = Rect::from_two_pos(start_local, end_local);
-        let grab_tolerance = (self.stroke_width / ppp).clamp(4.0, 8.0);
+        let grab_tolerance = (self.stroke_width / ppp).clamp(GRAB_TOLERANCE_MIN, GRAB_TOLERANCE_MAX);
 
         match self.tool {
             ScreenshotTool::Rect => {
@@ -232,7 +232,7 @@ impl ShapeRender for DrawnShape {
             return Vec::new();
         }
 
-        let hit_radius = 15.0; // 本地坐标下的命中半径（足够大以确保容易命中）
+        let hit_radius = HIT_TEST_RADIUS; // 本地坐标下的命中半径（足够大以确保容易命中）
 
         match self.tool {
             ScreenshotTool::Arrow => {
@@ -287,7 +287,7 @@ impl ShapeRender for DrawnShape {
         start_state: &ResizeStartState,
         selection: Option<Rect>,
     ) {
-        let min_size = 4.0;
+        let min_size = MIN_SHAPE_SIZE;
         let clamped = clamp_pos_to_rect(current_phys, selection.unwrap_or(Rect::EVERYTHING));
 
         let mut new_start = self.start;
@@ -398,11 +398,6 @@ impl ShapeRender for DrawnShape {
             self.end = new_end;
         }
     }
-}
-
-/// 物理坐标转换为本地逻辑坐标
-fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {
-    Pos2::ZERO + ((pos - global_offset_phys) / ppp)
 }
 
 /// 点到线段的距离

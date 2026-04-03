@@ -9,6 +9,26 @@ pub mod text_input;
 
 use eframe::egui::{Id, Pos2, Ui};
 
+/// 物理坐标转换为本地逻辑坐标
+pub fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {
+    Pos2::ZERO + ((pos - global_offset_phys) / ppp)
+}
+
+/// 马赛克块大小（物理像素）
+pub const MOSAIC_BLOCK_SIZE: f32 = 15.0;
+/// 命中测试半径（本地坐标）
+pub const HIT_TEST_RADIUS: f32 = 15.0;
+/// 抓取容差最小值
+pub const GRAB_TOLERANCE_MIN: f32 = 4.0;
+/// 抓取容差最大值
+pub const GRAB_TOLERANCE_MAX: f32 = 8.0;
+/// 形状最小尺寸
+pub const MIN_SHAPE_SIZE: f32 = 4.0;
+/// 锚点大小
+pub const ANCHOR_SIZE: f32 = 6.0;
+/// 遮罩透明度
+pub const OVERLAY_ALPHA: u8 = 128;
+
 /// Resize 开始时的基准状态
 #[derive(Clone, Copy, Debug)]
 pub struct ResizeStartState {

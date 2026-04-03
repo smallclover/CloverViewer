@@ -1,5 +1,6 @@
 use eframe::egui::{Painter, Pos2, Rect, Stroke};
 
+use crate::feature::screenshot::canvas::phys_to_local;
 use crate::feature::screenshot::capture::{ScreenshotState, ScreenshotTool};
 use crate::feature::screenshot::draw::draw_egui_shape;
 
@@ -47,6 +48,3 @@ pub fn render_current_preview(
     }
 }
 
-fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {
-    Pos2::ZERO + ((pos - global_offset_phys) / ppp)
-}

@@ -1,6 +1,6 @@
 use eframe::egui::{Color32, Painter, Pos2, Rect, Stroke, StrokeKind, Ui};
 
-use crate::feature::screenshot::canvas::{CanvasState, shape::ShapeRender};
+use crate::feature::screenshot::canvas::{CanvasState, phys_to_local, ANCHOR_SIZE, OVERLAY_ALPHA, shape::ShapeRender};
 use crate::feature::screenshot::capture::{ScreenshotState, ScreenshotTool};
 
 /// 渲染画布所有元素
@@ -139,10 +139,6 @@ pub fn render_canvas_elements(
     render_selection_frame(painter, state, global_offset_phys, ppp, viewport_rect);
 }
 
-fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {
-    Pos2::ZERO + ((pos - global_offset_phys) / ppp)
-}
-
 /// 绘制选区或悬浮窗口的遮罩
 fn render_overlay(
     ui: &Ui,
@@ -153,7 +149,7 @@ fn render_overlay(
     viewport_rect: Rect,
     is_hovered: bool,
 ) {
-    let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
+    let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, OVERLAY_ALPHA);
 
     if let Some(global_sel_phys) = state.selection {
         let vec_min = global_sel_phys.min - global_offset_phys;
@@ -292,7 +288,7 @@ fn paint_hover_window_overlay(
 }
 
 fn paint_style_box(painter: &Painter, rect: Rect, line_width: f32) {
-    let anchor_size = 6.0;
+    let anchor_size = ANCHOR_SIZE;
     let green = Color32::from_rgb(0, 255, 0);
     let main_stroke = Stroke::new(line_width, green);
     let anchor_stroke = Stroke::new(1.0, green);
