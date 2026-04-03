@@ -1,5 +1,5 @@
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use std::{path::PathBuf, os::windows::ffi::OsStrExt, mem, slice, iter};
+use std::{path::PathBuf, os::windows::ffi::OsStrExt, slice, iter};
 use egui::{pos2, ColorImage, Rect};
 use windows::{
     core::{Interface},
@@ -133,6 +133,7 @@ pub fn lock_cursor_for_screenshot() {
         let hmonitor = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
 
         // 4. 获取该显示器的精确物理尺寸信息
+        // MONITORINFO 没有 Default 实现，使用 zeroed 后必须设置 cbSize
         let mut monitor_info: MONITORINFO = std::mem::zeroed();
         monitor_info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
         let _ = GetMonitorInfoW(hmonitor, &mut monitor_info);
@@ -232,9 +233,9 @@ pub fn load_thumbnail_windows(path: &PathBuf, size: (u32, u32)) -> Result<ColorI
         let size_struct = SIZE { cx: size.0 as i32, cy: size.1 as i32 };
         let hbitmap = image_factory.GetImage(size_struct, SIIGBF_RESIZETOFIT | SIIGBF_BIGGERSIZEOK).map_err(|e| e.to_string())?;
 
-        let hgdiobj: HGDIOBJ = mem::transmute(hbitmap);
+        let hgdiobj: HGDIOBJ = hbitmap.into();
 
-        let mut bitmap: BITMAP = mem::zeroed();
+        let mut bitmap: BITMAP = Default::default();
         if GetObjectW(hgdiobj, size_of::<BITMAP>() as i32, Some(&mut bitmap as *mut _ as *mut _)) == 0 {
             let _ = DeleteObject(hgdiobj);
             return Err("Failed to get bitmap object".to_string());
