@@ -5,7 +5,7 @@ use eframe::egui::{Color32, Pos2, Rect, Response, Ui, Vec2};
 
 use crate::feature::screenshot::{
     canvas::{
-        shape::{clamp_pos_to_rect, ShapeRender},
+        shape::ShapeRender,
         CanvasState,
     },
     capture::{HistoryEntry, ScreenshotState, ScreenshotTool},
@@ -138,9 +138,13 @@ fn handle_click(
     // 文本工具点击
     if state.current_tool == Some(ScreenshotTool::Text) && can_draw {
         if let Some(pos) = response.interact_pointer_pos() {
-            let mut global_phys = global_offset_phys + (pos.to_vec2() * ppp);
+            let global_phys = global_offset_phys + (pos.to_vec2() * ppp);
+
+            // 点击必须在选区内才允许创建文本框
             if let Some(sel) = state.selection {
-                global_phys = clamp_pos_to_rect(global_phys, sel);
+                if !sel.contains(global_phys) {
+                    return;
+                }
             }
 
             if let Some((pos_old, text)) = state.active_text_input.take() {
