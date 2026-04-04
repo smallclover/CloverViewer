@@ -1,8 +1,14 @@
 use eframe::egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
 use image::{RgbaImage, Rgba};
 use ab_glyph::{FontRef, PxScale};
+use std::sync::LazyLock;
 use crate::feature::screenshot::capture::{DrawnShape, ScreenshotTool};
 use crate::feature::screenshot::canvas::mosaic::apply_mosaic_to_cropped_image;
+
+static EMBEDDED_FONT: LazyLock<FontRef<'static>> = LazyLock::new(|| {
+    let data = include_bytes!("../../../assets/fonts/msyhl.ttf");
+    FontRef::try_from_slice(data).expect("字体加载失败")
+});
 
 /// 渲染 UI 时的实时绘图 (Egui)
 pub fn draw_egui_shape(
@@ -163,8 +169,6 @@ pub fn draw_skia_shapes_on_image(
     // ==========================================
     // 2. 使用 imageproc 渲染顶层的文本
     // ==========================================
-    let font_data = include_bytes!("../../../assets/fonts/msyhl.ttf");
-    let font = FontRef::try_from_slice(font_data).expect("字体加载失败");
 
     for shape in shapes {
         if shape.tool == ScreenshotTool::Text {
@@ -184,12 +188,12 @@ pub fn draw_skia_shapes_on_image(
 
                 let mut current_y = start_y as f32;
 
-                // 因为在 UI 层已经将排版“固化”成了带有 \n 的纯文本
+                // 因为在 UI 层已经将排版”固化”成了带有 \n 的纯文本
                 // 所以这里什么都不用测算，遇到 \n 就无脑换行！
                 for line in text.split('\n') {
                     // 过滤可能残留的 Windows 回车符，避免打印出乱码小方块
                     let clean_line = line.trim_end_matches('\r');
-                    imageproc::drawing::draw_text_mut(final_image, text_color, start_x as i32, current_y as i32, scale, &font, clean_line);
+                    imageproc::drawing::draw_text_mut(final_image, text_color, start_x as i32, current_y as i32, scale, &*EMBEDDED_FONT, clean_line);
                     current_y += line_height;
                 }
             }

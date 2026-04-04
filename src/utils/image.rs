@@ -18,12 +18,14 @@ pub fn collect_images(dir: &Path) -> Vec<PathBuf> {
         return Vec::new();
     };
 
-    entries
+    let mut result: Vec<PathBuf> = entries
         .flatten()
-        .par_bridge() // 将迭代器转换为并行迭代器
+        .par_bridge()
         .map(|e| e.path())
         .filter(|p| is_image(p))
-        .collect()
+        .collect();
+    result.sort();
+    result
 }
 
 pub fn load_icon()-> egui::IconData {
