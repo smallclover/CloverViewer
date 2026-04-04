@@ -1,39 +1,40 @@
-use eframe::egui;
-use egui::{CentralPanel, Color32, Context, Frame, TopBottomPanel, Vec2, ViewportCommand};
-use rfd::FileDialog;
-use grid_view::draw_grid_view;
-use single_view::draw_single_view;
+use crate::feature::screenshot::ocr::ocr_panel;
+use crate::ui::widgets::context_menu::{
+    ContextMenuAction, handle_context_menu_action, render_context_menu,
+};
+use crate::ui::widgets::menu::{MenuAction, draw_menu};
 use crate::{
     core::{
         business::{ViewMode, ViewerState},
         hotkeys::HotkeyAction,
-    }
-    ,
+    },
     feature::Feature,
     i18n::lang::get_i18n_text,
     model::{
         config::Config,
         image_meta::SUPPORTED_IMAGE_EXTENSIONS,
         mode::{AppMode, OverlayMode},
-        state::CommonState
+        state::CommonState,
     },
     ui::widgets::{
         about::render_about_window,
-        icons::{draw_icon_button, IconType},
+        icons::{IconType, draw_icon_button},
         loading::global_loading,
         modal::ModalAction,
         settings::render_settings_window,
     },
 };
-use crate::feature::screenshot::ocr::ocr_panel;
-use crate::ui::widgets::context_menu::{handle_context_menu_action, render_context_menu, ContextMenuAction};
-use crate::ui::widgets::menu::{draw_menu, MenuAction};
+use eframe::egui;
+use egui::{CentralPanel, Color32, Context, Frame, TopBottomPanel, Vec2, ViewportCommand};
+use grid_view::draw_grid_view;
+use rfd::FileDialog;
+use single_view::draw_single_view;
 
-pub mod properties_panel;
-pub mod single_view;
+pub mod arrows;
 pub mod grid_view;
 pub mod preview;
-pub mod arrows;
+pub mod properties_panel;
+pub mod single_view;
 
 /// ViewerFeature - 图片查看器功能模块
 pub struct ViewerFeature {
@@ -57,7 +58,6 @@ impl ViewerFeature {
             pending_mode_switch: None,
         }
     }
-
 }
 
 impl Default for ViewerFeature {
@@ -131,12 +131,8 @@ impl ViewerFeature {
         }
 
         // 拖放文件
-        if let Some(path) = ctx.input(|i| {
-            i.raw
-                .dropped_files
-                .first()
-                .and_then(|f| f.path.clone())
-        }) {
+        if let Some(path) = ctx.input(|i| i.raw.dropped_files.first().and_then(|f| f.path.clone()))
+        {
             self.state.handle_dropped_file(ctx.clone(), path);
         }
 
@@ -188,24 +184,20 @@ impl ViewerFeature {
         ocr_panel::show(ctx, &mut common.ocr_state);
         // 3. 中央面板
         let background_frame = Frame::NONE.fill(Color32::from_rgb(25, 25, 25));
-        CentralPanel::default().frame(background_frame).show(ctx, |ui| {
-            match self.state.view_mode {
+        CentralPanel::default()
+            .frame(background_frame)
+            .show(ctx, |ui| match self.state.view_mode {
                 ViewMode::Single => {
                     draw_single_view(ctx, ui, &mut self.state, &mut self.overlay);
                 }
                 ViewMode::Grid => {
                     draw_grid_view(ctx, ui, &mut self.state);
                 }
-            }
-        });
+            });
 
         // 4. 属性面板
         if matches!(self.overlay, OverlayMode::Properties) {
-            properties_panel::draw_properties_panel(
-                ctx,
-                &mut self.overlay,
-                &self.state,
-            );
+            properties_panel::draw_properties_panel(ctx, &mut self.overlay, &self.state);
         }
 
         // 5. Toast 系统
@@ -228,23 +220,50 @@ impl ViewerFeature {
 
     /// 底部面板（内联实现）
     fn draw_bottom_panel(&mut self, ctx: &Context) {
-        TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.add_space(10.0);
+        TopBottomPanel::bottom("bottom_panel")
+            .exact_height(40.0) // 1. 强制设定底部面板的精确高度，避免被动态内容撑开时的闪动
+            .show(ctx, |ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_space(10.0);
 
-                // 直接修改 view_mode
-                if draw_icon_button(ui, self.state.view_mode == ViewMode::Grid, IconType::Grid,32.0).clicked() {
-                    self.state.view_mode = ViewMode::Grid;
-                }
+                    // 2. 为按钮预留出绝对的安全空间，避免由于首帧宽高测算不准导致被裁切
+                    ui.allocate_ui_with_layout(
+                        egui::vec2(32.0, 32.0),
+                        egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                        |ui| {
+                            if draw_icon_button(
+                                ui,
+                                self.state.view_mode == ViewMode::Grid,
+                                IconType::Grid,
+                                32.0,
+                            )
+                            .clicked()
+                            {
+                                self.state.view_mode = ViewMode::Grid;
+                            }
+                        },
+                    );
 
-                ui.add_space(4.0);
+                    ui.add_space(4.0);
 
-                // 直接修改 view_mode
-                if draw_icon_button(ui, self.state.view_mode == ViewMode::Single, IconType::Single,32.0).clicked() {
-                    self.state.view_mode = ViewMode::Single;
-                }
+                    ui.allocate_ui_with_layout(
+                        egui::vec2(32.0, 32.0),
+                        egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                        |ui| {
+                            if draw_icon_button(
+                                ui,
+                                self.state.view_mode == ViewMode::Single,
+                                IconType::Single,
+                                32.0,
+                            )
+                            .clicked()
+                            {
+                                self.state.view_mode = ViewMode::Single;
+                            }
+                        },
+                    );
+                });
             });
-        });
     }
 
     fn draw_overlays(&mut self, ctx: &Context) -> Option<ContextMenuAction> {
@@ -264,11 +283,16 @@ impl ViewerFeature {
                 ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::new(750.0, 550.0)));
 
                 // 2. 检查当前窗口大小，如果太小，主动把它撑大！
-                let current_size = ctx.input(|i| i.viewport().inner_rect.map(|r| r.size()).unwrap_or(Vec2::ZERO));
+                let current_size = ctx.input(|i| {
+                    i.viewport()
+                        .inner_rect
+                        .map(|r| r.size())
+                        .unwrap_or(Vec2::ZERO)
+                });
                 if current_size.x < 750.0 || current_size.y < 550.0 {
                     ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(
                         current_size.x.max(750.0),
-                        current_size.y.max(550.0)
+                        current_size.y.max(550.0),
                     )));
                 }
 
