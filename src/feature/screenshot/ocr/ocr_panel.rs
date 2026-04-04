@@ -50,9 +50,9 @@ pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
                         // 直接使用项目中现有的 arboard 库写入纯文本
                         if let Ok(mut clipboard) = arboard::Clipboard::new() {
                             if let Err(e) = clipboard.set_text(text.clone()) {
-                                eprintln!("[ERROR] 复制文字失败: {}", e);
+                                tracing::error!("复制文字失败: {}", e);
                             } else {
-                                println!("[SUCCESS] 成功复制文字到剪贴板！");
+                                tracing::info!("成功复制文字到剪贴板！");
                                 // 如果你的项目里有类似 Toast 的全局提示，可以在这里调用
                                 // crate::ui::widgets::toast::show(ctx, "文字已复制");
                             }

@@ -60,9 +60,9 @@ pub fn handle_magnifier(
 
                 if let Ok(mut clipboard) = Clipboard::new() {
                     if let Err(e) = clipboard.set_text(hex_text.clone()) {
-                        eprintln!("[ERROR] Failed to set clipboard text: {}", e);
+                        tracing::error!("Failed to set clipboard text: {}", e);
                     } else {
-                        println!("[SUCCESS] Color {} copied to clipboard", hex_text);
+                        tracing::info!("Color {} copied to clipboard", hex_text);
                     }
                 }
             }

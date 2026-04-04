@@ -24,7 +24,7 @@ pub struct DeviceInfo {
 impl DeviceInfo {
     pub fn load() -> Self {
         let xcap_monitors = Monitor::all().unwrap_or_else(|err| {
-            eprintln!("[ERROR] 获取显示器信息失败: {}", err);
+            tracing::error!("获取显示器信息失败: {}", err);
             vec![]
         });
 

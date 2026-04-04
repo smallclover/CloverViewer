@@ -88,7 +88,7 @@ impl Feature for ScreenshotFeature {
 
             // 保存图片并发送给 Viewer
             if let Err(e) = image.save(&temp_path) {
-                eprintln!("[ERROR] 无法保存 OCR 临时图片: {}", e);
+                tracing::error!("无法保存 OCR 临时图片: {}", e);
             } else {
                 // 利用现有的消息通道，通知 Viewer 加载这张图！
                 let _ = common.path_sender.send(temp_path);

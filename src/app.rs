@@ -185,7 +185,7 @@ impl CloverApp {
         // 从最小化恢复
         if was_minimized && !is_minimized {
             let current_config = self.config_manager.config();
-            println!("从最小化恢复，config 中窗口位置: {:?}, 尺寸: {:?}", current_config.window_pos, current_config.window_size);
+            tracing::debug!("从最小化恢复，config 中窗口位置: {:?}, 尺寸: {:?}", current_config.window_pos, current_config.window_size);
             ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
             ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
             ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));

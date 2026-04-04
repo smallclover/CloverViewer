@@ -40,7 +40,7 @@ impl HotkeyManager {
 
         // 注册显示截图的热键
         if let Err(e) = hotkeys_manager.register(show_hotkey) {
-            eprintln!("[ERROR] Failed to register screenshot hotkey: {:?}", e);
+            tracing::error!("Failed to register screenshot hotkey: {:?}", e);
         }
 
         let (tx, rx) = mpsc::channel();
@@ -119,7 +119,7 @@ impl HotkeyManager {
 
         // 3. 重新注册 "显示截图" 的快捷键
         if let Err(e) = self.hotkeys_manager.register(self.show_hotkey) {
-            eprintln!("Failed to register show hotkey: {:?}", e);
+            tracing::error!("Failed to register show hotkey: {:?}", e);
         }
 
         // 注意：复制快捷键通常是在进入截图模式后才动态注册的，所以这里不需要立即注册 copy_hotkey
@@ -147,7 +147,7 @@ impl HotkeyManager {
         while let Ok((id, prev_state)) = self.hotkey_receiver.try_recv() {
             // 通过 ID 对比来判断是哪个键被按下了
             if id == self.show_hotkey.id() {
-                println!("处理");
+                tracing::debug!("处理");
                 // 只有在不是截图模式，且本帧未触发的情况下，才接受事件
                 if *mode != AppMode::Screenshot && !screenshot_triggered_this_frame {
                     actions.push(HotkeyAction::SetScreenshotMode { prev_state });
@@ -220,7 +220,7 @@ fn str_to_code(s: &str) -> Option<Code> {
         "F5" => Some(Code::F5), "F6" => Some(Code::F6), "F7" => Some(Code::F7), "F8" => Some(Code::F8),
         "F9" => Some(Code::F9), "F10" => Some(Code::F10), "F11" => Some(Code::F11), "F12" => Some(Code::F12),
         _ => {
-            println!("Unknown key code: {}", s);
+            tracing::debug!("Unknown key code: {}", s);
             None
         }
     }

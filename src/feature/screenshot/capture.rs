@@ -318,7 +318,7 @@ fn handle_capture_process(
 
         thread::spawn(move || {
             thread::sleep(Duration::from_millis(150));
-            println!("[DEBUG] Capturing screens and windows in background...");
+            tracing::debug!("Capturing screens and windows in background...");
 
             let mut captures = Vec::new();
             if let Ok(monitors) = Monitor::all() {
@@ -423,12 +423,12 @@ fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut Scr
                         let desktop = PathBuf::from(profile).join("Desktop");
                         let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
                         let path = desktop.join(format!("screenshot_{}.png", timestamp));
-                        if let Err(e) = final_image.save(&path) { eprintln!("[ERROR] Save failed: {}", e); } else { println!("[SUCCESS] Saved to {:?}", path); }
+                        if let Err(e) = final_image.save(&path) { tracing::error!("Save failed: {}", e); } else { tracing::info!("Saved to {:?}", path); }
                     }
                 } else if final_action == ScreenshotAction::SaveToClipboard {
                     if let Ok(mut clipboard) = Clipboard::new() {
                         let image_data = ImageData { width: final_image.width() as usize, height: final_image.height() as usize, bytes: Cow::from(final_image.into_raw()) };
-                        if let Err(e) = clipboard.set_image(image_data) { eprintln!("[ERROR] Failed to copy image to clipboard: {}", e); } else { println!("[SUCCESS] Copied image to clipboard."); }
+                        if let Err(e) = clipboard.set_image(image_data) { tracing::error!("Failed to copy image to clipboard: {}", e); } else { tracing::info!("Copied image to clipboard."); }
                     }
                 }
             });

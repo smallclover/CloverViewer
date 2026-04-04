@@ -28,7 +28,7 @@ pub fn copy_image_to_clipboard_async(
     let raw_bytes: Vec<u8> = pixels_arc.iter().flat_map(|c| [c.r(), c.g(), c.b(), c.a()]).collect();
     thread::spawn(move || {
         let Ok(mut clipboard) = arboard::Clipboard::new() else {
-            eprintln!("[ERROR] 无法初始化剪贴板");
+            tracing::error!("无法初始化剪贴板");
             toast_clone.error(copy_failed_message.to_string());
             return;
         };
@@ -48,7 +48,7 @@ pub fn copy_image_to_clipboard_async(
 pub fn copy_image_path_to_clipboard(ctx: &Context, path: PathBuf, toast_manager: &ToastManager) {
     let text = get_i18n_text(ctx);
     let Ok(mut clipboard) = arboard::Clipboard::new() else {
-        eprintln!("[ERROR] 无法初始化剪贴板");
+        tracing::error!("无法初始化剪贴板");
         toast_manager.error(text.copy_failed_message.to_string());
         return;
     };
