@@ -1,14 +1,6 @@
-use std::{
-    path::PathBuf,
-    sync::Arc,
-    thread,
-    borrow::Cow
-};
+use crate::{i18n::lang::get_i18n_text, ui::widgets::toast::ToastManager};
 use egui::{Color32, Context};
-use crate::{
-    ui::widgets::toast::ToastManager,
-    i18n::lang::get_i18n_text
-};
+use std::{borrow::Cow, path::PathBuf, sync::Arc, thread};
 
 pub fn copy_image_to_clipboard_async(
     ctx: &Context,
@@ -24,11 +16,11 @@ pub fn copy_image_to_clipboard_async(
     let toast_clone = toast_manager.clone();
     let copied_message = text.copied_message;
     let copy_failed_message = text.copy_failed_message;
-    // 将 Color32 转为独立的 Vec<u8>，避免跨线程借用 Arc 数据
-    let raw_bytes: Vec<u8> = pixels_arc.iter().flat_map(|c| [c.r(), c.g(), c.b(), c.a()]).collect();
+    // 将 Color32 直传底层 [u8] 数组，极大提升高分辨率图片的剪贴板复制性能
+    let raw_bytes: Vec<u8> = bytemuck::cast_slice(&**pixels_arc).to_vec();
     thread::spawn(move || {
         let Ok(mut clipboard) = arboard::Clipboard::new() else {
-            tracing::error!("无法初始化剪贴板");
+            tracing::error!("{}", copy_failed_message);
             toast_clone.error(copy_failed_message.to_string());
             return;
         };
@@ -48,7 +40,7 @@ pub fn copy_image_to_clipboard_async(
 pub fn copy_image_path_to_clipboard(ctx: &Context, path: PathBuf, toast_manager: &ToastManager) {
     let text = get_i18n_text(ctx);
     let Ok(mut clipboard) = arboard::Clipboard::new() else {
-        tracing::error!("无法初始化剪贴板");
+        tracing::error!("{}", text.copy_failed_message);
         toast_manager.error(text.copy_failed_message.to_string());
         return;
     };
