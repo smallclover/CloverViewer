@@ -29,6 +29,8 @@ pub struct CommonState {
     pub device_info: DeviceInfo,
     /// 当点击托盘且窗口处于隐藏状态时设置为 true，app.rs 的 update loop 会重置模式并清除此标志
     pub tray_restore_requested: Arc<Mutex<bool>>,
+    /// 当点击托盘菜单上的截图时设置为 true
+    pub tray_screenshot_requested: Arc<Mutex<bool>>,
     pub ocr_state: OcrState,
 }
 
@@ -66,6 +68,7 @@ impl CommonState {
             window_state,
             device_info: DeviceInfo::load(),
             tray_restore_requested: Arc::new(Mutex::new(false)),
+            tray_screenshot_requested: Arc::new(Mutex::new(false)),
             ocr_state: OcrState::default()
         }
     }

@@ -94,7 +94,7 @@ impl CloverApp {
         let state = AppState::new(&cc.egui_ctx, visible, allow_quit, hwnd_usize);
 
         // 创建托盘，使用 tray_restore_requested 标志在点击时通知模式需要重置
-        let tray = init_tray(&cc, &state.common.window_state.visible, &state.common.window_state.allow_quit, hwnd_usize, &state.common.tray_restore_requested);
+        let tray = init_tray(&cc, &state.common.window_state.visible, &state.common.window_state.allow_quit, hwnd_usize, &state.common.tray_restore_requested, &state.common.tray_screenshot_requested, &config_arc.hotkeys.show_screenshot);
 
         // 创建 ConfigManager 用于防抖保存配置
         let config_manager = ConfigManager::new(Arc::clone(&config_arc));
@@ -269,6 +269,16 @@ impl eframe::App for CloverApp {
             if *flag {
                 *flag = false;
                 self.state.mode = AppMode::Viewer;
+            }
+        }
+        
+        // 检查是否从托盘请求截图
+        if let Ok(mut flag) = self.state.common.tray_screenshot_requested.lock() {
+            if *flag {
+                *flag = false;
+                use crate::feature::screenshot::state::WindowPrevState;
+                self.screenshot_feature.enter_screenshot_mode(WindowPrevState::Tray);
+                self.state.mode = AppMode::Screenshot;
             }
         }
 

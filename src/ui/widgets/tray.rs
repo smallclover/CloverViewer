@@ -7,12 +7,18 @@ use crate::os::window::{show_window_restore, show_window_restore_offscreen};
 use crate::utils::image::load_tray_icon;
 /// 创建托盘
 /// `tray_restore_requested` - 当点击托盘且窗口处于隐藏状态时设置为 true，app.rs 的 update loop 会重置模式并清除此标志
-pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_usize: usize, tray_restore_requested: &Arc<Mutex<bool>>) -> TrayIcon {
+pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, allow_quit: &Arc<Mutex<bool>>, hwnd_usize: usize, tray_restore_requested: &Arc<Mutex<bool>>, tray_screenshot_requested: &Arc<Mutex<bool>>, screenshot_hotkey_text: &str) -> TrayIcon {
 
     let tray_menu = Menu::new();
     // 创建常规的菜单项
+    let label = format!("截图    {}", screenshot_hotkey_text);
+    let item_screenshot = MenuItem::new(&label, true, None);
+    let item_screenshot_id = item_screenshot.id().clone();
+    
     let item_exit = MenuItem::new("退出", true, None);
     let item_exit_id = item_exit.id().clone();
+    
+    let _ = tray_menu.append(&item_screenshot);
     let _ = tray_menu.append(&PredefinedMenuItem::separator()); // 添加一条分割线
     let _ = tray_menu.append(&item_exit);
 
@@ -30,6 +36,7 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
     let visible_for_tray_menu = Arc::clone(visible);
     let allow_quit_1 = Arc::clone(allow_quit);
     let tray_restore_for_tray = Arc::clone(tray_restore_requested);
+    let tray_screenshot_for_menu = Arc::clone(tray_screenshot_requested);
 
 
     // 托盘图标处理
@@ -76,7 +83,13 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
 
     let ctx_2 = cc.egui_ctx.clone();
     MenuEvent::set_event_handler(Some(move |event: MenuEvent|{
-        if event.id == item_exit_id {
+        if event.id == item_screenshot_id {
+            if let Ok(mut flag) = tray_screenshot_for_menu.lock() {
+                *flag = true;
+            }
+            // 唤醒窗口（与热键逻辑一致：先在屏幕外恢复）
+            show_window_restore_offscreen(hwnd_usize);
+        } else if event.id == item_exit_id {
             let Ok(mut vis) = visible_for_tray_menu.lock() else { return; };
             let Ok(mut aq) = allow_quit_1.lock() else { return; };
             // 不是最小化的时候
