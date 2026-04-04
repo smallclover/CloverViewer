@@ -108,6 +108,11 @@ pub struct TextBundle {
     pub help_undo: &'static str,
     pub help_copy: &'static str,
     pub help_tools: &'static str,
+
+    // OCR
+    pub ocr_title: &'static str,
+    pub ocr_processing: &'static str,
+    pub ocr_copy_all: &'static str,
 }
 
 pub const ZH_TEXT: TextBundle = TextBundle {
@@ -180,6 +185,10 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     help_undo: "Ctrl+Z : 撤销上一步绘制",
     help_copy: "复制截图",
     help_tools: "【工具说明】",
+
+    ocr_title: "📝 文字识别 (OCR)",
+    ocr_processing: "正在提取文字，请稍候...",
+    ocr_copy_all: "📋 复制全部到剪贴板",
 };
 
 pub const EN_TEXT: TextBundle = TextBundle {
@@ -252,6 +261,10 @@ pub const EN_TEXT: TextBundle = TextBundle {
     help_undo: "Ctrl + Z : Undo Drawing",
     help_copy: "Copy Screenshot",
     help_tools: "[ Tools ]",
+
+    ocr_title: "📝 Text Recognition (OCR)",
+    ocr_processing: "Extracting text, please wait...",
+    ocr_copy_all: "📋 Copy All to Clipboard",
 };
 
 pub const JA_TEXT: TextBundle = TextBundle {
@@ -324,6 +337,10 @@ pub const JA_TEXT: TextBundle = TextBundle {
     help_undo: "Ctrl + Z : 元に戻す",
     help_copy: "スクリーンショットをコピー",
     help_tools: "【ツール】",
+
+    ocr_title: "📝 文字認識 (OCR)",
+    ocr_processing: "テキストを抽出中です、お待ちください...",
+    ocr_copy_all: "📋 クリップボードにすべてコピー",
 };
 
 pub fn get_text(lang: Language) -> &'static TextBundle {

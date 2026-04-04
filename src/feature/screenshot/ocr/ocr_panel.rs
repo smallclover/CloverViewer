@@ -1,5 +1,6 @@
 use egui::{Context, ScrollArea, SidePanel, TextEdit};
 use crate::feature::screenshot::ocr::state::OcrState;
+use crate::i18n::lang::get_i18n_text;
 use crate::ui::widgets::icons::{draw_icon_button, IconType};
 
 pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
@@ -7,12 +8,14 @@ pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
         return;
     }
 
+    let i18n = get_i18n_text(ctx);
+
     SidePanel::right("ocr_result_panel")
         .default_width(300.0)
         .resizable(true)
         .show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("📝 文字识别 (OCR)");
+                ui.heading(i18n.ocr_title);
                 // 靠右放置一个关闭按钮
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if draw_icon_button(ui, false, IconType::Cancel,20.0).clicked() {
@@ -26,7 +29,7 @@ pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
             if ocr_state.is_processing {
                 ui.horizontal(|ui| {
                     ui.spinner();
-                    ui.label("正在提取文字，请稍候...");
+                    ui.label(i18n.ocr_processing);
                 });
             } else if let Some(text) = &mut ocr_state.text {
                 // 让文本框占满剩余的高度（留出底部按钮的空间）
@@ -46,7 +49,7 @@ pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
 
                 ui.separator();
                 ui.vertical_centered(|ui| {
-                    if ui.button("📋 复制全部到剪贴板").clicked() {
+                    if ui.button(i18n.ocr_copy_all).clicked() {
                         // 直接使用项目中现有的 arboard 库写入纯文本
                         if let Ok(mut clipboard) = arboard::Clipboard::new() {
                             if let Err(e) = clipboard.set_text(text.clone()) {
