@@ -27,7 +27,9 @@ pub struct HotkeyManager {
 
 impl HotkeyManager {
     pub fn new(ctx: &Context, window_state: Arc<WindowState>) -> Self {
-        let hotkeys_manager = GlobalHotKeyManager::new().unwrap();
+        let Ok(hotkeys_manager) = GlobalHotKeyManager::new() else {
+            panic!("Failed to initialize GlobalHotKeyManager");
+        };
         let config = get_context_config(ctx);
         // 初始化时直接从 Config 解析
         let show_hotkey = parse_hotkey_str(&config.hotkeys.show_screenshot)
@@ -37,7 +39,9 @@ impl HotkeyManager {
             .unwrap_or(HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyC));
 
         // 注册显示截图的热键
-        hotkeys_manager.register(show_hotkey).unwrap();
+        if let Err(e) = hotkeys_manager.register(show_hotkey) {
+            eprintln!("[ERROR] Failed to register screenshot hotkey: {:?}", e);
+        }
 
         let (tx, rx) = mpsc::channel();
         let ctx_clone = ctx.clone();
@@ -50,7 +54,7 @@ impl HotkeyManager {
             // 唤起主窗口导最小化
             // 然后开始截图
 
-            let mut visible = window_state.visible.lock().unwrap();
+            let Ok(mut visible) = window_state.visible.lock() else { return; };
             let is_visible = *visible;
 
             // 获取 eframe 层面的最小化状态

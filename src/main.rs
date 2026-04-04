@@ -13,7 +13,8 @@ fn main() -> eframe::Result<()> {
     // 初始化日志系统
     core::logging::init_logging();
 
-    let instance = single_instance::SingleInstance::new("CloverViewer").unwrap();
+    let instance = single_instance::SingleInstance::new("CloverViewer")
+        .expect("Failed to create single instance guard");
     if !instance.is_single() {
         return Ok(());
     }

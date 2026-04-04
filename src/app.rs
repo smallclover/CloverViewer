@@ -119,7 +119,9 @@ impl CloverApp {
     fn init_fonts(cc: &eframe::CreationContext<'_>){
         let mut fonts = FontDefinitions::default();
         fonts.font_data.insert("my_font".to_owned(), Arc::new(FontData::from_static(APP_FONT)));
-        fonts.families.get_mut(&FontFamily::Proportional).unwrap().insert(0, "my_font".to_owned());
+        if let Some(family) = fonts.families.get_mut(&FontFamily::Proportional) {
+            family.insert(0, "my_font".to_owned());
+        }
         cc.egui_ctx.set_fonts(fonts);
     }
 
@@ -130,8 +132,8 @@ impl CloverApp {
 
         if ctx.input(|i| i.viewport().close_requested()) {
             let config = get_context_config(ctx);
-            let aq = self.state.common.window_state.allow_quit.lock().unwrap();
-            let mut vis = self.state.common.window_state.visible.lock().unwrap();
+            let Ok(aq) = self.state.common.window_state.allow_quit.lock() else { return; };
+            let Ok(mut vis) = self.state.common.window_state.visible.lock() else { return; };
             if config.minimize_on_close && !*aq {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
                 *vis = false;

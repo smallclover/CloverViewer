@@ -101,7 +101,7 @@ impl ImageLoader {
                 // 尝试使用 Windows API 加载缩略图
                 #[cfg(target_os = "windows")]
                 {
-                    match load_thumbnail_windows(&path_clone, size.unwrap()) {
+                    match load_thumbnail_windows(&path_clone, size.unwrap_or((160, 120))) {
                         Ok(color_image) => {
                              let raw_pixels = Arc::new(color_image.pixels.clone());
                              let tex = ctx.load_texture(format!("thumb_{}", path_clone.display()), color_image, Default::default());

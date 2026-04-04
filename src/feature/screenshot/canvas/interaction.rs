@@ -574,7 +574,7 @@ fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut CanvasState) {
                 selection: state.selection,
             });
 
-            let tool = state.current_tool.unwrap();
+            let Some(tool) = state.current_tool else { return; };
             let used_width = if tool == ScreenshotTool::Mosaic {
                 state.mosaic_width
             } else {

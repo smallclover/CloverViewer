@@ -78,7 +78,10 @@ pub fn get_window_handle(hwnd_usize: usize) -> HWND {
 pub fn get_hwnd_usize(cc: &eframe::CreationContext<'_>) -> usize {
 
     // 获取原生句柄并转为 usize 以支持跨线程
-    let RawWindowHandle::Win32(handle) = cc.window_handle().unwrap().as_raw() else {
+    let Ok(window_handle) = cc.window_handle() else {
+        panic!("Failed to get window handle");
+    };
+    let RawWindowHandle::Win32(handle) = window_handle.as_raw() else {
         panic!("Unsupported platform");
     };
 

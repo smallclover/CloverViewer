@@ -67,20 +67,23 @@ fn draw_arrow_skia(
     let mut pb = tiny_skia::PathBuilder::new();
     pb.move_to(start_x, start_y);
     pb.line_to(end_x, end_y);
-    let path = pb.finish().unwrap();
-    pixmap.stroke_path(&path, paint, stroke, transform, None);
+    if let Some(path) = pb.finish() {
+        pixmap.stroke_path(&path, paint, stroke, transform, None);
+    }
 
     let mut pb1 = tiny_skia::PathBuilder::new();
     pb1.move_to(end_x, end_y);
     pb1.line_to(arrow_p1_x, arrow_p1_y);
-    let path1 = pb1.finish().unwrap();
-    pixmap.stroke_path(&path1, paint, stroke, transform, None);
+    if let Some(path1) = pb1.finish() {
+        pixmap.stroke_path(&path1, paint, stroke, transform, None);
+    }
 
     let mut pb2 = tiny_skia::PathBuilder::new();
     pb2.move_to(end_x, end_y);
     pb2.line_to(arrow_p2_x, arrow_p2_y);
-    let path2 = pb2.finish().unwrap();
-    pixmap.stroke_path(&path2, paint, stroke, transform, None);
+    if let Some(path2) = pb2.finish() {
+        pixmap.stroke_path(&path2, paint, stroke, transform, None);
+    }
 }
 
 /// 导出图片时的抗锯齿高质量绘图 (最终合成)

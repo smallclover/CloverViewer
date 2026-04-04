@@ -92,8 +92,8 @@ pub fn save_config(config: &Config) {
 }
 
 pub fn get_context_config(ctx: &Context) -> Arc<Config>{
-    let config = ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")).unwrap());
-    config
+    ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")))
+        .unwrap_or_else(|| Arc::new(Config::default()))
 }
 
 pub fn update_context_config(ctx:&Context, config: &Arc<Config>){

@@ -13,8 +13,8 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
     // 创建常规的菜单项
     let item_exit = MenuItem::new("退出", true, None);
     let item_exit_id = item_exit.id().clone();
-    tray_menu.append(&PredefinedMenuItem::separator()).unwrap(); // 添加一条分割线
-    tray_menu.append(&item_exit).unwrap();
+    let _ = tray_menu.append(&PredefinedMenuItem::separator()); // 添加一条分割线
+    let _ = tray_menu.append(&item_exit);
 
     let tray_icon = TrayIconBuilder::new()
         .with_icon(load_tray_icon())
@@ -36,7 +36,7 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
     let ctx = cc.egui_ctx.clone();
     TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
         if let TrayIconEvent::Click { button:MouseButton::Left, button_state:MouseButtonState::Up, .. } = event {
-            let mut vis = visible_for_tray.lock().unwrap();
+            let Ok(mut vis) = visible_for_tray.lock() else { return; };
             if !*vis {
                 // 隐藏状态下恢复
                 show_window_restore(hwnd_usize);
@@ -77,8 +77,8 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
     let ctx_2 = cc.egui_ctx.clone();
     MenuEvent::set_event_handler(Some(move |event: MenuEvent|{
         if event.id == item_exit_id {
-            let mut vis = visible_for_tray_menu.lock().unwrap();
-            let mut aq = allow_quit_1.lock().unwrap();
+            let Ok(mut vis) = visible_for_tray_menu.lock() else { return; };
+            let Ok(mut aq) = allow_quit_1.lock() else { return; };
             // 不是最小化的时候
             let info = ctx_2.input(|i| i.viewport().clone());
             if info.minimized == Some(false) {
