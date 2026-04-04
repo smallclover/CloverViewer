@@ -262,7 +262,7 @@ impl eframe::App for CloverApp {
         self.handle_global_input(ctx);
 
         // 每帧检查是否需要保存配置（防抖）
-        self.config_manager.update();
+        self.config_manager.update(ctx);
 
         // 检查是否从托盘恢复，若是则重置模式为 Viewer
         if let Ok(mut flag) = self.state.common.tray_restore_requested.lock() {

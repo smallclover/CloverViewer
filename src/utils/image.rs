@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use rayon::prelude::*;
 use tray_icon::Icon;
 use crate::model::image_meta::SUPPORTED_IMAGE_EXTENSIONS;
 use crate::ui::resources::APP_IMG;
@@ -20,7 +19,6 @@ pub fn collect_images(dir: &Path) -> Vec<PathBuf> {
 
     let mut result: Vec<PathBuf> = entries
         .flatten()
-        .par_bridge()
         .map(|e| e.path())
         .filter(|p| is_image(p))
         .collect();

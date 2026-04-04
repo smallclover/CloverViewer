@@ -1,5 +1,6 @@
-use std::sync::Arc;
 use std::time::{Duration, Instant};
+use egui::Context;
+use std::sync::Arc;
 use crate::model::config::{Config, save_config};
 
 pub struct ConfigManager {
@@ -31,7 +32,7 @@ impl ConfigManager {
         self.pending_save = Some(Instant::now());
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, ctx: &Context) {
         if let Some(request_time) = self.pending_save {
             let elapsed = request_time.elapsed();
             if elapsed >= Self::DEBOUNCE_DURATION {
@@ -39,6 +40,9 @@ impl ConfigManager {
                     self.save_async();
                 }
                 self.pending_save = None;
+            } else {
+                let wait_time = Self::DEBOUNCE_DURATION.saturating_sub(elapsed);
+                ctx.request_repaint_after(wait_time);
             }
         }
     }
@@ -50,7 +54,7 @@ impl ConfigManager {
 
     fn save_async(&mut self) {
         let config = Arc::clone(&self.config);
-        std::thread::spawn(move || {
+        rayon::spawn(move || {
             save_config(&config);
         });
         self.last_saved = Instant::now();
