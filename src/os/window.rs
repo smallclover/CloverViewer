@@ -15,7 +15,6 @@ use windows::{
     Win32::{
         Foundation::{HWND, SIZE},
         Graphics::Gdi::{BITMAP, DeleteObject, GetObjectW, HGDIOBJ},
-        System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx, CoUninitialize},
         UI::{
             Shell::{
                 IShellItem, IShellItemImageFactory, SHCreateItemFromParsingName,
@@ -231,21 +230,8 @@ pub fn get_taskbar_rects() -> Vec<Rect> {
 
 // 直接调用Win的缩略图，来提高加载速度
 
-struct CoUninitializeOnDrop;
-
-impl Drop for CoUninitializeOnDrop {
-    fn drop(&mut self) {
-        unsafe { CoUninitialize() };
-    }
-}
-
 pub fn load_thumbnail_windows(path: &PathBuf, size: (u32, u32)) -> Result<ColorImage, String> {
     unsafe {
-        CoInitializeEx(None, COINIT_APARTMENTTHREADED)
-            .ok()
-            .map_err(|e| e.to_string())?;
-        let _ = CoUninitializeOnDrop;
-
         let wide_path: Vec<u16> = path
             .as_os_str()
             .encode_wide()
@@ -289,19 +275,21 @@ pub fn load_thumbnail_windows(path: &PathBuf, size: (u32, u32)) -> Result<ColorI
         let mut pixels = Vec::with_capacity(width * height);
         let bits = slice::from_raw_parts(bits_ptr, stride * height);
 
-        //Windows GDI位图(BGRA (Blue-Green-Red-Alpha))转egui RGBA
-        for y in 0..height {
-            for x in 0..width {
-                let offset = y * stride + x * 4;
-                if offset + 3 < bits.len() {
-                    let b = bits[offset];
-                    let g = bits[offset + 1];
-                    let r = bits[offset + 2];
-                    let a = bits[offset + 3];
-                    pixels.push(egui::Color32::from_rgba_premultiplied(r, g, b, a));
-                } else {
-                    pixels.push(egui::Color32::BLACK);
-                }
+        // Windows GDI位图(BGRA)转egui RGBA，使用 chunks_exact 向量化加速拷贝
+        if stride == width * 4 {
+            pixels.extend(bits.chunks_exact(4).map(|chunk| {
+                egui::Color32::from_rgba_premultiplied(chunk[2], chunk[1], chunk[0], chunk[3])
+            }));
+        } else {
+            // 对齐补丁：有些 BMP 扫描线行尾有 padding
+            for y in 0..height {
+                let row_start = y * stride;
+                // 确保不越界
+                let row_end = (row_start + width * 4).min(bits.len());
+                let row = &bits[row_start..row_end];
+                pixels.extend(row.chunks_exact(4).map(|chunk| {
+                    egui::Color32::from_rgba_premultiplied(chunk[2], chunk[1], chunk[0], chunk[3])
+                }));
             }
         }
 
