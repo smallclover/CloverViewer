@@ -7,7 +7,8 @@ pub mod render;
 pub mod shape;
 pub mod text_input;
 
-use eframe::egui::{Id, Pos2, Ui};
+use eframe::egui::{Color32, Id, Pos2, Ui, Vec2};
+use crate::feature::screenshot::capture::{DrawnShape, HistoryEntry, ScreenshotState, ScreenshotTool};
 
 /// 物理坐标转换为本地逻辑坐标
 pub fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {
@@ -110,4 +111,64 @@ impl CanvasState {
             }
         });
     }
+}
+
+/// 提交文本输入为一个 DrawnShape
+pub fn commit_text_shape(
+    ui: &Ui,
+    state: &mut ScreenshotState,
+    pos: Pos2,
+    text: String,
+    global_offset_phys: Pos2,
+    ppp: f32,
+) {
+    let font_size = 20.0 + (state.stroke_width * 2.0);
+    let max_width_logical = if let Some(sel) = state.selection {
+        let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
+        let start_local_x = Pos2::ZERO.x + ((pos.x - global_offset_phys.x) / ppp);
+        (sel_max_x_local - start_local_x - 16.0).max(20.0)
+    } else {
+        1000.0
+    };
+
+    let galley = ui.painter().layout(
+        text.clone(),
+        eframe::egui::FontId::proportional(font_size),
+        Color32::WHITE,
+        max_width_logical,
+    );
+
+    let mut baked_text = String::new();
+    let rows_len = galley.rows.len();
+    for (i, row) in galley.rows.iter().enumerate() {
+        let mut row_str = String::new();
+        for glyph in &row.glyphs {
+            row_str.push(glyph.chr);
+        }
+        baked_text.push_str(row_str.trim_end_matches(&['\r', '\n'][..]));
+        if i < rows_len - 1 {
+            baked_text.push('\n');
+        }
+    }
+
+    let start_pos_phys = pos + Vec2::new(8.0 * ppp, 8.0 * ppp);
+    let text_width_phys = galley.size().x * ppp;
+    let end_pos = start_pos_phys + Vec2::new(text_width_phys, 0.0);
+
+    state.history.push(HistoryEntry {
+        shapes: state.shapes.clone(),
+        selection: state.selection,
+    });
+
+    state.shapes.push(DrawnShape {
+        tool: ScreenshotTool::Text,
+        start: start_pos_phys,
+        end: end_pos,
+        color: state.active_color,
+        stroke_width: state.stroke_width,
+        text: Some(baked_text),
+        points: None,
+        cached_galley: None,
+        cached_mosaic: None,
+    });
 }

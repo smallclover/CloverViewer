@@ -1,6 +1,9 @@
 use eframe::egui::{Color32, Id, Pos2, Stroke, Ui};
 
+use crate::feature::screenshot::canvas::commit_text_shape;
 use crate::feature::screenshot::capture::ScreenshotState;
+
+const TEXT_EDIT_ID: &str = "screenshot_text_edit";
 
 /// 渲染文本输入框
 pub fn render_text_input(
@@ -18,7 +21,10 @@ pub fn render_text_input(
             1000.0
         };
 
-        egui::Area::new(Id::new("screenshot_text_input"))
+        let area_id = Id::new("screenshot_text_input");
+        let text_edit_id = area_id.with(TEXT_EDIT_ID);
+
+        egui::Area::new(area_id)
             .fixed_pos(pos_local)
             .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
@@ -37,13 +43,8 @@ pub fn render_text_input(
                 let frame_response = frame.show(ui, |ui| {
                     ui.set_max_width(max_width);
 
-                    let mut pure_enter_pressed = false;
-
                     ui.input_mut(|i| {
                         let shift_pressed = i.modifiers.shift;
-                        let has_valid_text = i.events.iter().any(|e| {
-                            matches!(e, egui::Event::Text(t) if t != "\n" && t != "\r\n")
-                        });
 
                         i.events.retain(|event| {
                             match event {
@@ -55,9 +56,6 @@ pub fn render_text_input(
                                     if shift_pressed {
                                         true
                                     } else {
-                                        if !has_valid_text {
-                                            pure_enter_pressed = true;
-                                        }
                                         false
                                     }
                                 }
@@ -71,6 +69,7 @@ pub fn render_text_input(
 
                     let response = ui.add(
                         egui::TextEdit::multiline(&mut text)
+                            .id(text_edit_id)
                             .font(font_id)
                             .text_color(state.active_color)
                             .frame(false)
@@ -78,8 +77,20 @@ pub fn render_text_input(
                             .desired_width(dynamic_width),
                     );
 
-                    response.request_focus();
-                    state.active_text_input = Some((pos_phys, text));
+                    // 首次创建时请求焦点（只请求一次）
+                    if state.active_text_input.is_some() && !response.has_focus() && !response.lost_focus() {
+                        response.request_focus();
+                    }
+
+                    // 焦点丢失时提交文本（点击工具栏、点击外部区域等）
+                    if response.lost_focus() && !text.trim().is_empty() {
+                        state.active_text_input = None;
+                        commit_text_shape(ui, state, pos_phys, text, global_offset_phys, ppp);
+                    } else if response.lost_focus() {
+                        state.active_text_input = None;
+                    } else {
+                        state.active_text_input = Some((pos_phys, text));
+                    }
                 });
 
                 let rect = frame_response.response.rect;
