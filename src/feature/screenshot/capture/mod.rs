@@ -1,29 +1,18 @@
+mod actions;
+mod capture_impl;
+
 use eframe::egui::{
-    Color32, ColorImage, Context,
-    Pos2, Rect,ViewportCommand};
-use image::{GenericImage, RgbaImage};
-use std::{
-    borrow::Cow,
-    path::PathBuf,
-    sync::{
-        mpsc::{channel, TryRecvError},
-        Arc,
-    },
-    thread,
-    time::Duration
-};
-use xcap::Monitor;
-use arboard::{Clipboard, ImageData};
+    Color32, Context,
+    Pos2, Rect, ViewportCommand};
 use eframe::emath::Vec2;
 use egui::WindowLevel;
 use crate::feature::screenshot::canvas::{self, CanvasState};
 use crate::model::{
     config::get_context_config,
-    device::{DeviceInfo, MonitorInfo},
+    device::DeviceInfo,
     state::CommonState
 };
-use crate::os::window::{get_taskbar_rects, lock_cursor_for_screenshot, unlock_cursor};
-use crate::feature::screenshot::draw::{draw_skia_shapes_on_image};
+use crate::os::window::{lock_cursor_for_screenshot, unlock_cursor};
 use crate::feature::screenshot::help_box;
 use crate::feature::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 use crate::feature::screenshot::magnifier::handle_magnifier;
@@ -34,7 +23,6 @@ pub use crate::feature::screenshot::state::{
     HistoryEntry, CapturedScreen, WindowPrevState
 };
 
-// capture.rs
 /// 处理截图系统的更新
 /// `is_active` - 是否处于截图模式，函数内部可将其设为 false 以退出截图模式
 pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_state: &mut ScreenshotState, common: &CommonState) -> Option<image::DynamicImage> {
@@ -48,7 +36,7 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
             ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
             ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(-20000.0, -20000.0)));
         }
-        let should_exit = handle_capture_process(ctx, screenshot_state);
+        let should_exit = capture_impl::handle_capture_process(ctx, screenshot_state);
         if should_exit {
             *is_active = false;
         }
@@ -113,12 +101,12 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
 
         if action == ScreenshotAction::Ocr {
             // 如果是 OCR，极速裁剪图片，包装为 DynamicImage 并暂存
-            if let Some(rgba_img) = extract_cropped_image(screenshot_state) {
+            if let Some(rgba_img) = actions::extract_cropped_image(screenshot_state) {
                 ocr_result_image = Some(image::DynamicImage::ImageRgba8(rgba_img));
             }
         } else {
             // 普通保存走老路子
-            handle_save_action(action, screenshot_state);
+            actions::handle_save_action(action, screenshot_state);
         }
 
         //开启截图模式之后，将不再显示住窗口
@@ -299,180 +287,4 @@ pub fn draw_screenshot_ui(
     ctx.request_repaint();
 
     action
-}
-
-/// 处理截图捕获过程
-/// 返回 true 表示应该退出截图模式
-fn handle_capture_process(
-    ctx: &Context,
-    screenshot_state: &mut ScreenshotState,
-) -> bool {
-    if !screenshot_state.is_capturing {
-        screenshot_state.is_capturing = true;
-
-        ctx.request_repaint();
-
-        let (tx, rx) = channel();
-        screenshot_state.capture_receiver = Some(rx);
-        let ctx_clone = ctx.clone();
-
-        thread::spawn(move || {
-            thread::sleep(Duration::from_millis(150));
-            tracing::debug!("Capturing screens and windows in background...");
-
-            let mut captures = Vec::new();
-            if let Ok(monitors) = Monitor::all() {
-                for monitor in monitors {
-                    if let (Ok(image), Ok(width)) = (monitor.capture_image(), monitor.width()) {
-                        if width == 0 { continue; }
-
-                        let color_image = ColorImage::from_rgba_unmultiplied(
-                            [image.width() as usize, image.height() as usize],
-                            &image,
-                        );
-
-                        let info = MonitorInfo {
-                            name: monitor.name().unwrap_or_default(),
-                            x: monitor.x().unwrap_or(0),
-                            y: monitor.y().unwrap_or(0),
-                            width: monitor.width().unwrap_or(0),
-                            height: monitor.height().unwrap_or(0),
-                            scale_factor: monitor.scale_factor().unwrap_or(1.0),
-                        };
-
-                        captures.push(CapturedScreen {
-                            raw_image: Arc::new(image),
-                            image: color_image,
-                            screen_info: info,
-                        });
-                    }
-                }
-            }
-
-            let mut window_rects = Vec::new();
-            if let Ok(windows) = xcap::Window::all() {
-                for w in windows {
-                    if !w.is_minimized().unwrap_or(true) {
-                        let app_name = w.app_name().unwrap_or_default().to_lowercase();
-                        if app_name.contains("cloverviewer") || app_name.contains("screenshot") {
-                            continue;
-                        }
-
-                        let rect = Rect::from_min_size(
-                            Pos2::new(w.x().unwrap_or(0) as f32, w.y().unwrap_or(0) as f32),
-                            egui::vec2(w.width().unwrap_or(0) as f32, w.height().unwrap_or(0) as f32)
-                        );
-                        if rect.width() > 50.0 && rect.height() > 50.0 {
-                            window_rects.push(rect);
-                        }
-                    }
-                }
-            }
-            // 使用win底层API强制捕获副屏的任务栏
-            let taskbars = get_taskbar_rects();
-            window_rects.extend(taskbars);
-            let _ = tx.send((captures, window_rects));
-            ctx_clone.request_repaint();
-        });
-    }
-
-    if let Some(rx) = &screenshot_state.capture_receiver {
-        match rx.try_recv() {
-            Ok((captures, window_rects)) => {
-
-                for cap in &captures {
-                    let monitor_name = &cap.screen_info.name;
-                    if let Some(texture) = screenshot_state.texture_pool.get_mut(monitor_name) {
-                        texture.set(cap.image.clone(), Default::default());
-                    } else {
-                        let texture = ctx.load_texture(
-                            format!("screenshot_{}", monitor_name),
-                            cap.image.clone(),
-                            Default::default(),
-                        );
-                        screenshot_state.texture_pool.insert(monitor_name.clone(), texture);
-                    }
-                }
-
-                screenshot_state.captures = captures;
-                screenshot_state.window_rects = window_rects;
-                screenshot_state.is_capturing = false;
-                screenshot_state.capture_receiver = None;
-                ctx.request_repaint();
-            }
-            Err(TryRecvError::Empty) => {
-                ctx.request_repaint_after(Duration::from_millis(16));
-            }
-            Err(TryRecvError::Disconnected) => {
-                screenshot_state.is_capturing = false;
-                screenshot_state.capture_receiver = None;
-                return true; // 表示应该退出截图模式
-            }
-        }
-    }
-    false // 不需要退出
-}
-
-fn handle_save_action(final_action: ScreenshotAction, screenshot_state: &mut ScreenshotState) {
-    if final_action == ScreenshotAction::SaveAndClose || final_action == ScreenshotAction::SaveToClipboard {
-        // 利用刚写好的函数瞬间切出图片，再丢给线程去写硬盘/剪贴板
-        if let Some(final_image) = extract_cropped_image(screenshot_state) {
-            thread::spawn(move || {
-                if final_action == ScreenshotAction::SaveAndClose {
-                    if let Ok(profile) = std::env::var("USERPROFILE") {
-                        let desktop = PathBuf::from(profile).join("Desktop");
-                        let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-                        let path = desktop.join(format!("screenshot_{}.png", timestamp));
-                        if let Err(e) = final_image.save(&path) { tracing::error!("Save failed: {}", e); } else { tracing::info!("Saved to {:?}", path); }
-                    }
-                } else if final_action == ScreenshotAction::SaveToClipboard {
-                    if let Ok(mut clipboard) = Clipboard::new() {
-                        let image_data = ImageData { width: final_image.width() as usize, height: final_image.height() as usize, bytes: Cow::from(final_image.into_raw()) };
-                        if let Err(e) = clipboard.set_image(image_data) { tracing::error!("Failed to copy image to clipboard: {}", e); } else { tracing::info!("Copied image to clipboard."); }
-                    }
-                }
-            });
-        }
-    }
-}
-
-pub fn extract_cropped_image(screenshot_state: &ScreenshotState) -> Option<RgbaImage> {
-    let selection_phys = screenshot_state.selection?;
-    if !selection_phys.is_positive() { return None; }
-
-    let captures_data: Vec<_> = screenshot_state.captures.iter().map(|c| {
-        (
-            c.raw_image.clone(),
-            Rect::from_min_size(
-                egui::pos2(c.screen_info.x as f32, c.screen_info.y as f32),
-                egui::vec2(c.screen_info.width as f32, c.screen_info.height as f32),
-            )
-        )
-    }).collect();
-
-    let final_width = selection_phys.width().round() as u32;
-    let final_height = selection_phys.height().round() as u32;
-    if final_width == 0 || final_height == 0 { return None; }
-
-    let mut final_image = RgbaImage::new(final_width, final_height);
-
-    for (_, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
-        let intersection = selection_phys.intersect(*monitor_rect_phys);
-        if !intersection.is_positive() { continue; }
-
-        let crop_x = (intersection.min.x - monitor_rect_phys.min.x).max(0.0).round() as u32;
-        let crop_y = (intersection.min.y - monitor_rect_phys.min.y).max(0.0).round() as u32;
-        let crop_w = intersection.width().round() as u32;
-        let crop_h = intersection.height().round() as u32;
-
-        if crop_x + crop_w > raw_image.width() || crop_y + crop_h > raw_image.height() { continue; }
-
-        let cropped_part = image::imageops::crop_imm(&**raw_image, crop_x, crop_y, crop_w, crop_h).to_image();
-        let paste_x = (intersection.min.x - selection_phys.min.x).max(0.0).round() as u32;
-        let paste_y = (intersection.min.y - selection_phys.min.y).max(0.0).round() as u32;
-        let _ = final_image.copy_from(&cropped_part, paste_x, paste_y);
-    }
-
-    draw_skia_shapes_on_image(&mut final_image, &screenshot_state.shapes, selection_phys);
-    Some(final_image)
 }
