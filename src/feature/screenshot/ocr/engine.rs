@@ -10,7 +10,7 @@ use windows::{
 };
 
 pub fn recognize_text(img: DynamicImage) -> std::result::Result<String, String> {
-    recognize_text_internal(img).map_err(|e| format!("OCR 引擎调用失败: {}", e))
+    recognize_text_internal(img).map_err(|e| e.to_string())
 }
 
 fn recognize_text_internal(img: DynamicImage) -> Result<String> {

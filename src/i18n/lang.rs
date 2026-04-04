@@ -113,6 +113,17 @@ pub struct TextBundle {
     pub ocr_title: &'static str,
     pub ocr_processing: &'static str,
     pub ocr_copy_all: &'static str,
+    pub ocr_engine_failed: &'static str,
+
+    // Properties
+    pub prop_no_image: &'static str,
+
+    // Grid
+    pub grid_loading: &'static str,
+
+    // Magnifier
+    pub magnifier_pos: &'static str,
+    pub magnifier_hex: &'static str,
 }
 
 pub const ZH_TEXT: TextBundle = TextBundle {
@@ -189,6 +200,12 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     ocr_title: "📝 文字识别 (OCR)",
     ocr_processing: "正在提取文字，请稍候...",
     ocr_copy_all: "📋 复制全部到剪贴板",
+    ocr_engine_failed: "OCR 引擎调用失败: ",
+
+    prop_no_image: "未加载图片。",
+    grid_loading: "加载中...",
+    magnifier_pos: "坐标: ",
+    magnifier_hex: "色值: ",
 };
 
 pub const EN_TEXT: TextBundle = TextBundle {
@@ -265,6 +282,12 @@ pub const EN_TEXT: TextBundle = TextBundle {
     ocr_title: "📝 Text Recognition (OCR)",
     ocr_processing: "Extracting text, please wait...",
     ocr_copy_all: "📋 Copy All to Clipboard",
+    ocr_engine_failed: "OCR engine error: ",
+
+    prop_no_image: "No image loaded.",
+    grid_loading: "Loading...",
+    magnifier_pos: "POS: ",
+    magnifier_hex: "HEX: ",
 };
 
 pub const JA_TEXT: TextBundle = TextBundle {
@@ -341,6 +364,12 @@ pub const JA_TEXT: TextBundle = TextBundle {
     ocr_title: "📝 文字認識 (OCR)",
     ocr_processing: "テキストを抽出中です、お待ちください...",
     ocr_copy_all: "📋 クリップボードにすべてコピー",
+    ocr_engine_failed: "OCR エンジンエラー: ",
+
+    prop_no_image: "画像が読み込まれていません。",
+    grid_loading: "読み込み中...",
+    magnifier_pos: "座標: ",
+    magnifier_hex: "カラー: ",
 };
 
 pub fn get_text(lang: Language) -> &'static TextBundle {

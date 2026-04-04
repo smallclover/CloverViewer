@@ -242,13 +242,13 @@ fn draw_magnifier_ui(
     painter.text(
         Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 0.5 + 2.0),
         Align2::LEFT_CENTER,
-        format!("POS: {}", coord_text),
+        format!("{}{}", text.magnifier_pos, coord_text),
         font_id.clone(),
         text_color,
     );
 
     let row2_y = info_rect.min.y + line_height * 1.5 + 2.0;
-    let hex_galley = painter.layout_no_wrap(format!("HEX: {}", hex_text), font_id.clone(), text_color);
+    let hex_galley = painter.layout_no_wrap(format!("{}{}", text.magnifier_hex, hex_text), font_id.clone(), text_color);
     let hex_text_width = hex_galley.size().x;
     painter.galley(
         Pos2::new(info_rect.min.x + 8.0, row2_y - hex_galley.size().y / 2.0),

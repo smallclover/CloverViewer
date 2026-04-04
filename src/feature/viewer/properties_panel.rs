@@ -38,7 +38,7 @@ pub fn draw_properties_panel(
             if let Some(props) = &viewer.current_properties {
                 render_properties_content(ui, props);
             } else {
-                ui.label("No image loaded.");
+                ui.label(text.prop_no_image);
             }
         });
 

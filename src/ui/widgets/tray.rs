@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 use egui::{ViewportCommand, WindowLevel};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
+use crate::i18n::lang::get_text;
 use crate::model::config::get_context_config;
 use crate::os::window::{show_window_restore, show_window_restore_offscreen};
 use crate::utils::image::load_tray_icon;
@@ -11,11 +12,13 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
 
     let tray_menu = Menu::new();
     // 创建常规的菜单项
-    let label = format!("截图    {}", screenshot_hotkey_text);
+    let config = get_context_config(&cc.egui_ctx);
+    let text = get_text(config.language);
+    let label = format!("{}    {}", text.menu_screenshot, screenshot_hotkey_text);
     let item_screenshot = MenuItem::new(&label, true, None);
     let item_screenshot_id = item_screenshot.id().clone();
-    
-    let item_exit = MenuItem::new("退出", true, None);
+
+    let item_exit = MenuItem::new(text.menu_exit, true, None);
     let item_exit_id = item_exit.id().clone();
     
     let _ = tray_menu.append(&item_screenshot);

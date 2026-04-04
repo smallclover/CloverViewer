@@ -81,7 +81,10 @@ impl Feature for ViewerFeature {
                 common.ocr_state.is_processing = false;
                 match result {
                     Ok(text) => common.ocr_state.text = Some(text),
-                    Err(err) => common.ocr_state.text = Some(format!("识别失败:\n{}", err)),
+                    Err(err) => {
+                        let text = get_i18n_text(ctx);
+                        common.ocr_state.text = Some(format!("{}{}", text.ocr_engine_failed, err));
+                    }
                 }
                 common.ocr_state.receiver = None; // 接收完毕，清理通道
             }

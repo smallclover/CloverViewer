@@ -10,8 +10,9 @@ pub fn draw_grid_view(
     ui: &mut Ui,
     viewer: &mut ViewerState,
 ) {
+    let text = get_i18n_text(ctx);
+
     if viewer.list.is_empty() {
-        let text = get_i18n_text(ctx);
         ui.centered_and_justified(|ui| {
             ui.label(text.viewer_no_images);
         });
@@ -111,7 +112,7 @@ pub fn draw_grid_view(
                                     ui.painter().text(
                                         rect.center(),
                                         Align2::CENTER_CENTER,
-                                        "Loading...",
+                                        text.grid_loading,
                                         FontId::proportional(14.0),
                                         Color32::GRAY,
                                     );
