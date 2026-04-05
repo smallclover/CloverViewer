@@ -93,17 +93,26 @@ pub fn init_tray(cc: &eframe::CreationContext<'_>, visible: &Arc<Mutex<bool>>, a
             // 唤醒窗口（与热键逻辑一致：先在屏幕外恢复）
             show_window_restore_offscreen(hwnd_usize);
         } else if event.id == item_exit_id {
-            let Ok(mut vis) = visible_for_tray_menu.lock() else { return; };
-            let Ok(mut aq) = allow_quit_1.lock() else { return; };
-            // 不是最小化的时候
+            // 先获取无状态依赖信息，不占用应用级锁
             let info = ctx_2.input(|i| i.viewport().clone());
-            if info.minimized == Some(false) {
+            let need_restore = info.minimized == Some(false);
+
+            // 用局部作用范围进行锁定，拿到锁并完成标记后瞬间解除挂起状态
+            {
+                if let Ok(mut vis) = visible_for_tray_menu.lock() {
+                    *vis = true;
+                }
+                if let Ok(mut aq) = allow_quit_1.lock() {
+                    *aq = true;
+                }
+            }
+
+            // 非锁状态下执行底层耗时的同步方法
+            if need_restore {
                 show_window_restore_offscreen(hwnd_usize);
             }
 
-            *vis = true;
-            *aq = true;
-
+            // 发送关闭请求进入退出流程
             ctx_2.send_viewport_cmd(ViewportCommand::Close);
         }
     }));
