@@ -47,9 +47,10 @@ pub fn draw_properties_panel(ctx: &Context, overlay: &mut OverlayMode, viewer: &
 fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
     let text = get_i18n_text(ui.ctx());
 
-    Grid::new("properties_grid")
+    // 侧边栏基础属性
+    Grid::new("basic_properties_grid")
         .num_columns(2)
-        .spacing([40.0, 4.0])
+        .spacing([20.0, 4.0])
         .show(ui, |ui| {
             ui.label(format!("{}:", text.img_name));
             ui.add(egui::Label::new(&properties.name).wrap())
@@ -68,10 +69,21 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
                 (properties.size as f64) / (1024.0 * 1024.0)
             ));
             ui.end_row();
+        });
 
-            ui.label(format!("{}:", text.img_path));
-            ui.vertical(|ui| {
-                let path_str = properties.path.to_string_lossy().to_string();
+    ui.add_space(10.0);
+
+    // 侧边栏路径
+    ui.label(format!("{}:", text.img_path));
+    ui.horizontal(|ui| {
+        let path_str = properties.path.to_string_lossy().to_string();
+        // 预留复制按钮的空间
+        let label_width = ui.available_width() - 30.0;
+
+        ui.allocate_ui_with_layout(
+            egui::vec2(label_width, 0.0),
+            Layout::top_down(Align::Min),
+            |ui| {
                 let label = egui::Label::new(
                     RichText::new(&path_str).color(Color32::from_rgb(200, 50, 50)),
                 )
@@ -90,11 +102,12 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
                         .arg(&path_str)
                         .spawn();
                 }
+            },
+        );
 
-                if draw_icon_button(ui, false, IconType::SaveToClipboard, 20.0).clicked() {
-                    ui.ctx().copy_text(path_str);
-                }
-            });
-            ui.end_row();
-        });
+        // 水平布局将此按钮垂直居中于路径文本块
+        if draw_icon_button(ui, false, IconType::SaveToClipboard, 20.0).clicked() {
+            ui.ctx().copy_text(path_str);
+        }
+    });
 }
