@@ -1,15 +1,11 @@
-use egui::{Align, Context, Layout, Ui, CursorIcon, SidePanel, Grid};
 use crate::core::business::ViewerState;
-use crate::i18n::lang::{get_i18n_text};
+use crate::i18n::lang::get_i18n_text;
 use crate::model::image_meta::ImageProperties;
 use crate::model::mode::OverlayMode;
-use crate::ui::widgets::icons::{draw_icon_button, IconType};
+use crate::ui::widgets::icons::{IconType, draw_icon_button};
+use egui::{Align, Color32, Context, CursorIcon, Grid, Layout, RichText, Sense, SidePanel, Ui};
 
-pub fn draw_properties_panel(
-    ctx: &Context,
-    overlay: &mut OverlayMode,
-    viewer: &ViewerState,
-) {
+pub fn draw_properties_panel(ctx: &Context, overlay: &mut OverlayMode, viewer: &ViewerState) {
     let mut is_open = matches!(overlay, OverlayMode::Properties);
     if !is_open {
         return;
@@ -20,6 +16,7 @@ pub fn draw_properties_panel(
     SidePanel::right("properties_panel")
         .resizable(true)
         .default_width(250.0)
+        .min_width(250.0)
         .show(ctx, |ui| {
             if ui.rect_contains_pointer(ui.max_rect()) {
                 ui.ctx().set_cursor_icon(CursorIcon::Default);
@@ -28,7 +25,7 @@ pub fn draw_properties_panel(
             ui.horizontal(|ui| {
                 ui.heading(text.img_prop);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if draw_icon_button(ui, false, IconType::Cancel,20.0).clicked() {
+                    if draw_icon_button(ui, false, IconType::Cancel, 20.0).clicked() {
                         is_open = false;
                     }
                 });
@@ -48,29 +45,51 @@ pub fn draw_properties_panel(
 }
 
 fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
-
     let text = get_i18n_text(ui.ctx());
 
     Grid::new("properties_grid")
         .num_columns(2)
         .spacing([40.0, 4.0])
         .show(ui, |ui| {
-            ui.label(format!("{}:",text.img_name));
-            ui.label(&properties.name);
+            ui.label(format!("{}:", text.img_name));
+            ui.add(egui::Label::new(&properties.name).wrap())
+                .on_hover_text(&properties.name);
             ui.end_row();
 
-            ui.label(format!("{}:",text.img_date));
+            ui.label(format!("{}:", text.img_date));
             ui.label(&properties.date);
             ui.end_row();
 
-            ui.label(format!("{}:",text.img_dim));
-            ui.label(format!("{}x{} {:.1} MB", properties.width, properties.height, (properties.size as f64) / (1024.0 * 1024.0)));
+            ui.label(format!("{}:", text.img_dim));
+            ui.label(format!(
+                "{}x{} {:.1} MB",
+                properties.width,
+                properties.height,
+                (properties.size as f64) / (1024.0 * 1024.0)
+            ));
             ui.end_row();
 
-            ui.label(format!("{}:",text.img_path));
-            ui.horizontal(|ui| {
+            ui.label(format!("{}:", text.img_path));
+            ui.vertical(|ui| {
                 let path_str = properties.path.to_string_lossy().to_string();
-                ui.add(egui::Label::new(&path_str).wrap());
+                let label = egui::Label::new(
+                    RichText::new(&path_str).color(Color32::from_rgb(200, 50, 50)),
+                )
+                .wrap()
+                .sense(Sense::click());
+
+                let response = ui.add(label).on_hover_text(&path_str);
+
+                if response.hovered() {
+                    ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+                }
+
+                if response.clicked() {
+                    let _ = std::process::Command::new("explorer")
+                        .arg("/select,")
+                        .arg(&path_str)
+                        .spawn();
+                }
 
                 if draw_icon_button(ui, false, IconType::SaveToClipboard, 20.0).clicked() {
                     ui.ctx().copy_text(path_str);
