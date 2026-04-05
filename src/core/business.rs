@@ -235,33 +235,38 @@ impl ViewerState {
 
     pub fn prev_image(&mut self, ctx: Context) {
         if self.prev().is_some() {
-            self.previous_texture = self.current_texture.clone();
-            self.transition_direction = -1;
-            self.transition_start_time = Some(ctx.input(|i| i.time));
+            self.start_transition(&ctx, -1);
             self.load_current(ctx);
         }
     }
 
     pub fn next_image(&mut self, ctx: Context) {
         if self.next().is_some() {
-            self.previous_texture = self.current_texture.clone();
-            self.transition_direction = 1;
-            self.transition_start_time = Some(ctx.input(|i| i.time));
+            self.start_transition(&ctx, 1);
             self.load_current(ctx);
         }
     }
 
     pub fn jump_to_index(&mut self, ctx: Context, index: usize) {
         if index != self.index && index < self.list.len() {
-            self.previous_texture = self.current_texture.clone();
-            if index > self.index {
-                self.transition_direction = 1;
-            } else {
-                self.transition_direction = -1;
-            }
-            self.transition_start_time = Some(ctx.input(|i| i.time));
+            let direction = if index > self.index { 1 } else { -1 };
+            self.start_transition(&ctx, direction);
             self.set_index(index);
             self.load_current(ctx);
+        }
+    }
+
+    fn start_transition(&mut self, ctx: &Context, direction: i8) {
+        let is_transitioning = self.transition_start_time
+            .map_or(false, |start| ctx.input(|i| i.time) - start < 0.25);
+
+        if is_transitioning {
+            self.previous_texture = None;
+            self.transition_start_time = None;
+        } else {
+            self.previous_texture = self.current_texture.clone();
+            self.transition_direction = direction;
+            self.transition_start_time = Some(ctx.input(|i| i.time));
         }
     }
 

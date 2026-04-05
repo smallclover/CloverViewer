@@ -118,14 +118,26 @@ fn render_image_viewer(
                     ui.add_space(y_offset);
                     let img_rect = ui.allocate_exact_size(size, egui::Sense::hover()).0;
 
-                    if viewer.transition_start_time.is_some() {
-                        viewer.transition_start_time = None;
-                        viewer.previous_texture = None;
-                    }
+                    let mut prev_alpha = 0.0;
+                    let mut current_alpha = 1.0;
+                    let mut current_scale = 1.0;
 
-                    let prev_alpha = 0.0;
-                    let current_alpha = 1.0;
-                    let current_scale = 1.0;
+                    if let Some(start_time) = viewer.transition_start_time {
+                        let now = ui.input(|i| i.time);
+                        let progress = ((now - start_time) as f32 / 0.25).clamp(0.0, 1.0); // 0.25秒阻尼动画
+                        
+                        if progress < 1.0 {
+                            let ease_out = 1.0 - (1.0 - progress).powi(3);
+                            prev_alpha = 1.0 - ease_out;
+                            current_alpha = ease_out;
+                            current_scale = 0.98 + 0.02 * ease_out; // 微微放大效果
+                            
+                            ui.ctx().request_repaint(); 
+                        } else {
+                            viewer.transition_start_time = None;
+                            viewer.previous_texture = None;
+                        }
+                    }
 
                     if let Some(prev_tex) = &viewer.previous_texture {
                         if prev_alpha > 0.0 {
