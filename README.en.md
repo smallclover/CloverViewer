@@ -18,10 +18,42 @@ CloverViewer is a lightweight tool developed in Rust, combining image browsing a
 
 ## ✨ Features
 
-*   **Browse Folder Images**: Quickly and easily browse all images within a folder.
-*   **View Image Details**: View high-resolution images and detailed attribute information.
-*   **Copy Image**: Support copying images to the clipboard.
-*   **Screenshot**: Built-in screenshot tool for capturing screen content.
+### 🖼️ Image Viewer
+
+*   **Dual View Modes**: Switch between Grid view (thumbnails) and Single view (full image)
+*   **Folder Browsing**: Automatically load all images when opening a folder
+*   **Quick Navigation**: Use Left/Right arrow keys to switch images quickly
+*   **Smooth Zooming**: Mouse wheel zoom with customizable sensitivity
+*   **Drag & Drop**: Open images or folders by dragging them into the window
+*   **Image Properties**: View detailed information (name, date, path, dimensions)
+*   **Context Menu**: Copy image, copy path, view properties
+*   **Clipboard Integration**: One-click copy image to clipboard
+
+### 📸 Screenshot Tool
+
+*   **Multi-Monitor Support**: Automatically detect and support screenshots across multiple displays
+*   **Area Selection**: Freely select the screenshot region
+*   **Annotation Tools**:
+    *   Rectangle and circle shapes
+    *   Arrow annotations
+    *   Freehand pencil drawing
+    *   Mosaic blur
+    *   Text annotations
+*   **OCR Text Recognition**: Based on Windows native OCR engine, extract text from images with one click
+*   **Magnifier**: Real-time display of mouse position coordinates and color value, support Ctrl+C to copy color
+*   **Color Picker**: Long-press tool icon to open color palette, customize drawing colors
+*   **Undo**: Ctrl+Z to undo the last drawing operation
+*   **Quick Save**: Save to desktop or copy directly to clipboard
+
+### ⚙️ System Features
+
+*   **System Tray**: Option to minimize to system tray when closing window
+*   **Global Hotkeys**:
+    *   Default Alt+S to quickly start screenshot
+    *   Support custom hotkeys
+    *   Global hotkeys that work even when minimized to tray
+*   **Multi-language Support**: Chinese, English, and Japanese interfaces
+*   **Settings Panel**: Visual configuration for language, hotkeys, magnifier, and more
 
 ## 📸 Screenshots
 
@@ -33,68 +65,41 @@ CloverViewer is a lightweight tool developed in Rust, combining image browsing a
 
 ## 🖼️ Supported Formats
 
-Supports common image formats, including but not limited to:
+Supports common image formats:
 *   PNG
 *   JPEG / JPG
 *   GIF
 *   BMP
 *   WebP
 *   TIFF
-*   AVIF (required dav1d.dll)
+*   ~~AVIF~~ (requires dav1d.dll, currently not enabled)
 
 ## 🛠️ Development Environment Setup
 
-This project depends on the `dav1d` library to support the AVIF image format. For compiling on Windows, it is recommended to use `vcpkg` to manage C/C++ dependencies.
-
-### 1. Install vcpkg and dav1d
-
-Please ensure you have Git installed.
-
-```powershell
-# 1. Clone the vcpkg repository (recommended to install at C:\vcpkg, but you can choose a custom path)
-git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
-
-# 2. Navigate to the directory and run the bootstrap script
-cd C:\vcpkg
-.\bootstrap-vcpkg.bat
-
-# 3. Install dav1d (for 64-bit Windows)
-.\vcpkg install dav1d:x64-windows
-```
-
-### 2. Install pkg-config
-
-You need to install `pkg-config` so that the Rust build script can find system libraries.
-
-It is recommended to use Chocolatey to install `pkgconfiglite`:
-
-> **Tip**: If you don't have Chocolatey installed, run the following command in PowerShell with **administrator privileges**:
-> ```powershell
-> Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
-> ```
-
-Install pkg-config:
-```powershell
-choco install pkgconfiglite
-```
-*Alternatively, you can manually download `pkg-config.exe` and add it to your system's PATH environment variable.*
-
-### 3. Configure Environment Variables
-
-To help the build tools find the library files, you need to configure the following environment variables:
-
-*   **`VCPKG_ROOT`**: Points to your vcpkg installation directory (e.g., `C:\vcpkg`).
-*   **`PKG_CONFIG_PATH`**: Points to the pkgconfig directory within vcpkg.
-    *   The typical path is: `C:\vcpkg\installed\x64-windows\lib\pkgconfig`
-
-### 4. Build the Project
-
-Once the environment is configured, clean and rebuild the project:
+Make sure you have the [Rust](https://www.rust-lang.org/tools/install) toolchain installed, then run the following command to build the project:
 
 ```shell
-cargo clean
-cargo build
+cargo build --release
 ```
+
+## ⌨️ Keyboard Shortcuts
+
+### Image Viewer
+
+| Shortcut | Function |
+|----------|----------|
+| ← | Previous image |
+| → | Next image |
+| Scroll Wheel | Zoom image |
+
+### Screenshot Tool
+
+| Shortcut | Function |
+|----------|----------|
+| Alt+S (customizable) | Start screenshot |
+| Esc | Exit screenshot |
+| Ctrl+Z | Undo last drawing |
+| Ctrl+C | Copy color value (when magnifier is enabled) |
 
 ## 🤝 Acknowledgements
 
