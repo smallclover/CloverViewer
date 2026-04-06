@@ -105,8 +105,9 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
             },
         );
 
-        // 水平布局将此按钮垂直居中于路径文本块
-        if draw_icon_button(ui, false, IconType::SaveToClipboard, 20.0).clicked() {
+        // 复制按钮 - 使用 egui Button 内置点击状态
+        let btn_response = ui.button("📋");
+        if btn_response.clicked() {
             ui.ctx().copy_text(path_str);
         }
     });
