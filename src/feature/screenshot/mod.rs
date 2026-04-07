@@ -44,6 +44,43 @@ impl Default for ScreenshotFeature {
     }
 }
 
+impl ScreenshotFeature {
+    /// 清理超过24小时的临时文件
+    fn clean_temp_files(temp_dir: &std::path::Path) {
+        use std::time::{SystemTime, Duration};
+
+        let now = SystemTime::now();
+        let max_age = Duration::from_secs(24 * 60 * 60); // 24小时
+
+        if let Ok(entries) = std::fs::read_dir(temp_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+
+                // 只清理 ocr_temp_ 开头的文件
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if !name.starts_with("ocr_temp_") {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+
+                // 检查文件修改时间
+                if let Ok(metadata) = entry.metadata() {
+                    if let Ok(modified) = metadata.modified() {
+                        if let Ok(age) = now.duration_since(modified) {
+                            if age > max_age {
+                                let _ = std::fs::remove_file(&path);
+                                tracing::debug!("清理过期OCR临时文件: {:?}", path);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl Feature for ScreenshotFeature {
     fn update(&mut self, ctx: &Context, common: &mut CommonState, mode: &mut AppMode) {
         // 检测是否刚进入截图模式
@@ -76,7 +113,8 @@ impl Feature for ScreenshotFeature {
             let temp_dir = std::env::temp_dir().join("CloverViewer");
             let _ = std::fs::create_dir_all(&temp_dir); // 确保干净的专属目录存在
 
-            //TODO 当缓存积累到一定程度需要清理
+            // 清理超过24小时的临时文件
+            Self::clean_temp_files(&temp_dir);
 
             // 加上时间戳，否则每次都从LRU里面的缓存读取
             let timestamp = std::time::SystemTime::now()

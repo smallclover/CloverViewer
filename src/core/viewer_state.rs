@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use egui::{Color32, Context, TextureHandle};
 use lru::LruCache;
-use crate::core::image_loader::{ImageLoader, LoadResult};
+use crate::core::image_loader::{ImageLoader, LoadResult, ImageLoadError};
 use crate::model::image_meta::ImageProperties;
 use crate::utils::image::{is_image, collect_images};
 
@@ -23,7 +23,7 @@ pub struct ViewerState {
     pub current_texture: Option<TextureHandle>,
     pub current_properties: Option<ImageProperties>,
     pub current_raw_pixels: Option<Arc<Vec<Color32>>>,
-    pub error: Option<String>,
+    pub error: Option<ImageLoadError>,
     pub zoom: f32,
     pub last_view_size: Option<egui::Vec2>,
     pub failed_thumbs: HashSet<PathBuf>,
@@ -178,13 +178,14 @@ impl ViewerState {
                                 }
                             }
                         }
-                        LoadResult::Err(e) => {
+                        LoadResult::Err(ref e) => {
                             self.loading_thumbs.remove(&msg.path);
                             self.failed_thumbs.insert(msg.path.clone());
                             if msg.is_priority {
                                 self.loader.is_loading = false;
-                                self.error = Some(e);
+                                self.error = Some(e.clone());
                             }
+                            tracing::warn!("图片加载失败 {}: {}", msg.path.display(), e);
                         }
                     }
                     processed_count += 1;
@@ -220,7 +221,7 @@ impl ViewerState {
                 self.loader.is_loading = false;
             } else {
                 if self.failed_thumbs.contains(&path) {
-                    self.error = Some("error".to_string());
+                    self.error = Some(ImageLoadError::DecodeError("缩略图加载失败".to_string()));
                     self.current_texture = None;
                     self.loader.is_loading = false;
                 } else {

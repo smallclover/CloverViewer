@@ -15,6 +15,35 @@ use std::{
 };
 use zune_jpeg::JpegDecoder;
 
+/// 图片加载错误类型
+#[derive(Debug, Clone, PartialEq)]
+pub enum ImageLoadError {
+    /// 文件不存在
+    FileNotFound(String),
+    /// 文件读取失败
+    ReadError(String),
+    /// 不支持的图片格式
+    UnsupportedFormat(String),
+    /// 图片解码失败
+    DecodeError(String),
+    // /// 创建纹理失败
+    // TextureError(String),
+}
+
+impl std::fmt::Display for ImageLoadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ImageLoadError::FileNotFound(path) => write!(f, "文件不存在: {}", path),
+            ImageLoadError::ReadError(msg) => write!(f, "文件读取失败: {}", msg),
+            ImageLoadError::UnsupportedFormat(ext) => write!(f, "不支持的图片格式: {}", ext),
+            ImageLoadError::DecodeError(msg) => write!(f, "图片解码失败: {}", msg),
+            // ImageLoadError::TextureError(msg) => write!(f, "创建纹理失败: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ImageLoadError {}
+
 pub struct LoadSuccess {
     pub texture: TextureHandle,
     pub raw_pixels: Arc<Vec<egui::Color32>>, // 原始像素快照
@@ -23,7 +52,7 @@ pub struct LoadSuccess {
 
 pub enum LoadResult {
     Ok(LoadSuccess),
-    Err(String),
+    Err(ImageLoadError),
 }
 
 pub struct LoadMessage {
@@ -228,9 +257,14 @@ impl ImageLoader {
     fn decode_image(
         path: &PathBuf,
         size: Option<(u32, u32)>,
-    ) -> Result<(ColorImage, ImageProperties), String> {
-        let data = fs::read(path).map_err(|e| e.to_string())?;
-        let metadata = fs::metadata(path).map_err(|e| e.to_string())?;
+    ) -> Result<(ColorImage, ImageProperties), ImageLoadError> {
+        // 检查文件是否存在
+        if !path.exists() {
+            return Err(ImageLoadError::FileNotFound(path.display().to_string()));
+        }
+
+        let data = fs::read(path).map_err(|e| ImageLoadError::ReadError(e.to_string()))?;
+        let metadata = fs::metadata(path).map_err(|e| ImageLoadError::ReadError(e.to_string()))?;
 
         let mut properties = ImageProperties {
             path: path.clone(),
@@ -249,16 +283,28 @@ impl ImageLoader {
 
         let mut img = if is_jpeg {
             let mut decoder = JpegDecoder::new(Cursor::new(&data));
-            let pixels = decoder.decode().map_err(|e| e.to_string())?;
-            let info = decoder.info().ok_or("Failed to get JPEG info")?;
+            let pixels = decoder.decode().map_err(|e| ImageLoadError::DecodeError(format!("JPEG解码失败: {}", e)))?;
+            let info = decoder.info().ok_or_else(|| ImageLoadError::DecodeError("无法获取JPEG信息".to_string()))?;
 
             let rgb_buf =
                 ImageBuffer::<Rgb<u8>, _>::from_raw(info.width as u32, info.height as u32, pixels)
-                    .ok_or("Failed to create image buffer")?;
+                    .ok_or_else(|| ImageLoadError::DecodeError("创建图像缓冲区失败".to_string()))?;
 
             DynamicImage::ImageRgb8(rgb_buf)
         } else {
-            image::load_from_memory(&data).map_err(|e| e.to_string())?
+            image::load_from_memory(&data).map_err(|e| {
+                // 检查是否是格式不支持
+                let err_str = e.to_string();
+                if err_str.contains("Unsupported") || err_str.contains("unknown") {
+                    let ext = path.extension()
+                        .and_then(|e| e.to_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+                    ImageLoadError::UnsupportedFormat(ext)
+                } else {
+                    ImageLoadError::DecodeError(err_str)
+                }
+            })?
         };
 
         let img_orient = Self::map_exif_to_orientation(orientation_value);

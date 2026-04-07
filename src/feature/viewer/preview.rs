@@ -1,5 +1,5 @@
 use egui::{Color32, CornerRadius, Rect, TextureHandle, Vec2, Context, Area, Frame, Stroke, Ui, Align2, FontId, UiBuilder, Sense, Id, Image, Shadow, StrokeKind, Spinner, CursorIcon};
-use crate::core::business::ViewerState;
+use crate::core::viewer_state::ViewerState;
 
 #[derive(Clone, Copy, Default)]
 struct PickerState {

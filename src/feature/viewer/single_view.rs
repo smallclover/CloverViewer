@@ -4,7 +4,7 @@ use egui::{
 };
 
 use crate::{
-    core::business::ViewerState,
+    core::viewer_state::ViewerState,
     model::mode::OverlayMode,
 };
 use crate::feature::viewer::preview::show_preview_window;
@@ -45,11 +45,13 @@ pub fn draw_single_view(
                 }
             }
         }
-    } else if let Some(_) = viewer.error.as_ref() {
+    } else if let Some(err) = viewer.error.as_ref() {
         ui.scope_builder(UiBuilder::new().max_rect(rect),|ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(ui.available_height() * 0.4);
                 ui.label(RichText::new(text.viewer_error).color(Color32::RED).size(14.0));
+                ui.add_space(8.0);
+                ui.label(RichText::new(err.to_string()).color(Color32::GRAY).size(12.0));
             });
         });
     } else if viewer.loader.is_loading {

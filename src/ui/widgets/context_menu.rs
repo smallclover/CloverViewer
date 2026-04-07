@@ -4,7 +4,7 @@ use crate::{
     utils::clipboard::{copy_image_path_to_clipboard, copy_image_to_clipboard_async},
     model::mode::OverlayMode,
     i18n::lang::{get_i18n_text},
-    core::business::ViewerState,
+    core::viewer_state::ViewerState,
     ui::widgets::toast::ToastManager
 };
 

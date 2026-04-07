@@ -5,7 +5,7 @@ use crate::ui::widgets::context_menu::{
 use crate::ui::widgets::menu::{MenuAction, draw_menu};
 use crate::{
     core::{
-        business::{ViewMode, ViewerState},
+        viewer_state::{ViewMode, ViewerState},
         hotkeys::HotkeyAction,
     },
     feature::Feature,

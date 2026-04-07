@@ -9,6 +9,7 @@ dependencies = [
  "ab_glyph",
  "arboard",
  "bytemuck",
+ "dirs",
  "eframe",
  "egui",
  "futures",

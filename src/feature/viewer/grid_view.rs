@@ -1,7 +1,7 @@
 use eframe::egui;
 use egui::{Context, ScrollArea, Ui, Color32, Frame, Stroke, Sense, Align2, FontId, Vec2, Rect, Pos2};
 use crate::{
-    core::business::{ViewerState, ViewMode},
+    core::viewer_state::{ViewerState, ViewMode},
     i18n::lang::get_i18n_text
 };
 
