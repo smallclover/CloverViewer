@@ -1,6 +1,6 @@
+use crate::i18n::lang::{TextBundle, get_i18n_text};
 use eframe::epaint::StrokeKind;
-use egui::{Color32, Rect, Response, Sense, Stroke, Ui, vec2, Pos2};
-use crate::i18n::lang::{get_i18n_text, TextBundle};
+use egui::{Color32, Pos2, Rect, Response, Sense, Stroke, Ui, vec2};
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum IconType {
@@ -15,7 +15,7 @@ pub enum IconType {
     Cancel,
     Save,
     SaveToClipboard,
-    Ocr
+    Ocr,
 }
 
 impl IconType {
@@ -38,7 +38,13 @@ impl IconType {
 }
 
 /// 核心：纯粹的图标绘制逻辑（内部几何线条）
-pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType, stroke: Stroke, bg_color: Color32) {
+pub fn paint_icon(
+    painter: &egui::Painter,
+    icon_rect: Rect,
+    icon_type: IconType,
+    stroke: Stroke,
+    bg_color: Color32,
+) {
     match icon_type {
         IconType::Grid => {
             let gap = 2.0;
@@ -47,7 +53,8 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
                 for j in 0..2 {
                     let x = icon_rect.min.x + i as f32 * (cell_size + gap);
                     let y = icon_rect.min.y + j as f32 * (cell_size + gap);
-                    let cell_rect = Rect::from_min_size(egui::pos2(x, y), vec2(cell_size, cell_size));
+                    let cell_rect =
+                        Rect::from_min_size(egui::pos2(x, y), vec2(cell_size, cell_size));
                     painter.rect_stroke(cell_rect, 1.0, stroke, StrokeKind::Outside);
                 }
             }
@@ -106,9 +113,18 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
             let h = (icon_rect.height() - gap) / 2.0;
 
             let tl = Rect::from_min_size(icon_rect.left_top(), egui::vec2(w, h));
-            let tr = Rect::from_min_size(Pos2::new(icon_rect.left() + w + gap, icon_rect.top()), egui::vec2(w, h));
-            let bl = Rect::from_min_size(Pos2::new(icon_rect.left(), icon_rect.top() + h + gap), egui::vec2(w, h));
-            let br = Rect::from_min_size(Pos2::new(icon_rect.left() + w + gap, icon_rect.top() + h + gap), egui::vec2(w, h));
+            let tr = Rect::from_min_size(
+                Pos2::new(icon_rect.left() + w + gap, icon_rect.top()),
+                egui::vec2(w, h),
+            );
+            let bl = Rect::from_min_size(
+                Pos2::new(icon_rect.left(), icon_rect.top() + h + gap),
+                egui::vec2(w, h),
+            );
+            let br = Rect::from_min_size(
+                Pos2::new(icon_rect.left() + w + gap, icon_rect.top() + h + gap),
+                egui::vec2(w, h),
+            );
 
             let corner_radius = 1.0; // 加一点点圆角让方块边缘不那么锐利，更精致
 
@@ -117,8 +133,18 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
             painter.rect_filled(br, corner_radius, stroke.color);
 
             // 右上、左下使用细边框的空心
-            painter.rect_stroke(tr, corner_radius, Stroke::new(1.2, stroke.color), StrokeKind::Inside);
-            painter.rect_stroke(bl, corner_radius, Stroke::new(1.2, stroke.color), StrokeKind::Inside);
+            painter.rect_stroke(
+                tr,
+                corner_radius,
+                Stroke::new(1.2, stroke.color),
+                StrokeKind::Inside,
+            );
+            painter.rect_stroke(
+                bl,
+                corner_radius,
+                Stroke::new(1.2, stroke.color),
+                StrokeKind::Inside,
+            );
         }
         IconType::Cancel => {
             let inner = icon_rect.shrink(2.0);
@@ -131,7 +157,13 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
             painter.line_segment([arrow_top, arrow_bottom], stroke);
             painter.line_segment([arrow_bottom, arrow_bottom - vec2(3.0, 3.0)], stroke);
             painter.line_segment([arrow_bottom, arrow_bottom + vec2(3.0, -3.0)], stroke);
-            painter.line_segment([icon_rect.left_top() + vec2(0.0, 2.0), icon_rect.right_top() + vec2(0.0, 2.0)], stroke);
+            painter.line_segment(
+                [
+                    icon_rect.left_top() + vec2(0.0, 2.0),
+                    icon_rect.right_top() + vec2(0.0, 2.0),
+                ],
+                stroke,
+            );
         }
         IconType::SaveToClipboard => {
             // 调整尺寸让图标看起来紧凑
@@ -153,9 +185,27 @@ pub fn paint_icon(painter: &egui::Painter, icon_rect: Rect, icon_type: IconType,
             let r = icon_rect.shrink(1.0);
             painter.rect_stroke(r, 1.0, stroke, StrokeKind::Outside);
             let pad = 3.0;
-            painter.line_segment([r.left_top() + vec2(pad, pad), r.right_top() + vec2(-pad, pad)], stroke);
-            painter.line_segment([r.left_top() + vec2(pad, pad + 3.0), r.right_top() + vec2(-pad, pad + 3.0)], stroke);
-            painter.line_segment([r.left_top() + vec2(pad, pad + 6.0), r.left_top() + vec2(r.width() - pad - 2.0, pad + 6.0)], stroke);
+            painter.line_segment(
+                [
+                    r.left_top() + vec2(pad, pad),
+                    r.right_top() + vec2(-pad, pad),
+                ],
+                stroke,
+            );
+            painter.line_segment(
+                [
+                    r.left_top() + vec2(pad, pad + 3.0),
+                    r.right_top() + vec2(-pad, pad + 3.0),
+                ],
+                stroke,
+            );
+            painter.line_segment(
+                [
+                    r.left_top() + vec2(pad, pad + 6.0),
+                    r.left_top() + vec2(r.width() - pad - 2.0, pad + 6.0),
+                ],
+                stroke,
+            );
         }
     }
 }
@@ -174,7 +224,11 @@ pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, size: 
 
     // 1. 绘制正方形的背景色 (Hover 或 选中状态)
     if selected {
-        painter.rect_filled(rounded_rect, corner_radius, Color32::from_rgba_premultiplied(0, 120, 215, 20));
+        painter.rect_filled(
+            rounded_rect,
+            corner_radius,
+            Color32::from_rgba_premultiplied(0, 120, 215, 20),
+        );
     } else if response.hovered() {
         painter.rect_filled(rounded_rect, corner_radius, Color32::from_gray(245));
     }
@@ -183,12 +237,16 @@ pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, size: 
     let box_stroke = if selected {
         Stroke::new(1.5, Color32::from_rgb(0, 120, 215)) // 选中时的蓝色边框
     } else {
-        Stroke::new(1.0, Color32::from_gray(220))        // 默认状态的浅灰色边框
+        Stroke::new(1.0, Color32::from_gray(220)) // 默认状态的浅灰色边框
     };
     painter.rect_stroke(rounded_rect, corner_radius, box_stroke, StrokeKind::Outside);
 
     // 3. 绘制内部的几何图标
-    let icon_color = if selected { Color32::from_rgb(0, 120, 215) } else { Color32::from_gray(80) };
+    let icon_color = if selected {
+        Color32::from_rgb(0, 120, 215)
+    } else {
+        Color32::from_gray(80)
+    };
     // 动态计算线宽：大尺寸线粗一点，小尺寸线细一点
     let stroke_width = (size / 24.0).clamp(1.0, 2.5);
     let stroke = Stroke::new(stroke_width, icon_color);
@@ -208,5 +266,11 @@ pub fn draw_inline_icon(ui: &mut Ui, icon_type: IconType) {
     let painter = ui.painter();
 
     let stroke = Stroke::new(1.2, Color32::from_rgb(230, 230, 230));
-    paint_icon(painter, rect, icon_type, stroke, Color32::from_black_alpha(200));
+    paint_icon(
+        painter,
+        rect,
+        icon_type,
+        stroke,
+        Color32::from_black_alpha(200),
+    );
 }

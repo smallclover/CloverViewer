@@ -1,7 +1,7 @@
-use std::time::{Duration, Instant};
+use crate::model::config::{Config, save_config};
 use egui::Context;
 use std::sync::Arc;
-use crate::model::config::{Config, save_config};
+use std::time::{Duration, Instant};
 
 pub struct ConfigManager {
     config: Arc<Config>,

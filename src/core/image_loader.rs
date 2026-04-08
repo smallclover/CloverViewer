@@ -1,5 +1,5 @@
 use crate::model::image_meta::ImageProperties;
-use crate::os::window::load_thumbnail_windows;
+use crate::os::current_platform;
 use egui::{ColorImage, Context, TextureHandle};
 use exif::Tag;
 use image::{DynamicImage, ImageBuffer, Rgb, imageops::FilterType, metadata::Orientation};
@@ -145,32 +145,26 @@ impl ImageLoader {
 
         target_pool.spawn(move || {
             let result = if is_thumbnail {
-                // 尝试使用 Windows API 加载缩略图
-                #[cfg(target_os = "windows")]
-                {
-                    match load_thumbnail_windows(&path_clone, size.unwrap_or((160, 120))) {
-                        Ok(color_image) => {
-                            let raw_pixels = Arc::new(color_image.pixels.clone());
-                            let tex = ctx.load_texture(
-                                format!("thumb_{}", path_clone.display()),
-                                color_image,
-                                Default::default(),
-                            );
-                            LoadResult::Ok(LoadSuccess {
-                                texture: tex,
-                                raw_pixels,
-                                properties: ImageProperties::default(), // 缩略图不需要详细属性
-                            })
-                        }
-                        Err(_) => {
-                            // 降级到普通加载
-                            Self::load_normal(&ctx, &path_clone, size)
-                        }
+                // 尝试使用系统 API 加载缩略图
+                let platform = current_platform();
+                match platform.load_thumbnail(&path_clone, size.unwrap_or((160, 120))) {
+                    Ok(color_image) => {
+                        let raw_pixels = Arc::new(color_image.pixels.clone());
+                        let tex = ctx.load_texture(
+                            format!("thumb_{}", path_clone.display()),
+                            color_image,
+                            Default::default(),
+                        );
+                        LoadResult::Ok(LoadSuccess {
+                            texture: tex,
+                            raw_pixels,
+                            properties: ImageProperties::default(), // 缩略图不需要详细属性
+                        })
                     }
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    Self::load_normal(&ctx, &path_clone, size)
+                    Err(_) => {
+                        // 降级到普通加载
+                        Self::load_normal(&ctx, &path_clone, size)
+                    }
                 }
             } else {
                 Self::load_normal(&ctx, &path_clone, size)
@@ -283,8 +277,12 @@ impl ImageLoader {
 
         let mut img = if is_jpeg {
             let mut decoder = JpegDecoder::new(Cursor::new(&data));
-            let pixels = decoder.decode().map_err(|e| ImageLoadError::DecodeError(format!("JPEG解码失败: {}", e)))?;
-            let info = decoder.info().ok_or_else(|| ImageLoadError::DecodeError("无法获取JPEG信息".to_string()))?;
+            let pixels = decoder
+                .decode()
+                .map_err(|e| ImageLoadError::DecodeError(format!("JPEG解码失败: {}", e)))?;
+            let info = decoder
+                .info()
+                .ok_or_else(|| ImageLoadError::DecodeError("无法获取JPEG信息".to_string()))?;
 
             let rgb_buf =
                 ImageBuffer::<Rgb<u8>, _>::from_raw(info.width as u32, info.height as u32, pixels)
@@ -296,7 +294,8 @@ impl ImageLoader {
                 // 检查是否是格式不支持
                 let err_str = e.to_string();
                 if err_str.contains("Unsupported") || err_str.contains("unknown") {
-                    let ext = path.extension()
+                    let ext = path
+                        .extension()
                         .and_then(|e| e.to_str())
                         .unwrap_or("unknown")
                         .to_string();

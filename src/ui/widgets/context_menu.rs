@@ -1,12 +1,12 @@
-use eframe::emath::Pos2;
-use egui::{Area, Context, Frame, Id, Order, Sense, Layout, Align};
 use crate::{
-    utils::clipboard::{copy_image_path_to_clipboard, copy_image_to_clipboard_async},
-    model::mode::OverlayMode,
-    i18n::lang::{get_i18n_text},
     core::viewer_state::ViewerState,
-    ui::widgets::toast::ToastManager
+    i18n::lang::get_i18n_text,
+    model::mode::OverlayMode,
+    ui::widgets::toast::ToastManager,
+    utils::clipboard::{copy_image_path_to_clipboard, copy_image_to_clipboard_async},
 };
+use eframe::emath::Pos2;
+use egui::{Align, Area, Context, Frame, Id, Layout, Order, Sense};
 
 pub enum ContextMenuAction {
     Copy,
@@ -14,10 +14,7 @@ pub enum ContextMenuAction {
     ShowProperties,
 }
 
-pub fn render_context_menu(
-    ctx: &Context,
-    pos: &mut Option<Pos2>,
-) -> Option<ContextMenuAction> {
+pub fn render_context_menu(ctx: &Context, pos: &mut Option<Pos2>) -> Option<ContextMenuAction> {
     let mut action = None;
     let text = get_i18n_text(ctx);
     if let Some(position) = pos {
@@ -72,7 +69,6 @@ pub fn handle_context_menu_action(
     overlay: &mut OverlayMode,
     toast_manager: &ToastManager,
 ) {
-
     match action {
         ContextMenuAction::Copy => {
             if let (Some(tex), Some(pixels)) = (
@@ -80,18 +76,12 @@ pub fn handle_context_menu_action(
                 viewer.current_raw_pixels.clone(),
             ) {
                 let [w, h] = tex.size();
-                copy_image_to_clipboard_async(
-                    ctx,
-                    pixels,
-                    w,
-                    h,
-                    toast_manager,
-                );
+                copy_image_to_clipboard_async(ctx, pixels, w, h, toast_manager);
             }
         }
         ContextMenuAction::CopyPath => {
             if let Some(path) = viewer.current() {
-                copy_image_path_to_clipboard(ctx,path, toast_manager);
+                copy_image_path_to_clipboard(ctx, path, toast_manager);
             }
         }
         ContextMenuAction::ShowProperties => {

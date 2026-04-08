@@ -1,7 +1,7 @@
-use egui::{Context, ScrollArea, SidePanel, TextEdit};
 use crate::feature::screenshot::ocr::state::OcrState;
 use crate::i18n::lang::get_i18n_text;
-use crate::ui::widgets::icons::{draw_icon_button, IconType};
+use crate::ui::widgets::icons::{IconType, draw_icon_button};
+use egui::{Context, ScrollArea, SidePanel, TextEdit};
 
 pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
     if !ocr_state.is_panel_open {
@@ -18,7 +18,7 @@ pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
                 ui.heading(i18n.ocr_title);
                 // 靠右放置一个关闭按钮
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if draw_icon_button(ui, false, IconType::Cancel,20.0).clicked() {
+                    if draw_icon_button(ui, false, IconType::Cancel, 20.0).clicked() {
                         ocr_state.is_panel_open = false;
                     }
                 });
@@ -43,7 +43,7 @@ pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
                             TextEdit::multiline(text)
                                 .desired_width(f32::INFINITY)
                                 .min_size(egui::vec2(0.0, target_height)) // 2. 核心：让文本框本体的最小高度也撑满
-                                .margin(egui::vec2(8.0, 8.0))
+                                .margin(egui::vec2(8.0, 8.0)),
                         );
                     });
 

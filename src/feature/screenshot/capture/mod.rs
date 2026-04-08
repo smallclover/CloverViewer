@@ -1,31 +1,30 @@
 mod actions;
 mod capture_impl;
 
-use eframe::egui::{
-    Color32, Context,
-    Pos2, Rect, ViewportCommand};
+use crate::feature::screenshot::canvas::{self, CanvasState};
+use crate::feature::screenshot::help_box;
+use crate::feature::screenshot::magnifier::handle_magnifier;
+use crate::feature::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
+use crate::model::{config::get_context_config, device::DeviceInfo, state::CommonState};
+use crate::os::current_platform;
+use eframe::egui::{Color32, Context, Pos2, Rect, ViewportCommand};
 use eframe::emath::Vec2;
 use egui::WindowLevel;
-use crate::feature::screenshot::canvas::{self, CanvasState};
-use crate::model::{
-    config::get_context_config,
-    device::DeviceInfo,
-    state::CommonState
-};
-use crate::os::window::{lock_cursor_for_screenshot, unlock_cursor};
-use crate::feature::screenshot::help_box;
-use crate::feature::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
-use crate::feature::screenshot::magnifier::handle_magnifier;
 
 // 重新导出 state 模块的类型
 pub use crate::feature::screenshot::state::{
-    ScreenshotAction, ScreenshotTool, DrawnShape, ScreenshotState,
-    HistoryEntry, CapturedScreen, WindowPrevState
+    CapturedScreen, DrawnShape, HistoryEntry, ScreenshotAction, ScreenshotState, ScreenshotTool,
+    WindowPrevState,
 };
 
 /// 处理截图系统的更新
 /// `is_active` - 是否处于截图模式，函数内部可将其设为 false 以退出截图模式
-pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_state: &mut ScreenshotState, common: &CommonState) -> Option<image::DynamicImage> {
+pub fn handle_screenshot_system(
+    ctx: &Context,
+    is_active: &mut bool,
+    screenshot_state: &mut ScreenshotState,
+    common: &CommonState,
+) -> Option<image::DynamicImage> {
     if !*is_active {
         return None;
     }
@@ -34,7 +33,9 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
     if screenshot_state.captures.is_empty() {
         if !screenshot_state.is_capturing {
             ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
-            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(-20000.0, -20000.0)));
+            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(
+                -20000.0, -20000.0,
+            )));
         }
         let should_exit = capture_impl::handle_capture_process(ctx, screenshot_state);
         if should_exit {
@@ -88,8 +89,8 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
 
         screenshot_state.window_configured = true;
         ctx.request_repaint();
-    }else {
-        lock_cursor_for_screenshot();
+    } else {
+        current_platform().lock_cursor_for_screenshot();
     }
 
     // 3. 绘制截图 UI
@@ -98,7 +99,6 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
     let mut ocr_result_image = None;
     // 4. 退出截图模式，使用缓存的正常坐标恢复
     if action != ScreenshotAction::None {
-
         if action == ScreenshotAction::Ocr {
             // 如果是 OCR，极速裁剪图片，包装为 DynamicImage 并暂存
             if let Some(rgba_img) = actions::extract_cropped_image(screenshot_state) {
@@ -119,11 +119,11 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
             // 如果是ocr模式，那无论如何都显示主窗口
             if action == ScreenshotAction::Ocr {
                 WindowPrevState::Normal
-            }else{
+            } else {
                 screenshot_state.prev_window_state
             }
         };
-        unlock_cursor();
+        current_platform().unlock_cursor();
 
         // 恢复默认的最小，否则截图完成时无法手动改变窗口大小
         ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::ZERO));
@@ -134,7 +134,9 @@ pub fn handle_screenshot_system(ctx: &Context, is_active: &mut bool, screenshot_
                     *visible = false;
                 }
                 // 让托盘式无感
-                ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(-20000.0, -20000.0)));
+                ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(
+                    -20000.0, -20000.0,
+                )));
                 ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
                 ctx.send_viewport_cmd(ViewportCommand::Visible(false));
                 // 调用系统 API 隐藏到托盘,似乎没用，暂时注释掉
@@ -180,7 +182,8 @@ pub fn draw_screenshot_ui(
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
 
-    let global_offset_phys = Pos2::new(device_info.phys_min_x as f32, device_info.phys_min_y as f32);
+    let global_offset_phys =
+        Pos2::new(device_info.phys_min_x as f32, device_info.phys_min_y as f32);
     let ppp = ctx.pixels_per_point();
 
     egui::CentralPanel::default()
@@ -196,7 +199,7 @@ pub fn draw_screenshot_ui(
                         texture.id(),
                         rect,
                         Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-                        Color32::WHITE
+                        Color32::WHITE,
                     );
                 }
             }
@@ -231,8 +234,22 @@ pub fn draw_screenshot_ui(
             let local_toolbar_rect = calculate_toolbar_rect(state, global_offset_phys, ppp);
 
             let mut canvas_state = CanvasState::load_from_ui(ui);
-            canvas::interaction::handle_interaction(ui, state, &mut canvas_state, global_offset_phys, ppp, local_toolbar_rect);
-            canvas::render::render_canvas_elements(ui, state, &canvas_state, global_offset_phys, ppp, is_hovered);
+            canvas::interaction::handle_interaction(
+                ui,
+                state,
+                &mut canvas_state,
+                global_offset_phys,
+                ppp,
+                local_toolbar_rect,
+            );
+            canvas::render::render_canvas_elements(
+                ui,
+                state,
+                &canvas_state,
+                global_offset_phys,
+                ppp,
+                is_hovered,
+            );
             canvas_state.save_to_ui(ui);
 
             // [新增] 绘制左下角快捷键与工具栏帮助说明框
@@ -250,17 +267,13 @@ pub fn draw_screenshot_ui(
             let config = get_context_config(ctx);
             if config.magnifier_enabled {
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-                    let is_over_toolbar = local_toolbar_rect.map_or(false, |r| r.contains(pointer_pos));
-                    let is_interacting_popup = state.color_picker.is_open && ui.ctx().is_pointer_over_area();
+                    let is_over_toolbar =
+                        local_toolbar_rect.map_or(false, |r| r.contains(pointer_pos));
+                    let is_interacting_popup =
+                        state.color_picker.is_open && ui.ctx().is_pointer_over_area();
 
                     if !is_over_toolbar && !is_interacting_popup {
-                        handle_magnifier(
-                            ui,
-                            state,
-                            global_offset_phys,
-                            ppp,
-                            pointer_pos
-                        );
+                        handle_magnifier(ui, state, global_offset_phys, ppp, pointer_pos);
                     }
                 }
             }

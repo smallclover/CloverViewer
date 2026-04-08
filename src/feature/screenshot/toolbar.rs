@@ -1,11 +1,15 @@
-use eframe::egui::{self, Color32, Pos2, Rect, Vec2, Ui, Painter, Stroke, StrokeKind};
+use super::capture::{ScreenshotAction, ScreenshotState, ScreenshotTool};
+use crate::ui::widgets::icons::{IconType, draw_icon_button};
+use eframe::egui::{self, Color32, Painter, Pos2, Rect, Stroke, StrokeKind, Ui, Vec2};
 use egui::{Response, UiBuilder};
-use crate::ui::widgets::icons::{draw_icon_button, IconType};
-use super::capture::{ScreenshotState, ScreenshotTool, ScreenshotAction};
 
 /// 预先计算工具栏应该显示的位置和尺寸
 /// 预先计算工具栏应该显示的位置和尺寸
-pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2, ppp: f32) -> Option<Rect> {
+pub fn calculate_toolbar_rect(
+    state: &ScreenshotState,
+    global_offset_phys: Pos2,
+    ppp: f32,
+) -> Option<Rect> {
     let global_toolbar_pos_phys = state.toolbar_pos?;
 
     let vec_phys = global_toolbar_pos_phys - global_offset_phys;
@@ -25,7 +29,7 @@ pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2,
     for cap in &state.captures {
         let cap_phys_rect = Rect::from_min_size(
             Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
-            egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32)
+            egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32),
         );
 
         // 因为 toolbar_pos 是选区右下角，可能正好压在边界上，所以向外扩展几个像素来保证能命中
@@ -59,7 +63,10 @@ pub fn calculate_toolbar_rect(state: &ScreenshotState, global_offset_phys: Pos2,
         }
     }
 
-    Some(Rect::from_min_size(Pos2::new(target_x, target_y), egui::vec2(toolbar_width, toolbar_height)))
+    Some(Rect::from_min_size(
+        Pos2::new(target_x, target_y),
+        egui::vec2(toolbar_width, toolbar_height),
+    ))
 }
 
 /// 渲染工具栏以及关联的浮层（如颜色选择器）
@@ -78,9 +85,16 @@ pub fn render_toolbar_and_overlays(
     }
 
     let is_mosaic = state.current_tool == Some(ScreenshotTool::Mosaic);
-    let mut width_value = if is_mosaic { state.mosaic_width } else { state.stroke_width };
+    let mut width_value = if is_mosaic {
+        state.mosaic_width
+    } else {
+        state.stroke_width
+    };
 
-    if state.color_picker.show(ui, state.color_picker_anchor, &mut width_value, !is_mosaic) {
+    if state
+        .color_picker
+        .show(ui, state.color_picker_anchor, &mut width_value, !is_mosaic)
+    {
         if is_mosaic {
             state.mosaic_width = width_value;
         } else {
@@ -123,36 +137,48 @@ fn draw_screenshot_toolbar(
             // 【左侧布局】绘画工具专区
             // =========================
             let is_rect = state.current_tool == Some(ScreenshotTool::Rect);
-            let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect,32.0);
-            if rect_button.clicked() { state.current_tool = Some(ScreenshotTool::Rect); }
+            let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect, 32.0);
+            if rect_button.clicked() {
+                state.current_tool = Some(ScreenshotTool::Rect);
+            }
             handle_tool_interaction(ui, &rect_button, ScreenshotTool::Rect, state);
 
             let is_circle = state.current_tool == Some(ScreenshotTool::Circle);
-            let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle,32.0);
-            if circle_button.clicked() { state.current_tool = Some(ScreenshotTool::Circle); }
+            let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle, 32.0);
+            if circle_button.clicked() {
+                state.current_tool = Some(ScreenshotTool::Circle);
+            }
             handle_tool_interaction(ui, &circle_button, ScreenshotTool::Circle, state);
 
             let is_arrow = state.current_tool == Some(ScreenshotTool::Arrow);
-            let arrow_button = draw_icon_button(ui, is_arrow, IconType::DrawArrow,32.0);
-            if arrow_button.clicked() { state.current_tool = Some(ScreenshotTool::Arrow); }
+            let arrow_button = draw_icon_button(ui, is_arrow, IconType::DrawArrow, 32.0);
+            if arrow_button.clicked() {
+                state.current_tool = Some(ScreenshotTool::Arrow);
+            }
             handle_tool_interaction(ui, &arrow_button, ScreenshotTool::Arrow, state);
 
             let is_pen = state.current_tool == Some(ScreenshotTool::Pen);
-            let pen_button = draw_icon_button(ui, is_pen, IconType::Pencil,32.0);
-            if pen_button.clicked() { state.current_tool = Some(ScreenshotTool::Pen); }
+            let pen_button = draw_icon_button(ui, is_pen, IconType::Pencil, 32.0);
+            if pen_button.clicked() {
+                state.current_tool = Some(ScreenshotTool::Pen);
+            }
             handle_tool_interaction(ui, &pen_button, ScreenshotTool::Pen, state);
 
             let is_mosaic = state.current_tool == Some(ScreenshotTool::Mosaic);
-            let mosaic_button = draw_icon_button(ui, is_mosaic, IconType::Mosaic,32.0);
-            if mosaic_button.clicked() { state.current_tool = Some(ScreenshotTool::Mosaic); }
+            let mosaic_button = draw_icon_button(ui, is_mosaic, IconType::Mosaic, 32.0);
+            if mosaic_button.clicked() {
+                state.current_tool = Some(ScreenshotTool::Mosaic);
+            }
             handle_tool_interaction(ui, &mosaic_button, ScreenshotTool::Mosaic, state);
 
             let is_text = state.current_tool == Some(ScreenshotTool::Text);
-            let text_button = draw_icon_button(ui, is_text, IconType::Text,32.0);
-            if text_button.clicked() { state.current_tool = Some(ScreenshotTool::Text); }
+            let text_button = draw_icon_button(ui, is_text, IconType::Text, 32.0);
+            if text_button.clicked() {
+                state.current_tool = Some(ScreenshotTool::Text);
+            }
             handle_tool_interaction(ui, &text_button, ScreenshotTool::Text, state);
 
-            if draw_icon_button(ui, false, IconType::Ocr,32.0).clicked() {
+            if draw_icon_button(ui, false, IconType::Ocr, 32.0).clicked() {
                 action = ScreenshotAction::Ocr; // <--- 触发 OCR
             }
 
@@ -164,7 +190,7 @@ fn draw_screenshot_toolbar(
             let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(1.0, 16.0), egui::Sense::hover());
             ui.painter().line_segment(
                 [sep_rect.center_top(), sep_rect.center_bottom()],
-                Stroke::new(1.0, Color32::from_gray(220))
+                Stroke::new(1.0, Color32::from_gray(220)),
             );
 
             ui.add_space(8.0); // 在 Cancel (x) 按钮左侧补充等距的留白
@@ -173,15 +199,15 @@ fn draw_screenshot_toolbar(
             // 【右侧布局】行为动作专区
             // =========================
             // 顺序恢复视觉上的从左到右自然排布
-            if draw_icon_button(ui, false, IconType::Cancel,32.0).clicked() {
+            if draw_icon_button(ui, false, IconType::Cancel, 32.0).clicked() {
                 action = ScreenshotAction::Close;
             }
 
-            if draw_icon_button(ui, false, IconType::SaveToClipboard,32.0).clicked() {
+            if draw_icon_button(ui, false, IconType::SaveToClipboard, 32.0).clicked() {
                 action = ScreenshotAction::SaveToClipboard;
             }
 
-            if draw_icon_button(ui, false, IconType::Save,32.0).clicked() {
+            if draw_icon_button(ui, false, IconType::Save, 32.0).clicked() {
                 action = ScreenshotAction::SaveAndClose;
             }
         });

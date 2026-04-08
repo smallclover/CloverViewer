@@ -1,6 +1,8 @@
 use eframe::egui::{Color32, Painter, Pos2, Rect, Stroke, StrokeKind, Ui};
 
-use crate::feature::screenshot::canvas::{CanvasState, phys_to_local, ANCHOR_SIZE, OVERLAY_ALPHA, shape::ShapeRender};
+use crate::feature::screenshot::canvas::{
+    ANCHOR_SIZE, CanvasState, OVERLAY_ALPHA, phys_to_local, shape::ShapeRender,
+};
 use crate::feature::screenshot::capture::{ScreenshotState, ScreenshotTool};
 
 /// 渲染画布所有元素
@@ -14,13 +16,24 @@ pub fn render_canvas_elements(
 ) {
     // 先调用需要可变借用 ui 的函数
     crate::feature::screenshot::canvas::text_input::render_text_input(
-        ui, state, global_offset_phys, ppp,
+        ui,
+        state,
+        global_offset_phys,
+        ppp,
     );
 
     let painter = ui.painter();
     let viewport_rect = ui.ctx().viewport_rect();
 
-    render_overlay(ui, painter, state, global_offset_phys, ppp, viewport_rect, is_hovered);
+    render_overlay(
+        ui,
+        painter,
+        state,
+        global_offset_phys,
+        ppp,
+        viewport_rect,
+        is_hovered,
+    );
 
     let hovered_index = canvas_state.hovered_shape;
     let dragging_index = canvas_state.dragging_shape;
@@ -76,14 +89,16 @@ pub fn render_canvas_elements(
                         &state.captures,
                     );
                     // 异步生成纹理缓存（下一帧使用）
-                    if let Some(cache) = crate::feature::screenshot::canvas::mosaic::generate_mosaic_texture(
-                        ui.ctx(),
-                        points,
-                        shape.stroke_width,
-                        ppp,
-                        state.selection,
-                        &state.captures,
-                    ) {
+                    if let Some(cache) =
+                        crate::feature::screenshot::canvas::mosaic::generate_mosaic_texture(
+                            ui.ctx(),
+                            points,
+                            shape.stroke_width,
+                            ppp,
+                            state.selection,
+                            &state.captures,
+                        )
+                    {
                         shape.cached_mosaic = Some(std::sync::Arc::new(cache));
                     }
                 }
@@ -105,7 +120,11 @@ pub fn render_canvas_elements(
     }
 
     crate::feature::screenshot::canvas::draw::render_current_preview(
-        painter, state, global_offset_phys, ppp, viewport_rect,
+        painter,
+        state,
+        global_offset_phys,
+        ppp,
+        viewport_rect,
     );
 
     // 绘制选中图形的控制点和选中边框
@@ -171,7 +190,8 @@ fn render_overlay(
                 let padding = eframe::egui::vec2(6.0, 4.0);
                 let bg_size = galley.size() + padding * 2.0;
 
-                let mut label_pos = local_logical_rect.min - eframe::egui::vec2(0.0, bg_size.y + 5.0);
+                let mut label_pos =
+                    local_logical_rect.min - eframe::egui::vec2(0.0, bg_size.y + 5.0);
                 if label_pos.y < viewport_rect.min.y {
                     label_pos = local_logical_rect.min + eframe::egui::vec2(5.0, 5.0);
                 }
@@ -199,9 +219,10 @@ fn render_overlay(
                 );
             } else if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
                 let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
-                if let Some(cap_phys_rect) =
-                    crate::model::device::find_target_screen_rect(&state.captures, global_pointer_phys)
-                {
+                if let Some(cap_phys_rect) = crate::model::device::find_target_screen_rect(
+                    &state.captures,
+                    global_pointer_phys,
+                ) {
                     let vec_min = cap_phys_rect.min - global_offset_phys;
                     let vec_max = cap_phys_rect.max - global_offset_phys;
                     let local_logical_rect = Rect::from_min_max(

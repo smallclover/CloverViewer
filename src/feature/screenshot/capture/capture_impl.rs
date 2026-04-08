@@ -1,13 +1,13 @@
+use crate::feature::screenshot::capture::{CapturedScreen, ScreenshotState};
+use crate::model::device::MonitorInfo;
+use crate::os::current_platform;
+use eframe::egui::{ColorImage, Context, Pos2, Rect};
 use std::sync::Arc;
+use std::sync::mpsc::TryRecvError;
 use std::sync::mpsc::channel;
 use std::thread;
 use std::time::Duration;
-use std::sync::mpsc::TryRecvError;
-use eframe::egui::{ColorImage, Context, Pos2, Rect};
 use xcap::Monitor;
-use crate::feature::screenshot::capture::{CapturedScreen, ScreenshotState};
-use crate::model::device::MonitorInfo;
-use crate::os::window::get_taskbar_rects;
 
 /// 处理截图捕获过程
 /// 返回 true 表示应该退出截图模式
@@ -32,7 +32,9 @@ pub(super) fn handle_capture_process(
             if let Ok(monitors) = Monitor::all() {
                 for monitor in monitors {
                     if let (Ok(image), Ok(width)) = (monitor.capture_image(), monitor.width()) {
-                        if width == 0 { continue; }
+                        if width == 0 {
+                            continue;
+                        }
 
                         let color_image = ColorImage::from_rgba_unmultiplied(
                             [image.width() as usize, image.height() as usize],
@@ -68,7 +70,10 @@ pub(super) fn handle_capture_process(
 
                         let rect = Rect::from_min_size(
                             Pos2::new(w.x().unwrap_or(0) as f32, w.y().unwrap_or(0) as f32),
-                            egui::vec2(w.width().unwrap_or(0) as f32, w.height().unwrap_or(0) as f32)
+                            egui::vec2(
+                                w.width().unwrap_or(0) as f32,
+                                w.height().unwrap_or(0) as f32,
+                            ),
                         );
                         if rect.width() > 50.0 && rect.height() > 50.0 {
                             window_rects.push(rect);
@@ -76,8 +81,8 @@ pub(super) fn handle_capture_process(
                     }
                 }
             }
-            // 使用win底层API强制捕获副屏的任务栏
-            let taskbars = get_taskbar_rects();
+            // 使用系统 API 捕获任务栏
+            let taskbars = current_platform().get_taskbar_rects();
             window_rects.extend(taskbars);
             let _ = tx.send((captures, window_rects));
             ctx_clone.request_repaint();
@@ -87,7 +92,6 @@ pub(super) fn handle_capture_process(
     if let Some(rx) = &screenshot_state.capture_receiver {
         match rx.try_recv() {
             Ok((captures, window_rects)) => {
-
                 for cap in &captures {
                     let monitor_name = &cap.screen_info.name;
                     if let Some(texture) = screenshot_state.texture_pool.get_mut(monitor_name) {
@@ -98,7 +102,9 @@ pub(super) fn handle_capture_process(
                             cap.image.clone(),
                             Default::default(),
                         );
-                        screenshot_state.texture_pool.insert(monitor_name.clone(), texture);
+                        screenshot_state
+                            .texture_pool
+                            .insert(monitor_name.clone(), texture);
                     }
                 }
 

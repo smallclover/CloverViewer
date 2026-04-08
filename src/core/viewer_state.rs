@@ -1,12 +1,12 @@
+use crate::core::image_loader::{ImageLoadError, ImageLoader, LoadResult};
+use crate::model::image_meta::ImageProperties;
+use crate::utils::image::{collect_images, is_image};
+use egui::{Color32, Context, TextureHandle};
+use lru::LruCache;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use egui::{Color32, Context, TextureHandle};
-use lru::LruCache;
-use crate::core::image_loader::{ImageLoader, LoadResult, ImageLoadError};
-use crate::model::image_meta::ImageProperties;
-use crate::utils::image::{is_image, collect_images};
 
 #[derive(Clone, PartialEq)]
 pub enum ViewMode {
@@ -123,7 +123,7 @@ impl ViewerState {
         if index < self.list.len() {
             self.index = index;
             self.current()
-        }else {
+        } else {
             None
         }
     }
@@ -159,7 +159,8 @@ impl ViewerState {
                         LoadResult::Ok(success) => {
                             if msg.is_thumbnail {
                                 self.loading_thumbs.remove(&msg.path);
-                                self.thumb_cache.put(msg.path.clone(), success.texture.clone());
+                                self.thumb_cache
+                                    .put(msg.path.clone(), success.texture.clone());
                                 if Some(msg.path) == self.current() {
                                     if self.current_texture.is_none() {
                                         self.current_texture = Some(success.texture);
@@ -167,9 +168,11 @@ impl ViewerState {
                                 }
                             } else {
                                 self.current_raw_pixels = Some(success.raw_pixels);
-                                self.texture_cache.put(msg.path.clone(), success.texture.clone());
+                                self.texture_cache
+                                    .put(msg.path.clone(), success.texture.clone());
                                 if Some(msg.path) == self.current() {
-                                    self.zoom = self.calc_fit_zoom(ctx, success.texture.size_vec2());
+                                    self.zoom =
+                                        self.calc_fit_zoom(ctx, success.texture.size_vec2());
 
                                     self.current_texture = Some(success.texture);
                                     self.current_properties = Some(success.properties);
@@ -205,7 +208,8 @@ impl ViewerState {
         let to_load = self.get_preview_window();
         for (_, path) in to_load {
             if !self.thumb_cache.contains(&path) {
-                self.loader.load_async(ctx.clone(), path, false, Some((160, 120)));
+                self.loader
+                    .load_async(ctx.clone(), path, false, Some((160, 120)));
             }
         }
     }
@@ -258,7 +262,8 @@ impl ViewerState {
     }
 
     fn start_transition(&mut self, ctx: &Context, direction: i8) {
-        let is_transitioning = self.transition_start_time
+        let is_transitioning = self
+            .transition_start_time
             .map_or(false, |start| ctx.input(|i| i.time) - start < 0.25);
 
         if is_transitioning {
@@ -272,9 +277,9 @@ impl ViewerState {
     }
 
     pub fn handle_dropped_file(&mut self, ctx: Context, path: PathBuf) {
-         if is_image(&path) {
-             self.open_new_context(ctx, path);
-         }
+        if is_image(&path) {
+            self.open_new_context(ctx, path);
+        }
     }
 
     pub fn update_zoom(&mut self, delta: f32) {

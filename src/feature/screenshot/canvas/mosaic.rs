@@ -2,9 +2,9 @@ use eframe::egui::{Color32, ColorImage, Context, Painter, Pos2, Rect, Vec2};
 use image::RgbaImage;
 use std::collections::HashSet;
 
+use super::MOSAIC_BLOCK_SIZE;
 use crate::feature::screenshot::capture::CapturedScreen;
 use crate::feature::screenshot::state::MosaicCache;
-use super::MOSAIC_BLOCK_SIZE;
 
 fn mosaic_radius_phys(mosaic_width: f32, ppp: f32) -> f32 {
     (mosaic_width * ppp) / 2.0
@@ -122,7 +122,10 @@ pub fn draw_realtime_mosaic(
         let phys_x = cx as f32 * block_size_phys;
         let phys_y = cy as f32 * block_size_phys;
 
-        let cell_center_phys = Pos2::new(phys_x + block_size_phys * 0.5, phys_y + block_size_phys * 0.5);
+        let cell_center_phys = Pos2::new(
+            phys_x + block_size_phys * 0.5,
+            phys_y + block_size_phys * 0.5,
+        );
         let color = sample_mosaic_color(captures, cell_center_phys);
 
         if color != Color32::TRANSPARENT {
@@ -195,7 +198,10 @@ pub fn generate_mosaic_texture(
         let rel_y = clipped_rect_phys.min.y - min_y_phys;
 
         // 采样颜色
-        let cell_center_phys = Pos2::new(phys_x + block_size_phys * 0.5, phys_y + block_size_phys * 0.5);
+        let cell_center_phys = Pos2::new(
+            phys_x + block_size_phys * 0.5,
+            phys_y + block_size_phys * 0.5,
+        );
         let color = sample_mosaic_color(captures, cell_center_phys);
 
         if color == Color32::TRANSPARENT {
@@ -235,10 +241,7 @@ pub fn generate_mosaic_texture(
         Vec2::new(width_phys, height_phys),
     );
 
-    Some(MosaicCache {
-        texture,
-        phys_rect,
-    })
+    Some(MosaicCache { texture, phys_rect })
 }
 
 pub fn apply_mosaic_to_cropped_image(
@@ -267,12 +270,22 @@ pub fn apply_mosaic_to_cropped_image(
     for (_, _, clipped_rect_phys) in clipped_cells {
         let sample_x = clipped_rect_phys.center().x - selection_phys.min.x;
         let sample_y = clipped_rect_phys.center().y - selection_phys.min.y;
-        let sample_x = sample_x.floor().clamp(0.0, (final_image.width().saturating_sub(1)) as f32) as u32;
-        let sample_y = sample_y.floor().clamp(0.0, (final_image.height().saturating_sub(1)) as f32) as u32;
+        let sample_x = sample_x
+            .floor()
+            .clamp(0.0, (final_image.width().saturating_sub(1)) as f32)
+            as u32;
+        let sample_y = sample_y
+            .floor()
+            .clamp(0.0, (final_image.height().saturating_sub(1)) as f32)
+            as u32;
         let pixel = *final_image.get_pixel(sample_x, sample_y);
 
-        let start_x = (clipped_rect_phys.min.x - selection_phys.min.x).floor().max(0.0) as u32;
-        let start_y = (clipped_rect_phys.min.y - selection_phys.min.y).floor().max(0.0) as u32;
+        let start_x = (clipped_rect_phys.min.x - selection_phys.min.x)
+            .floor()
+            .max(0.0) as u32;
+        let start_y = (clipped_rect_phys.min.y - selection_phys.min.y)
+            .floor()
+            .max(0.0) as u32;
         let end_x = (clipped_rect_phys.max.x - selection_phys.min.x)
             .ceil()
             .min(final_image.width() as f32) as u32;

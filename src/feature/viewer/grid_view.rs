@@ -1,15 +1,13 @@
-use eframe::egui;
-use egui::{Context, ScrollArea, Ui, Color32, Frame, Stroke, Sense, Align2, FontId, Vec2, Rect, Pos2};
 use crate::{
-    core::viewer_state::{ViewerState, ViewMode},
-    i18n::lang::get_i18n_text
+    core::viewer_state::{ViewMode, ViewerState},
+    i18n::lang::get_i18n_text,
+};
+use eframe::egui;
+use egui::{
+    Align2, Color32, Context, FontId, Frame, Pos2, Rect, ScrollArea, Sense, Stroke, Ui, Vec2,
 };
 
-pub fn draw_grid_view(
-    ctx: &Context,
-    ui: &mut Ui,
-    viewer: &mut ViewerState,
-) {
+pub fn draw_grid_view(ctx: &Context, ui: &mut Ui, viewer: &mut ViewerState) {
     let text = get_i18n_text(ctx);
 
     if viewer.list.is_empty() {
@@ -84,13 +82,22 @@ pub fn draw_grid_view(
 
                         // 绘制每个单元格
                         frame.show(ui, |ui| {
-                            let (rect, response) = ui.allocate_exact_size(item_size, Sense::click());
+                            let (rect, response) =
+                                ui.allocate_exact_size(item_size, Sense::click());
 
                             // 预加载逻辑
                             if preload_rect.intersects(rect) {
-                                if !thumb_cache.contains(path) && !failed_thumbs.contains(path) && !loading_thumbs.contains(path) {
+                                if !thumb_cache.contains(path)
+                                    && !failed_thumbs.contains(path)
+                                    && !loading_thumbs.contains(path)
+                                {
                                     loading_thumbs.insert(path.clone());
-                                    loader.load_async(ctx.clone(), path.clone(), false, Some((200, 200)));
+                                    loader.load_async(
+                                        ctx.clone(),
+                                        path.clone(),
+                                        false,
+                                        Some((200, 200)),
+                                    );
                                 }
                             }
 
@@ -98,15 +105,20 @@ pub fn draw_grid_view(
                             if ui.is_rect_visible(rect) {
                                 if let Some(t) = thumb_cache.get(path) {
                                     let tex_size = t.size_vec2();
-                                    let scale = (rect.width() / tex_size.x).min(rect.height() / tex_size.y);
+                                    let scale =
+                                        (rect.width() / tex_size.x).min(rect.height() / tex_size.y);
                                     let target_size = tex_size * scale;
-                                    let target_rect = Rect::from_center_size(rect.center(), target_size);
+                                    let target_rect =
+                                        Rect::from_center_size(rect.center(), target_size);
 
                                     ui.painter().image(
                                         t.id(),
                                         target_rect,
-                                        Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)),
-                                        Color32::WHITE
+                                        Rect::from_min_max(
+                                            Pos2::new(0.0, 0.0),
+                                            Pos2::new(1.0, 1.0),
+                                        ),
+                                        Color32::WHITE,
                                     );
                                 } else {
                                     ui.painter().text(

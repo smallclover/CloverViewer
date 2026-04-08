@@ -1,12 +1,15 @@
-use std::sync::{mpsc, Arc};
+use crate::feature::screenshot::capture::WindowPrevState;
+use crate::model::config::{Config, get_context_config};
+use crate::model::mode::AppMode;
+use crate::model::window_state::WindowState;
+use crate::os::current_platform;
 use eframe::egui::Context;
 use egui::ViewportCommand;
-use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, hotkey::{Code, HotKey, Modifiers}};
-use crate::model::config::{get_context_config, Config};
-use crate::os::window::{force_get_focus, show_window_restore_offscreen};
-use crate::model::window_state::WindowState;
-use crate::model::mode::AppMode;
-use crate::feature::screenshot::capture::WindowPrevState;
+use global_hotkey::{
+    GlobalHotKeyEvent, GlobalHotKeyManager,
+    hotkey::{Code, HotKey, Modifiers},
+};
+use std::sync::{Arc, mpsc};
 
 #[derive(Clone)]
 pub enum HotkeyAction {
@@ -35,8 +38,10 @@ impl HotkeyManager {
         let show_hotkey = parse_hotkey_str(&config.hotkeys.show_screenshot)
             .unwrap_or(HotKey::new(Some(Modifiers::ALT), Code::KeyS));
 
-        let copy_hotkey = parse_hotkey_str(&config.hotkeys.copy_screenshot)
-            .unwrap_or(HotKey::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyC));
+        let copy_hotkey = parse_hotkey_str(&config.hotkeys.copy_screenshot).unwrap_or(HotKey::new(
+            Some(Modifiers::CONTROL | Modifiers::SHIFT),
+            Code::KeyC,
+        ));
 
         // 注册显示截图的热键
         if let Err(e) = hotkeys_manager.register(show_hotkey) {
@@ -54,7 +59,9 @@ impl HotkeyManager {
             // 唤起主窗口导最小化
             // 然后开始截图
 
-            let Ok(mut visible) = window_state.visible.lock() else { return; };
+            let Ok(mut visible) = window_state.visible.lock() else {
+                return;
+            };
             let is_visible = *visible;
 
             // 获取 eframe 层面的最小化状态
@@ -71,19 +78,18 @@ impl HotkeyManager {
             // 只要不是前台 Normal，统统唤醒
             if prev_state != WindowPrevState::Normal {
                 if prev_state == WindowPrevState::Tray {
-                    // 使用 Win32 API 在屏幕外唤醒！
-                    show_window_restore_offscreen(window_state.hwnd_usize);
-                    force_get_focus(window_state.hwnd_usize);
+                    // 使用系统 API 在屏幕外唤醒！
+                    let platform = current_platform();
+                    platform.show_window_restore_offscreen(window_state.hwnd_usize);
+                    platform.force_get_focus(window_state.hwnd_usize);
                     *visible = true;
                     ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                }else{
+                } else {
                     // show_window_restore(window_state.hwnd_isize);
                     *visible = true;
                     ctx_clone.send_viewport_cmd(ViewportCommand::Minimized(false));
                     ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-
                 }
-
             }
 
             let _ = tx.send((event.id, prev_state));
@@ -199,26 +205,59 @@ fn str_to_code(s: &str) -> Option<Code> {
     // 移除 egui 可能产生的引号或其他格式，虽然你的 settings.rs 产生的是干净的字符串
     // 这里处理常用的键，如果需要支持所有键盘按键，需要一个巨大的 match
     match s {
-        "A" => Some(Code::KeyA), "B" => Some(Code::KeyB), "C" => Some(Code::KeyC),
-        "D" => Some(Code::KeyD), "E" => Some(Code::KeyE), "F" => Some(Code::KeyF),
-        "G" => Some(Code::KeyG), "H" => Some(Code::KeyH), "I" => Some(Code::KeyI),
-        "J" => Some(Code::KeyJ), "K" => Some(Code::KeyK), "L" => Some(Code::KeyL),
-        "M" => Some(Code::KeyM), "N" => Some(Code::KeyN), "O" => Some(Code::KeyO),
-        "P" => Some(Code::KeyP), "Q" => Some(Code::KeyQ), "R" => Some(Code::KeyR),
-        "S" => Some(Code::KeyS), "T" => Some(Code::KeyT), "U" => Some(Code::KeyU),
-        "V" => Some(Code::KeyV), "W" => Some(Code::KeyW), "X" => Some(Code::KeyX),
-        "Y" => Some(Code::KeyY), "Z" => Some(Code::KeyZ),
-        "Num0" => Some(Code::Digit0), "Num1" => Some(Code::Digit1), "Num2" => Some(Code::Digit2),
-        "Num3" => Some(Code::Digit3), "Num4" => Some(Code::Digit4), "Num5" => Some(Code::Digit5),
-        "Num6" => Some(Code::Digit6), "Num7" => Some(Code::Digit7), "Num8" => Some(Code::Digit8), "Num9" => Some(Code::Digit9),
+        "A" => Some(Code::KeyA),
+        "B" => Some(Code::KeyB),
+        "C" => Some(Code::KeyC),
+        "D" => Some(Code::KeyD),
+        "E" => Some(Code::KeyE),
+        "F" => Some(Code::KeyF),
+        "G" => Some(Code::KeyG),
+        "H" => Some(Code::KeyH),
+        "I" => Some(Code::KeyI),
+        "J" => Some(Code::KeyJ),
+        "K" => Some(Code::KeyK),
+        "L" => Some(Code::KeyL),
+        "M" => Some(Code::KeyM),
+        "N" => Some(Code::KeyN),
+        "O" => Some(Code::KeyO),
+        "P" => Some(Code::KeyP),
+        "Q" => Some(Code::KeyQ),
+        "R" => Some(Code::KeyR),
+        "S" => Some(Code::KeyS),
+        "T" => Some(Code::KeyT),
+        "U" => Some(Code::KeyU),
+        "V" => Some(Code::KeyV),
+        "W" => Some(Code::KeyW),
+        "X" => Some(Code::KeyX),
+        "Y" => Some(Code::KeyY),
+        "Z" => Some(Code::KeyZ),
+        "Num0" => Some(Code::Digit0),
+        "Num1" => Some(Code::Digit1),
+        "Num2" => Some(Code::Digit2),
+        "Num3" => Some(Code::Digit3),
+        "Num4" => Some(Code::Digit4),
+        "Num5" => Some(Code::Digit5),
+        "Num6" => Some(Code::Digit6),
+        "Num7" => Some(Code::Digit7),
+        "Num8" => Some(Code::Digit8),
+        "Num9" => Some(Code::Digit9),
         "Escape" => Some(Code::Escape),
         "Enter" => Some(Code::Enter),
         "Space" => Some(Code::Space),
         "Tab" => Some(Code::Tab),
         "Backspace" => Some(Code::Backspace),
-        "F1" => Some(Code::F1), "F2" => Some(Code::F2), "F3" => Some(Code::F3), "F4" => Some(Code::F4),
-        "F5" => Some(Code::F5), "F6" => Some(Code::F6), "F7" => Some(Code::F7), "F8" => Some(Code::F8),
-        "F9" => Some(Code::F9), "F10" => Some(Code::F10), "F11" => Some(Code::F11), "F12" => Some(Code::F12),
+        "F1" => Some(Code::F1),
+        "F2" => Some(Code::F2),
+        "F3" => Some(Code::F3),
+        "F4" => Some(Code::F4),
+        "F5" => Some(Code::F5),
+        "F6" => Some(Code::F6),
+        "F7" => Some(Code::F7),
+        "F8" => Some(Code::F8),
+        "F9" => Some(Code::F9),
+        "F10" => Some(Code::F10),
+        "F11" => Some(Code::F11),
+        "F12" => Some(Code::F12),
         _ => {
             tracing::debug!("Unknown key code: {}", s);
             None

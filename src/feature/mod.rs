@@ -1,10 +1,10 @@
-pub mod viewer;
 pub mod screenshot;
+pub mod viewer;
 
-use eframe::egui::Context;
 use crate::core::hotkeys::HotkeyAction;
 use crate::model::mode::AppMode;
 use crate::model::state::CommonState;
+use eframe::egui::Context;
 
 /// Feature trait - 所有功能模块必须实现的接口
 pub trait Feature {

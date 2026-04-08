@@ -1,20 +1,20 @@
+pub mod canvas;
 pub mod capture;
-pub mod state;
-pub mod toolbar;
 pub mod color_picker;
-pub mod magnifier;
 pub mod draw;
 pub mod help_box;
-pub mod canvas;
+pub mod magnifier;
 pub mod ocr;
+pub mod state;
+pub mod toolbar;
 
-use eframe::egui::Context;
+use self::state::{ScreenshotState, WindowPrevState};
 use crate::core::hotkeys::HotkeyAction;
 use crate::feature::Feature;
+use crate::feature::screenshot::capture::handle_screenshot_system;
 use crate::model::mode::AppMode;
 use crate::model::state::CommonState;
-use self::state::{ScreenshotState, WindowPrevState};
-use crate::feature::screenshot::capture::handle_screenshot_system;
+use eframe::egui::Context;
 
 /// ScreenshotFeature - 截图功能模块
 pub struct ScreenshotFeature {
@@ -47,7 +47,7 @@ impl Default for ScreenshotFeature {
 impl ScreenshotFeature {
     /// 清理超过24小时的临时文件
     fn clean_temp_files(temp_dir: &std::path::Path) {
-        use std::time::{SystemTime, Duration};
+        use std::time::{Duration, SystemTime};
 
         let now = SystemTime::now();
         let max_age = Duration::from_secs(24 * 60 * 60); // 24小时
@@ -98,7 +98,8 @@ impl Feature for ScreenshotFeature {
         // 这里假设 copy_requested 已经在 app.rs 中同步到 self.state
 
         // 调用截图系统处理逻辑
-        let ocr_image_opt = handle_screenshot_system(ctx, &mut self.is_active, &mut self.state, common);
+        let ocr_image_opt =
+            handle_screenshot_system(ctx, &mut self.is_active, &mut self.state, common);
 
         if let Some(image) = ocr_image_opt {
             // 1. 开启右侧面板状态
@@ -123,7 +124,6 @@ impl Feature for ScreenshotFeature {
                 .as_millis();
             let temp_path = temp_dir.join(format!("ocr_temp_{}.png", timestamp));
 
-
             // 保存图片并发送给 Viewer
             if let Err(e) = image.save(&temp_path) {
                 tracing::error!("无法保存 OCR 临时图片: {}", e);
@@ -132,12 +132,13 @@ impl Feature for ScreenshotFeature {
                 let _ = common.path_sender.send(temp_path);
             }
 
-            // 2. 建立多线程通道，启动 Windows OCR 引擎
+            // 2. 建立多线程通道，启动系统 OCR 引擎
             let (tx, rx) = std::sync::mpsc::channel();
             common.ocr_state.receiver = Some(rx);
 
             std::thread::spawn(move || {
-                let result = ocr::engine::recognize_text(image);
+                let platform = crate::os::current_platform();
+                let result = platform.recognize_text(image);
                 let _ = tx.send(result);
             });
         }

@@ -14,7 +14,6 @@ pub struct ImageProperties {
     pub focal_length: String,
     pub f_number: String,
     pub iso: Option<u32>,
-
 }
 
 impl Default for ImageProperties {
@@ -37,6 +36,5 @@ impl Default for ImageProperties {
 }
 
 // 支持的图片类型
-pub const SUPPORTED_IMAGE_EXTENSIONS: &[&str] = &[
-    "png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "avif"
-];
+pub const SUPPORTED_IMAGE_EXTENSIONS: &[&str] =
+    &["png", "jpg", "jpeg", "bmp", "gif", "webp", "tiff", "avif"];

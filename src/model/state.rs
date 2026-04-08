@@ -1,14 +1,14 @@
-use std::path::PathBuf;
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex};
-use eframe::egui::Context;
 use crate::core::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::feature::screenshot::ocr::state::OcrState;
 use crate::model::config::Config;
 use crate::model::device::DeviceInfo;
+use crate::model::mode::AppMode;
 use crate::model::window_state::WindowState;
 use crate::ui::widgets::toast::{ToastManager, ToastSystem};
-use crate::model::mode::AppMode;
+use eframe::egui::Context;
+use std::path::PathBuf;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 
 // --- Top-Level Application State ---
 
@@ -35,7 +35,12 @@ pub struct CommonState {
 }
 
 impl AppState {
-    pub fn new(ctx: &Context, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: usize) -> Self {
+    pub fn new(
+        ctx: &Context,
+        visible_hotkey: Arc<Mutex<bool>>,
+        allow_quit: Arc<Mutex<bool>>,
+        hwnd: usize,
+    ) -> Self {
         Self {
             mode: AppMode::Viewer,
             common: CommonState::new(ctx, visible_hotkey, allow_quit, hwnd),
@@ -53,11 +58,17 @@ impl AppState {
 }
 
 impl CommonState {
-    pub fn new(ctx: &Context, visible_hotkey: Arc<Mutex<bool>>, allow_quit: Arc<Mutex<bool>>, hwnd: usize) -> Self {
+    pub fn new(
+        ctx: &Context,
+        visible_hotkey: Arc<Mutex<bool>>,
+        allow_quit: Arc<Mutex<bool>>,
+        hwnd: usize,
+    ) -> Self {
         let toast_system = ToastSystem::new();
         let toast_manager = toast_system.manager();
         let (path_sender, path_receiver) = mpsc::channel();
-        let window_state = WindowState::new(Arc::clone(&visible_hotkey), Arc::clone(&allow_quit), hwnd);
+        let window_state =
+            WindowState::new(Arc::clone(&visible_hotkey), Arc::clone(&allow_quit), hwnd);
 
         Self {
             path_sender,
@@ -69,7 +80,7 @@ impl CommonState {
             device_info: DeviceInfo::load(),
             tray_restore_requested: Arc::new(Mutex::new(false)),
             tray_screenshot_requested: Arc::new(Mutex::new(false)),
-            ocr_state: OcrState::default()
+            ocr_state: OcrState::default(),
         }
     }
 }

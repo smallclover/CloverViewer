@@ -1,11 +1,8 @@
-use serde::{Deserialize, Serialize};
-use std::{
-    fs,
-    path::PathBuf,
-};
-use std::sync::Arc;
-use egui::{Context, Id};
 use crate::i18n::lang::Language;
+use egui::{Context, Id};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::{fs, path::PathBuf};
 
 /// 获取配置目录
 /// 优先使用系统配置目录，如果不存在则使用exe目录（向后兼容）
@@ -21,15 +18,19 @@ fn get_config_dir() -> PathBuf {
 
     // 回退到exe目录（向后兼容/便携模式）
     std::env::current_exe()
-        .map(|mut p| { p.pop(); p })
+        .map(|mut p| {
+            p.pop();
+            p
+        })
         .unwrap_or_else(|_| PathBuf::from("."))
 }
 
 /// 获取旧配置路径（exe目录，用于迁移）
 fn get_legacy_config_path() -> Option<PathBuf> {
-    std::env::current_exe()
-        .ok()
-        .map(|mut p| { p.set_file_name("config.json"); p })
+    std::env::current_exe().ok().map(|mut p| {
+        p.set_file_name("config.json");
+        p
+    })
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
@@ -166,16 +167,16 @@ pub fn save_config(config: &Config) {
     }
 }
 
-pub fn get_context_config(ctx: &Context) -> Arc<Config>{
+pub fn get_context_config(ctx: &Context) -> Arc<Config> {
     ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")))
         .unwrap_or_else(|| Arc::new(Config::default()))
 }
 
-pub fn update_context_config(ctx:&Context, config: &Arc<Config>){
+pub fn update_context_config(ctx: &Context, config: &Arc<Config>) {
     // 保持 Config 在 context 中更新
     ctx.data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(config)));
 }
 
-pub fn init_config_arc(ctx:&Context, config: &Arc<Config>){
+pub fn init_config_arc(ctx: &Context, config: &Arc<Config>) {
     ctx.data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(config)));
 }

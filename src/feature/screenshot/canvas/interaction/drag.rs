@@ -1,12 +1,11 @@
-use eframe::egui::{Pos2, Rect, Ui};
 use crate::feature::screenshot::{
     canvas::{
-        drag,
-        shape::{clamp_pos_to_rect, ShapeRender},
-        ResizeStartState, CanvasState,
+        CanvasState, ResizeStartState, drag,
+        shape::{ShapeRender, clamp_pos_to_rect},
     },
     capture::{DrawnShape, HistoryEntry, ScreenshotState, ScreenshotTool},
 };
+use eframe::egui::{Pos2, Rect, Ui};
 
 use super::hover::get_hovered_handle;
 
@@ -24,7 +23,8 @@ pub(super) fn on_drag_start(
     if let Some(selected_idx) = canvas_state.selected_shape {
         if let Some(shape) = state.shapes.get(selected_idx) {
             if shape.supports_resize() {
-                if let Some(handle) = get_hovered_handle(local_pos, shape, global_offset_phys, ppp) {
+                if let Some(handle) = get_hovered_handle(local_pos, shape, global_offset_phys, ppp)
+                {
                     // 开始 resize 拖拽
                     state.history.push(HistoryEntry {
                         shapes: state.shapes.clone(),
@@ -49,8 +49,9 @@ pub(super) fn on_drag_start(
 
     let mut is_hovering_selection_bg = false;
     if let Some(sel) = state.selection {
-        is_hovering_selection_bg =
-            sel.contains(global_phys) && canvas_state.hovered_shape.is_none() && state.shapes.is_empty();
+        is_hovering_selection_bg = sel.contains(global_phys)
+            && canvas_state.hovered_shape.is_none()
+            && state.shapes.is_empty();
     }
 
     if let Some(index) = interaction_hovered {
@@ -118,17 +119,22 @@ pub(super) fn on_dragged(
     _press_pos: Pos2,
 ) {
     // 获取当前鼠标位置（使用最新的指针位置）
-    let current_phys = ui.ctx().pointer_latest_pos().map(|pos| {
-        global_offset_phys + (pos.to_vec2() * ppp)
-    });
+    let current_phys = ui
+        .ctx()
+        .pointer_latest_pos()
+        .map(|pos| global_offset_phys + (pos.to_vec2() * ppp));
 
     // 如果没有当前鼠标位置，则跳过本次处理
-    let Some(current_phys) = current_phys else { return };
+    let Some(current_phys) = current_phys else {
+        return;
+    };
 
     // 检查是否处于 resize 模式（拖拽控制点）
-    if let (Some(shape_idx), Some(handle_idx), Some(start_state)) =
-        (canvas_state.dragging_shape, canvas_state.dragging_handle, canvas_state.resize_start_state)
-    {
+    if let (Some(shape_idx), Some(handle_idx), Some(start_state)) = (
+        canvas_state.dragging_shape,
+        canvas_state.dragging_handle,
+        canvas_state.resize_start_state,
+    ) {
         if let Some(shape) = state.shapes.get_mut(shape_idx) {
             shape.apply_resize(handle_idx, current_phys, &start_state, state.selection);
         }
@@ -203,7 +209,9 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
                 selection: state.selection,
             });
 
-            let Some(tool) = state.current_tool else { return; };
+            let Some(tool) = state.current_tool else {
+                return;
+            };
             let used_width = if tool == ScreenshotTool::Mosaic {
                 state.mosaic_width
             } else {

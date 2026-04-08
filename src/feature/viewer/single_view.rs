@@ -1,15 +1,12 @@
 use eframe::egui;
 use egui::{
-    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder
+    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder,
 };
 
-use crate::{
-    core::viewer_state::ViewerState,
-    model::mode::OverlayMode,
-};
+use crate::feature::viewer::arrows::{Nav, draw_arrows};
 use crate::feature::viewer::preview::show_preview_window;
 use crate::i18n::lang::get_i18n_text;
-use crate::feature::viewer::arrows::{draw_arrows, Nav};
+use crate::{core::viewer_state::ViewerState, model::mode::OverlayMode};
 
 pub fn draw_single_view(
     ctx: &Context,
@@ -46,12 +43,20 @@ pub fn draw_single_view(
             }
         }
     } else if let Some(err) = viewer.error.as_ref() {
-        ui.scope_builder(UiBuilder::new().max_rect(rect),|ui| {
+        ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(ui.available_height() * 0.4);
-                ui.label(RichText::new(text.viewer_error).color(Color32::RED).size(14.0));
+                ui.label(
+                    RichText::new(text.viewer_error)
+                        .color(Color32::RED)
+                        .size(14.0),
+                );
                 ui.add_space(8.0);
-                ui.label(RichText::new(err.to_string()).color(Color32::GRAY).size(12.0));
+                ui.label(
+                    RichText::new(err.to_string())
+                        .color(Color32::GRAY)
+                        .size(12.0),
+                );
             });
         });
     } else if viewer.loader.is_loading {
@@ -75,15 +80,11 @@ pub fn draw_single_view(
     }
 }
 
-fn render_image_viewer(
-    ui: &mut Ui,
-    tex: &TextureHandle,
-    viewer: &mut ViewerState,
-) {
+fn render_image_viewer(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerState) {
     let available_size = ui.available_size();
     if let Some(last_size) = viewer.last_view_size {
-        if (last_size.x - available_size.x).abs() > 1.0 ||
-            (last_size.y - available_size.y).abs() > 1.0
+        if (last_size.x - available_size.x).abs() > 1.0
+            || (last_size.y - available_size.y).abs() > 1.0
         {
             viewer.zoom = viewer.calc_fit_zoom(ui.ctx(), tex.size_vec2());
         }
@@ -104,7 +105,7 @@ fn render_image_viewer(
     let fade_alpha = ui.ctx().animate_bool_with_time(
         egui::Id::new(tex.id()).with("loading_fade"),
         is_loading_high_res,
-        0.25
+        0.25,
     );
 
     ScrollArea::both()
@@ -127,14 +128,14 @@ fn render_image_viewer(
                     if let Some(start_time) = viewer.transition_start_time {
                         let now = ui.input(|i| i.time);
                         let progress = ((now - start_time) as f32 / 0.25).clamp(0.0, 1.0); // 0.25秒阻尼动画
-                        
+
                         if progress < 1.0 {
                             let ease_out = 1.0 - (1.0 - progress).powi(3);
                             prev_alpha = 1.0 - ease_out;
                             current_alpha = ease_out;
                             current_scale = 0.98 + 0.02 * ease_out; // 微微放大效果
-                            
-                            ui.ctx().request_repaint(); 
+
+                            ui.ctx().request_repaint();
                         } else {
                             viewer.transition_start_time = None;
                             viewer.previous_texture = None;
@@ -150,7 +151,7 @@ fn render_image_viewer(
                             let content_origin = img_rect.min - egui::vec2(x_offset, y_offset);
                             let prev_rect = Rect::from_min_size(
                                 content_origin + egui::vec2(prev_x_offset, prev_y_offset),
-                                prev_size
+                                prev_size,
                             );
 
                             let painter = ui.painter();
@@ -158,7 +159,7 @@ fn render_image_viewer(
                                 prev_tex.id(),
                                 prev_rect,
                                 Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                                Color32::WHITE.gamma_multiply(prev_alpha)
+                                Color32::WHITE.gamma_multiply(prev_alpha),
                             );
                         }
                     }
@@ -171,7 +172,7 @@ fn render_image_viewer(
                         tex.id(),
                         current_rect,
                         Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                        Color32::WHITE.gamma_multiply(current_alpha)
+                        Color32::WHITE.gamma_multiply(current_alpha),
                     );
 
                     if fade_alpha > 0.0 {
@@ -179,14 +180,19 @@ fn render_image_viewer(
                         painter.rect_filled(
                             current_rect,
                             0.0,
-                            Color32::BLACK.gamma_multiply(fade_alpha * 0.4)
+                            Color32::BLACK.gamma_multiply(fade_alpha * 0.4),
                         );
                         let spinner_size = 32.0;
                         let spinner_rect = Rect::from_center_size(
                             current_rect.center(),
-                            egui::vec2(spinner_size, spinner_size)
+                            egui::vec2(spinner_size, spinner_size),
                         );
-                        ui.put(spinner_rect, egui::Spinner::new().size(spinner_size).color(Color32::WHITE.gamma_multiply(fade_alpha)));
+                        ui.put(
+                            spinner_rect,
+                            egui::Spinner::new()
+                                .size(spinner_size)
+                                .color(Color32::WHITE.gamma_multiply(fade_alpha)),
+                        );
                     }
                 });
             });

@@ -1,4 +1,4 @@
-use egui::{Color32, Context, Id, RichText, Align2};
+use egui::{Align2, Color32, Context, Id, RichText};
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 /// 通知气泡
@@ -6,7 +6,7 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 pub enum ToastLevel {
     Success,
     Error,
-    Loading
+    Loading,
 }
 
 pub struct ToastConfig {
@@ -37,8 +37,6 @@ const TOAST_WIDTH: f32 = 100.0;
 const TOAST_MIN_HEIGHT: f32 = 20.0;
 
 impl ToastSystem {
-
-
     pub fn new() -> Self {
         let (sender, receiver) = channel();
         Self {
@@ -80,8 +78,8 @@ impl ToastSystem {
             }
 
             let alpha = if is_loading {
-                (elapsed/0.2).min(1.0)
-            }else{
+                (elapsed / 0.2).min(1.0)
+            } else {
                 // 动画常数
                 let fade_in_time = 0.2;
                 let fade_out_time = 0.4;
@@ -98,16 +96,26 @@ impl ToastSystem {
             // --- 单层 Area + Pivot 居中 ---
             egui::Area::new(Id::new("global_toast"))
                 .anchor(Align2::CENTER_TOP, [0.0, 60.0]) // 锚点在屏幕顶部中心
-                .pivot(Align2::CENTER_TOP)              // 将 Toast 自身的顶部中心对准锚点
+                .pivot(Align2::CENTER_TOP) // 将 Toast 自身的顶部中心对准锚点
                 .interactable(false)
                 .order(egui::Order::Foreground)
                 .show(ctx, |ui| {
                     // 获取对应状态的颜色
                     // 图标
                     let (bg_color, icon, icon_color) = match state.config.level {
-                        ToastLevel::Success => (Color32::from_rgb(40, 50, 40), "✔", Color32::from_rgb(100, 255, 150)),
-                        ToastLevel::Error => (Color32::from_rgb(50, 40, 40), "✖", Color32::from_rgb(255, 100, 100)),
-                        ToastLevel::Loading => (Color32::from_rgb(45, 45, 50), "", Color32::TRANSPARENT), // Loading 不使用文字图标
+                        ToastLevel::Success => (
+                            Color32::from_rgb(40, 50, 40),
+                            "✔",
+                            Color32::from_rgb(100, 255, 150),
+                        ),
+                        ToastLevel::Error => (
+                            Color32::from_rgb(50, 40, 40),
+                            "✖",
+                            Color32::from_rgb(255, 100, 100),
+                        ),
+                        ToastLevel::Loading => {
+                            (Color32::from_rgb(45, 45, 50), "", Color32::TRANSPARENT)
+                        } // Loading 不使用文字图标
                     };
 
                     // 应用透明度
@@ -130,14 +138,19 @@ impl ToastSystem {
                             ui.vertical(|ui| {
                                 ui.horizontal(|ui| {
                                     ui.add_space(2.0);
-                                    if is_loading{
+                                    if is_loading {
                                         ui.add(
-                                            egui::Spinner::new()
-                                                .size(18.0)
-                                                .color(Color32::from_gray(180).gamma_multiply(alpha)),
+                                            egui::Spinner::new().size(18.0).color(
+                                                Color32::from_gray(180).gamma_multiply(alpha),
+                                            ),
                                         );
-                                    }else{
-                                    ui.label(RichText::new(icon).color(icon_color_with_alpha).size(18.0).strong());
+                                    } else {
+                                        ui.label(
+                                            RichText::new(icon)
+                                                .color(icon_color_with_alpha)
+                                                .size(18.0)
+                                                .strong(),
+                                        );
                                     }
 
                                     ui.add_space(8.0);
@@ -146,23 +159,31 @@ impl ToastSystem {
                                     ui.label(
                                         RichText::new(&state.config.message)
                                             .color(text_color)
-                                            .size(14.0)
+                                            .size(14.0),
                                     );
                                 });
 
                                 // 如果有进度条，它会被放置在垂直布局的最底部
                                 if state.config.show_progress {
                                     ui.add_space(6.0);
-                                    let progress = (remaining / state.config.duration).clamp(0.0, 1.0);
+                                    let progress =
+                                        (remaining / state.config.duration).clamp(0.0, 1.0);
                                     let height = 2.0;
                                     let width = ui.available_width();
-                                    let (rect, _) = ui.allocate_at_least(egui::vec2(width, height), egui::Sense::hover());
+                                    let (rect, _) = ui.allocate_at_least(
+                                        egui::vec2(width, height),
+                                        egui::Sense::hover(),
+                                    );
                                     // 进度条底色
                                     ui.painter().rect_filled(rect, 1.0, border_color);
                                     // 进度条前景
                                     let mut progress_rect = rect;
                                     progress_rect.set_width(width * progress);
-                                    ui.painter().rect_filled(progress_rect, 1.0, icon_color_with_alpha);
+                                    ui.painter().rect_filled(
+                                        progress_rect,
+                                        1.0,
+                                        icon_color_with_alpha,
+                                    );
                                 }
                             });
                         });
@@ -187,7 +208,13 @@ pub struct ToastManager {
 }
 
 impl ToastManager {
-    pub fn show(&self, message: impl Into<String>, level: ToastLevel, duration: f32, show_progress: bool) {
+    pub fn show(
+        &self,
+        message: impl Into<String>,
+        level: ToastLevel,
+        duration: f32,
+        show_progress: bool,
+    ) {
         let _ = self.sender.send(ToastCommand::Show(ToastConfig {
             message: message.into(),
             level,

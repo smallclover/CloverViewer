@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use std::sync::Arc;
 use eframe::egui::{Color32, ColorImage, Pos2, Rect, TextureHandle};
 use image::RgbaImage;
+use std::collections::HashMap;
+use std::sync::Arc;
 
-use crate::model::device::MonitorInfo;
 use crate::feature::screenshot::color_picker::ColorPicker;
+use crate::model::device::MonitorInfo;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ScreenshotAction {
@@ -22,7 +22,7 @@ pub enum ScreenshotTool {
     Arrow,
     Text,
     Pen,
-    Mosaic
+    Mosaic,
 }
 
 #[derive(Clone)]

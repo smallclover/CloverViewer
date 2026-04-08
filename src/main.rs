@@ -5,9 +5,9 @@ mod core;
 mod feature;
 mod i18n;
 mod model;
+mod os;
 mod ui;
 mod utils;
-mod os;
 
 fn main() -> eframe::Result<()> {
     // 初始化日志系统

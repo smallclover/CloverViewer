@@ -1,10 +1,13 @@
-use std::sync::Arc;
 use eframe::egui::{Color32, Galley, Painter, Pos2, Rect, Stroke, StrokeKind, Vec2};
+use std::sync::Arc;
 
 use crate::feature::screenshot::{
-    canvas::{ResizeStartState, phys_to_local, HIT_TEST_RADIUS, GRAB_TOLERANCE_MIN, GRAB_TOLERANCE_MAX, MIN_SHAPE_SIZE},
+    canvas::{
+        GRAB_TOLERANCE_MAX, GRAB_TOLERANCE_MIN, HIT_TEST_RADIUS, MIN_SHAPE_SIZE, ResizeStartState,
+        phys_to_local,
+    },
     capture::{DrawnShape, ScreenshotTool},
-    draw::draw_egui_shape
+    draw::draw_egui_shape,
 };
 
 /// Shape 渲染与交互能力接口
@@ -101,7 +104,8 @@ impl ShapeRender for DrawnShape {
         let start_local = phys_to_local(self.start, global_offset_phys, ppp);
         let end_local = phys_to_local(self.end, global_offset_phys, ppp);
         let shape_rect = Rect::from_two_pos(start_local, end_local);
-        let grab_tolerance = (self.stroke_width / ppp).clamp(GRAB_TOLERANCE_MIN, GRAB_TOLERANCE_MAX);
+        let grab_tolerance =
+            (self.stroke_width / ppp).clamp(GRAB_TOLERANCE_MIN, GRAB_TOLERANCE_MAX);
 
         match self.tool {
             ScreenshotTool::Rect => {
@@ -122,8 +126,7 @@ impl ShapeRender for DrawnShape {
                 } else {
                     let cos_t = dx / dist;
                     let sin_t = dy / dist;
-                    let r_theta =
-                        (a * b) / ((b * cos_t).powi(2) + (a * sin_t).powi(2)).sqrt();
+                    let r_theta = (a * b) / ((b * cos_t).powi(2) + (a * sin_t).powi(2)).sqrt();
                     (dist - r_theta).abs() <= grab_tolerance
                 }
             }
@@ -204,7 +207,15 @@ impl ShapeRender for DrawnShape {
                 // 马赛克在 render.rs 中特殊处理，因为需要访问 captures 采样原图
             }
             _ => {
-                draw_egui_shape(painter, self.tool, rect, start_local, end_local, self.stroke_width, self.color);
+                draw_egui_shape(
+                    painter,
+                    self.tool,
+                    rect,
+                    start_local,
+                    end_local,
+                    self.stroke_width,
+                    self.color,
+                );
             }
         }
     }
@@ -212,7 +223,10 @@ impl ShapeRender for DrawnShape {
     fn supports_resize(&self) -> bool {
         matches!(
             self.tool,
-            ScreenshotTool::Rect | ScreenshotTool::Circle | ScreenshotTool::Arrow | ScreenshotTool::Text
+            ScreenshotTool::Rect
+                | ScreenshotTool::Circle
+                | ScreenshotTool::Arrow
+                | ScreenshotTool::Text
         )
     }
 
@@ -267,14 +281,14 @@ impl ShapeRender for DrawnShape {
                 let rect = self.bounding_rect(global_offset_phys, ppp);
                 let center = rect.center();
                 vec![
-                    (rect.left_top(), hit_radius),                    // 0 NW
-                    (rect.right_top(), hit_radius),                   // 1 NE
-                    (rect.right_bottom(), hit_radius),                // 2 SE
-                    (rect.left_bottom(), hit_radius),                 // 3 SW
-                    (Pos2::new(center.x, rect.min.y), hit_radius),    // 4 N
-                    (Pos2::new(rect.max.x, center.y), hit_radius),    // 5 E
-                    (Pos2::new(center.x, rect.max.y), hit_radius),    // 6 S
-                    (Pos2::new(rect.min.x, center.y), hit_radius),    // 7 W
+                    (rect.left_top(), hit_radius),                 // 0 NW
+                    (rect.right_top(), hit_radius),                // 1 NE
+                    (rect.right_bottom(), hit_radius),             // 2 SE
+                    (rect.left_bottom(), hit_radius),              // 3 SW
+                    (Pos2::new(center.x, rect.min.y), hit_radius), // 4 N
+                    (Pos2::new(rect.max.x, center.y), hit_radius), // 5 E
+                    (Pos2::new(center.x, rect.max.y), hit_radius), // 6 S
+                    (Pos2::new(rect.min.x, center.y), hit_radius), // 7 W
                 ]
             }
         }
@@ -305,35 +319,43 @@ impl ShapeRender for DrawnShape {
             _ => {
                 // Rect, Circle, Text: 8 控制点
                 match handle {
-                    0 => { // NW: 移动 start，固定 end
+                    0 => {
+                        // NW: 移动 start，固定 end
                         new_start = clamped;
                         new_end = start_state.end;
                     }
-                    1 => { // NE: 移动 end.x 和 start.y，固定 start.x 和 end.y
+                    1 => {
+                        // NE: 移动 end.x 和 start.y，固定 start.x 和 end.y
                         new_start = Pos2::new(start_state.start.x, clamped.y);
                         new_end = Pos2::new(clamped.x, start_state.end.y);
                     }
-                    2 => { // SE: 移动 end，固定 start
+                    2 => {
+                        // SE: 移动 end，固定 start
                         new_start = start_state.start;
                         new_end = clamped;
                     }
-                    3 => { // SW: 移动 start.x 和 end.y，固定 end.x 和 start.y
+                    3 => {
+                        // SW: 移动 start.x 和 end.y，固定 end.x 和 start.y
                         new_start = Pos2::new(clamped.x, start_state.start.y);
                         new_end = Pos2::new(start_state.end.x, clamped.y);
                     }
-                    4 => { // N: 移动 start.y，固定 start.x 和 end
+                    4 => {
+                        // N: 移动 start.y，固定 start.x 和 end
                         new_start = Pos2::new(start_state.start.x, clamped.y);
                         new_end = start_state.end;
                     }
-                    5 => { // E: 移动 end.x，固定 start 和 end.y
+                    5 => {
+                        // E: 移动 end.x，固定 start 和 end.y
                         new_start = start_state.start;
                         new_end = Pos2::new(clamped.x, start_state.end.y);
                     }
-                    6 => { // S: 移动 end.y，固定 start 和 end.x
+                    6 => {
+                        // S: 移动 end.y，固定 start 和 end.x
                         new_start = start_state.start;
                         new_end = Pos2::new(start_state.end.x, clamped.y);
                     }
-                    7 => { // W: 移动 start.x，固定 start.y 和 end
+                    7 => {
+                        // W: 移动 start.x，固定 start.y 和 end
                         new_start = Pos2::new(clamped.x, start_state.start.y);
                         new_end = start_state.end;
                     }

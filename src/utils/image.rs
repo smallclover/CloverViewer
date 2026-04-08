@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
-use tray_icon::Icon;
 use crate::model::image_meta::SUPPORTED_IMAGE_EXTENSIONS;
 use crate::ui::resources::APP_IMG;
+use std::path::{Path, PathBuf};
+use tray_icon::Icon;
 
 /// 统一的判断逻辑
 pub fn is_image(path: &Path) -> bool {
@@ -26,7 +26,7 @@ pub fn collect_images(dir: &Path) -> Vec<PathBuf> {
     result
 }
 
-pub fn load_icon()-> egui::IconData {
+pub fn load_icon() -> egui::IconData {
     let img = image::load_from_memory(APP_IMG)
         .expect("无法读取内嵌图标")
         .into_rgba8();
@@ -47,6 +47,5 @@ pub fn load_tray_icon() -> Icon {
 
     let (w, h) = img.dimensions();
 
-    Icon::from_rgba(img.into_raw(), w, h)
-        .expect("Failed to create tray icon")
+    Icon::from_rgba(img.into_raw(), w, h).expect("Failed to create tray icon")
 }

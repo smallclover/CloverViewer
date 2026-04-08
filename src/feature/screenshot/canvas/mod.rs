@@ -7,8 +7,10 @@ pub mod render;
 pub mod shape;
 pub mod text_input;
 
+use crate::feature::screenshot::capture::{
+    DrawnShape, HistoryEntry, ScreenshotState, ScreenshotTool,
+};
 use eframe::egui::{Color32, Id, Pos2, Ui, Vec2};
-use crate::feature::screenshot::capture::{DrawnShape, HistoryEntry, ScreenshotState, ScreenshotTool};
 
 /// 物理坐标转换为本地逻辑坐标
 pub fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {
@@ -63,7 +65,9 @@ impl CanvasState {
             hovered_shape: ui.data(|d| d.get_temp(Id::new(Self::HOVERED_ID))),
             selected_shape: ui.data(|d| d.get_temp(Id::new(Self::SELECTED_ID))),
             dragging_shape: ui.data(|d| d.get_temp(Id::new(Self::DRAGGING_ID))),
-            dragging_selection: ui.data(|d| d.get_temp(Id::new(Self::DRAGGING_SEL_ID))).unwrap_or(false),
+            dragging_selection: ui
+                .data(|d| d.get_temp(Id::new(Self::DRAGGING_SEL_ID)))
+                .unwrap_or(false),
             drag_start_phys: ui.data(|d| d.get_temp(Id::new(Self::DRAG_START_ID))),
             dragging_handle: ui.data(|d| d.get_temp(Id::new(Self::DRAGGING_HANDLE_ID))),
             resize_start_state: ui.data(|d| d.get_temp(Id::new(Self::RESIZE_START_STATE_ID))),

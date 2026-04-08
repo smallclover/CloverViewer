@@ -1,18 +1,15 @@
-mod hover;
 mod drag;
+mod hover;
 
 use eframe::egui::{Color32, Pos2, Rect, Response, Ui, Vec2};
 
 use crate::feature::screenshot::{
-    canvas::{
-        shape::ShapeRender,
-        CanvasState,
-    },
+    canvas::{CanvasState, shape::ShapeRender},
     capture::{HistoryEntry, ScreenshotState, ScreenshotTool},
 };
 use crate::model::device::find_target_screen_rect;
-use hover::{check_hovering_ui, update_hover_state, update_cursor};
-use drag::{on_drag_start, on_dragged, on_drag_stop};
+use drag::{on_drag_start, on_drag_stop, on_dragged};
+use hover::{check_hovering_ui, update_cursor, update_hover_state};
 
 /// 处理所有画布交互
 pub fn handle_interaction(
@@ -42,7 +39,14 @@ pub fn handle_interaction(
         is_pointer_down,
     );
 
-    update_cursor(ui, state, &canvas_state, global_offset_phys, ppp, is_hovering_ui);
+    update_cursor(
+        ui,
+        state,
+        &canvas_state,
+        global_offset_phys,
+        ppp,
+        is_hovering_ui,
+    );
 
     if response.clicked() {
         handle_click(
@@ -61,7 +65,15 @@ pub fn handle_interaction(
             let global_phys = global_offset_phys + (press_pos.to_vec2() * ppp);
 
             if response.drag_started() {
-                on_drag_start(ui, state, canvas_state, global_phys, global_offset_phys, ppp, press_pos);
+                on_drag_start(
+                    ui,
+                    state,
+                    canvas_state,
+                    global_phys,
+                    global_offset_phys,
+                    ppp,
+                    press_pos,
+                );
             }
             if response.dragged() {
                 on_dragged(ui, state, canvas_state, global_offset_phys, ppp, press_pos);
@@ -92,7 +104,9 @@ fn handle_click(
         if let Some(selected_idx) = canvas_state.selected_shape {
             if let Some(shape) = state.shapes.get(selected_idx) {
                 if shape.supports_resize() {
-                    if let Some(_handle) = hover::get_hovered_handle(pos, shape, global_offset_phys, ppp) {
+                    if let Some(_handle) =
+                        hover::get_hovered_handle(pos, shape, global_offset_phys, ppp)
+                    {
                         return;
                     }
                 }
@@ -204,15 +218,17 @@ fn commit_text_shape(
         selection: state.selection,
     });
 
-    state.shapes.push(crate::feature::screenshot::capture::DrawnShape {
-        tool: ScreenshotTool::Text,
-        start: start_pos_phys,
-        end: end_pos,
-        color: state.active_color,
-        stroke_width: state.stroke_width,
-        text: Some(baked_text),
-        points: None,
-        cached_galley: None,
-        cached_mosaic: None,
-    });
+    state
+        .shapes
+        .push(crate::feature::screenshot::capture::DrawnShape {
+            tool: ScreenshotTool::Text,
+            start: start_pos_phys,
+            end: end_pos,
+            color: state.active_color,
+            stroke_width: state.stroke_width,
+            text: Some(baked_text),
+            points: None,
+            cached_galley: None,
+            cached_mosaic: None,
+        });
 }

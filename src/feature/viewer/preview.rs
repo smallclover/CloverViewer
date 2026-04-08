@@ -1,5 +1,8 @@
-use egui::{Color32, CornerRadius, Rect, TextureHandle, Vec2, Context, Area, Frame, Stroke, Ui, Align2, FontId, UiBuilder, Sense, Id, Image, Shadow, StrokeKind, Spinner, CursorIcon};
 use crate::core::viewer_state::ViewerState;
+use egui::{
+    Align2, Area, Color32, Context, CornerRadius, CursorIcon, FontId, Frame, Id, Image, Rect,
+    Sense, Shadow, Spinner, Stroke, StrokeKind, TextureHandle, Ui, UiBuilder, Vec2,
+};
 
 #[derive(Clone, Copy, Default)]
 struct PickerState {
@@ -15,10 +18,7 @@ enum ThumbnailState<'a> {
     Loading,
 }
 
-pub fn show_preview_window(
-    ctx: &Context,
-    viewer: &mut ViewerState,
-) -> bool {
+pub fn show_preview_window(ctx: &Context, viewer: &mut ViewerState) -> bool {
     if !viewer.list.is_empty() {
         if let Some(new_idx) = draw_picker(ctx, viewer) {
             if new_idx != viewer.index {
@@ -30,10 +30,7 @@ pub fn show_preview_window(
     false
 }
 
-fn draw_picker(
-    ctx: &Context,
-    viewer: &mut ViewerState,
-) -> Option<usize> {
+fn draw_picker(ctx: &Context, viewer: &mut ViewerState) -> Option<usize> {
     let mut new_index = None;
     let item_width = 80.0;
     let visible_items = 5.0;
@@ -63,7 +60,9 @@ fn draw_picker(
                     }
 
                     let id = ui.id().with("picker_state");
-                    let mut state = ui.data_mut(|d| d.get_temp::<PickerState>(id)).unwrap_or_default();
+                    let mut state = ui
+                        .data_mut(|d| d.get_temp::<PickerState>(id))
+                        .unwrap_or_default();
 
                     if !state.initialized {
                         state.scroll_offset = viewer.index as f32 * item_width;
@@ -81,7 +80,8 @@ fn draw_picker(
                         state.scroll_offset -= response.drag_delta().x;
                     } else {
                         if response.drag_stopped() {
-                            state.target_offset = (state.scroll_offset / item_width).round() * item_width;
+                            state.target_offset =
+                                (state.scroll_offset / item_width).round() * item_width;
                         } else if response.clicked() {
                             if let Some(mouse_pos) = response.interact_pointer_pos() {
                                 let center_x = rect.center().x;
@@ -104,27 +104,24 @@ fn draw_picker(
                         state.last_index = selected_idx;
                     }
 
-                    let center_indicator_rect = Rect::from_center_size(
-                        rect.center(),
-                        Vec2::new(item_width + 4.0, 58.0)
-                    );
+                    let center_indicator_rect =
+                        Rect::from_center_size(rect.center(), Vec2::new(item_width + 4.0, 58.0));
                     ui.painter().rect_filled(
                         center_indicator_rect,
                         CornerRadius::same(8),
-                        Color32::from_black_alpha(40)
+                        Color32::from_black_alpha(40),
                     );
 
                     let center_x = rect.center().x;
 
-                    let mut items_ui = ui.new_child(
-                        UiBuilder::new()
-                            .max_rect(rect)
-                            .layout(*ui.layout())
-                    );
+                    let mut items_ui =
+                        ui.new_child(UiBuilder::new().max_rect(rect).layout(*ui.layout()));
                     items_ui.set_clip_rect(rect);
 
-                    let start_idx = ((state.scroll_offset - view_width / 2.0) / item_width).floor() as isize;
-                    let end_idx = ((state.scroll_offset + view_width / 2.0) / item_width).ceil() as isize;
+                    let start_idx =
+                        ((state.scroll_offset - view_width / 2.0) / item_width).floor() as isize;
+                    let end_idx =
+                        ((state.scroll_offset + view_width / 2.0) / item_width).ceil() as isize;
                     let start_idx = start_idx.max(0) as usize;
                     let end_idx = end_idx.min(viewer.list.len() as isize) as usize;
 
@@ -141,9 +138,12 @@ fn draw_picker(
                             let item_center_offset = (i as f32 * item_width) - state.scroll_offset;
                             let item_x = center_x + item_center_offset;
 
-                            if item_x > rect.left() - item_width && item_x < rect.right() + item_width {
+                            if item_x > rect.left() - item_width
+                                && item_x < rect.right() + item_width
+                            {
                                 let dist_from_center = (item_x - center_x).abs();
-                                let factor = (1.0 - (dist_from_center / (view_width / 2.0))).max(0.0);
+                                let factor =
+                                    (1.0 - (dist_from_center / (view_width / 2.0))).max(0.0);
 
                                 let size_factor = 0.6 + 0.4 * factor.powf(2.0);
                                 let alpha = factor.powf(1.5);
@@ -151,7 +151,7 @@ fn draw_picker(
                                 let item_size = Vec2::new(item_width, 50.0) * size_factor;
                                 let item_rect = Rect::from_center_size(
                                     egui::pos2(item_x, rect.center().y),
-                                    item_size
+                                    item_size,
                                 );
 
                                 let thumb_state = if let Some(tex) = thumb_cache.get(path) {
@@ -163,7 +163,12 @@ fn draw_picker(
                                     ThumbnailState::Loading
                                 };
 
-                                render_preview_item_custom(&mut items_ui, item_rect, thumb_state, alpha);
+                                render_preview_item_custom(
+                                    &mut items_ui,
+                                    item_rect,
+                                    thumb_state,
+                                    alpha,
+                                );
                             }
                         }
                     }
@@ -175,10 +180,10 @@ fn draw_picker(
                     }
 
                     for path in to_load {
-                         if !loading_thumbs.contains(&path) {
-                             loading_thumbs.insert(path.clone());
-                             loader.load_async(ctx.clone(), path, false, Some((160, 120)));
-                         }
+                        if !loading_thumbs.contains(&path) {
+                            loading_thumbs.insert(path.clone());
+                            loader.load_async(ctx.clone(), path, false, Some((160, 120)));
+                        }
                     }
                 });
         });
@@ -186,12 +191,7 @@ fn draw_picker(
     new_index
 }
 
-fn render_preview_item_custom(
-    ui: &mut Ui,
-    rect: Rect,
-    state: ThumbnailState,
-    alpha: f32,
-) {
+fn render_preview_item_custom(ui: &mut Ui, rect: Rect, state: ThumbnailState, alpha: f32) {
     match state {
         ThumbnailState::Loaded(tex) => {
             if alpha > 0.1 {
@@ -201,7 +201,8 @@ fn render_preview_item_custom(
                     spread: 0,
                     color: Color32::from_black_alpha((100.0 * alpha) as u8),
                 };
-                ui.painter().add(shadow.as_shape(rect, CornerRadius::same(6)));
+                ui.painter()
+                    .add(shadow.as_shape(rect, CornerRadius::same(6)));
             }
 
             let image = Image::from_texture(tex)
@@ -216,13 +217,12 @@ fn render_preview_item_custom(
                     rect,
                     CornerRadius::same(6),
                     Stroke::new(2.0, Color32::from_white_alpha(200)),
-                    StrokeKind::Outside
+                    StrokeKind::Outside,
                 );
             }
         }
         ThumbnailState::Failed => {
             paint_error_state(ui, rect);
-
         }
         ThumbnailState::Loading => {
             paint_loading_state(ui, rect);
@@ -231,7 +231,8 @@ fn render_preview_item_custom(
 }
 
 fn paint_error_state(ui: &mut Ui, rect: Rect) {
-    ui.painter().rect_filled(rect, CornerRadius::same(4), Color32::from_rgb(60, 20, 20));
+    ui.painter()
+        .rect_filled(rect, CornerRadius::same(4), Color32::from_rgb(60, 20, 20));
     ui.painter().text(
         rect.center(),
         Align2::CENTER_CENTER,
@@ -242,7 +243,8 @@ fn paint_error_state(ui: &mut Ui, rect: Rect) {
 }
 
 fn paint_loading_state(ui: &mut Ui, rect: Rect) {
-    ui.painter().rect_filled(rect, CornerRadius::same(4), Color32::from_gray(40));
+    ui.painter()
+        .rect_filled(rect, CornerRadius::same(4), Color32::from_gray(40));
     ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
         ui.centered_and_justified(|ui| {
             ui.add(Spinner::new());

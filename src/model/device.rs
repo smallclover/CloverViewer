@@ -1,6 +1,6 @@
+use crate::feature::screenshot::capture::CapturedScreen;
 use eframe::egui::{Pos2, Rect, Vec2};
 use xcap::Monitor;
-use crate::feature::screenshot::capture::CapturedScreen;
 
 #[derive(Clone, Debug)]
 pub struct MonitorInfo {
@@ -45,10 +45,18 @@ impl DeviceInfo {
             let w = m.width().unwrap_or(800);
             let h = m.height().unwrap_or(600);
 
-            if x < phys_min_x { phys_min_x = x; }
-            if y < phys_min_y { phys_min_y = y; }
-            if x + (w as i32) > phys_max_x { phys_max_x = x + (w as i32); }
-            if y + (h as i32) > phys_max_y { phys_max_y = y + (h as i32); }
+            if x < phys_min_x {
+                phys_min_x = x;
+            }
+            if y < phys_min_y {
+                phys_min_y = y;
+            }
+            if x + (w as i32) > phys_max_x {
+                phys_max_x = x + (w as i32);
+            }
+            if y + (h as i32) > phys_max_y {
+                phys_max_y = y + (h as i32);
+            }
 
             monitors.push(MonitorInfo {
                 name: m.name().unwrap_or_default(),
@@ -121,10 +129,6 @@ pub fn get_screen_phys_rect(info: &MonitorInfo) -> Rect {
 pub fn find_target_screen_rect(captures: &[CapturedScreen], pos: Pos2) -> Option<Rect> {
     captures.iter().find_map(|cap| {
         let rect = get_screen_phys_rect(&cap.screen_info);
-        if rect.contains(pos) {
-            Some(rect)
-        } else {
-            None
-        }
+        if rect.contains(pos) { Some(rect) } else { None }
     })
 }

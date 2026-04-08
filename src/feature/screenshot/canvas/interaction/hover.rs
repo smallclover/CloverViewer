@@ -1,15 +1,15 @@
 use eframe::egui::{CursorIcon, Pos2, Rect, Ui};
 
 use crate::feature::screenshot::{
-    canvas::{
-        hit_test,
-        shape::ShapeRender,
-        CanvasState,
-    },
+    canvas::{CanvasState, hit_test, shape::ShapeRender},
     capture::{DrawnShape, ScreenshotState, ScreenshotTool},
 };
 
-pub(super) fn check_hovering_ui(ui: &Ui, state: &ScreenshotState, toolbar_rect: Option<Rect>) -> bool {
+pub(super) fn check_hovering_ui(
+    ui: &Ui,
+    state: &ScreenshotState,
+    toolbar_rect: Option<Rect>,
+) -> bool {
     if let Some(pos) = ui.ctx().pointer_latest_pos() {
         let is_clicking_toolbar = toolbar_rect.map_or(false, |r| r.contains(pos));
         let is_interacting_with_picker =
@@ -52,7 +52,9 @@ pub(super) fn update_hover_state(
                 if let Some(selected_idx) = canvas_state.selected_shape {
                     if let Some(shape) = state.shapes.get(selected_idx) {
                         if shape.supports_resize() {
-                            if let Some(_handle) = get_hovered_handle(pos, shape, global_offset_phys, ppp) {
+                            if let Some(_handle) =
+                                get_hovered_handle(pos, shape, global_offset_phys, ppp)
+                            {
                                 // 找到悬停的控制点，不更新 hovered_shape（保持选中状态）
                                 return;
                             }
@@ -107,8 +109,9 @@ pub(super) fn update_cursor(
                                 } else if dy > dx * 2.0 {
                                     CursorIcon::ResizeVertical
                                 } else {
-                                    let is_same_direction =
-                                        (shape.end.x - shape.start.x) * (shape.end.y - shape.start.y) >= 0.0;
+                                    let is_same_direction = (shape.end.x - shape.start.x)
+                                        * (shape.end.y - shape.start.y)
+                                        >= 0.0;
                                     if is_same_direction {
                                         CursorIcon::ResizeNwSe
                                     } else {
@@ -119,9 +122,9 @@ pub(super) fn update_cursor(
                             _ => {
                                 // Rect/Circle/Text: 8 控制点
                                 match handle {
-                                    0 | 2 => CursorIcon::ResizeNwSe, // NW, SE
-                                    1 | 3 => CursorIcon::ResizeNeSw, // NE, SW
-                                    4 | 6 => CursorIcon::ResizeVertical, // N, S
+                                    0 | 2 => CursorIcon::ResizeNwSe,       // NW, SE
+                                    1 | 3 => CursorIcon::ResizeNeSw,       // NE, SW
+                                    4 | 6 => CursorIcon::ResizeVertical,   // N, S
                                     5 | 7 => CursorIcon::ResizeHorizontal, // E, W
                                     _ => CursorIcon::Crosshair,
                                 }

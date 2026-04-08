@@ -1,5 +1,5 @@
-use eframe::egui::Pos2;
 use crate::model::config::Config;
+use eframe::egui::Pos2;
 
 /// 应用级功能模式 - 顶层状态机
 #[derive(Clone, PartialEq, Debug)]
@@ -13,7 +13,7 @@ pub enum AppMode {
 pub enum OverlayMode {
     None,
     About,
-    Settings { config: Config },  // 使用 Config 副本
+    Settings { config: Config }, // 使用 Config 副本
     ContextMenu(Pos2),
     Properties,
 }

@@ -42,4 +42,3 @@ pub fn move_shape(shape: &mut DrawnShape, delta: Vec2, selection: Option<Rect>) 
 pub fn move_selection(selection: &mut Rect, delta: Vec2) {
     *selection = selection.translate(delta);
 }
-

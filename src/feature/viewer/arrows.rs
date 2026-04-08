@@ -1,7 +1,4 @@
-use egui::{
-    Color32, Rect, Response, Ui, Vec2,
-    StrokeKind,Align2,FontId, CursorIcon
-};
+use egui::{Align2, Color32, CursorIcon, FontId, Rect, Response, StrokeKind, Ui, Vec2};
 
 pub enum Nav {
     Prev,
@@ -78,7 +75,7 @@ fn draw_nav_button(ui: &mut Ui, rect: Rect, icon: &str) -> Response {
     // 3. 绘制背景
     ui.painter().rect_filled(
         rect.expand(visuals.expansion), // 悬停时稍微扩大一点
-        8.0, // 圆角，与预览栏一致
+        8.0,                            // 圆角，与预览栏一致
         bg_color,
     );
 
@@ -86,9 +83,9 @@ fn draw_nav_button(ui: &mut Ui, rect: Rect, icon: &str) -> Response {
     if response.hovered() {
         ui.painter().rect_stroke(
             rect,
-            8.0,                 // 圆角 (Rounding)
-            (1.0, Color32::GRAY),     // 粗细与颜色 (Stroke)
-            StrokeKind::Inside               // 边框类型 (StrokeKind)
+            8.0,                  // 圆角 (Rounding)
+            (1.0, Color32::GRAY), // 粗细与颜色 (Stroke)
+            StrokeKind::Inside,   // 边框类型 (StrokeKind)
         );
     }
 

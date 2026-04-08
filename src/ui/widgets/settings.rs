@@ -1,11 +1,11 @@
 use egui::{Align, Button, ComboBox, Context, Id, Key, Layout, Modifiers, ScrollArea, Ui};
 
+use crate::ui::widgets::toggle::toggle;
 use crate::{
-    i18n::lang::{get_i18n_text, Language, TextBundle},
+    i18n::lang::{Language, TextBundle, get_i18n_text},
     model::config::Config,
-    ui::widgets::modal::{ModalAction, ModalFrame}
+    ui::widgets::modal::{ModalAction, ModalFrame},
 };
-use crate::ui::widgets::toggle::{toggle};
 
 #[derive(PartialEq, Clone, Copy, Hash)]
 enum SettingsTab {
@@ -28,10 +28,14 @@ pub fn render_settings_window(
     config: &mut Config,
 ) -> ModalAction {
     let tab_id = Id::new("settings_tab_state");
-    let mut current_tab = ctx.data(|d| d.get_temp(tab_id)).unwrap_or(SettingsTab::General);
+    let mut current_tab = ctx
+        .data(|d| d.get_temp(tab_id))
+        .unwrap_or(SettingsTab::General);
 
     let recording_id = Id::new("hotkey_recording_state");
-    let mut recording_state = ctx.data(|d| d.get_temp(recording_id)).unwrap_or(RecordingState::None);
+    let mut recording_state = ctx
+        .data(|d| d.get_temp(recording_id))
+        .unwrap_or(RecordingState::None);
 
     let mut action = ModalAction::None;
 
@@ -51,7 +55,13 @@ pub fn render_settings_window(
                             render_content_header(ui, current_tab, text);
                             ui.add_space(8.0);
                             ScrollArea::vertical().show(ui, |ui| {
-                                render_content_body(ui, current_tab, config, text, &mut recording_state);
+                                render_content_body(
+                                    ui,
+                                    current_tab,
+                                    config,
+                                    text,
+                                    &mut recording_state,
+                                );
                             });
                         });
                     },
@@ -75,10 +85,22 @@ fn render_sidebar(ui: &mut Ui, current_tab: &mut SettingsTab, text: &TextBundle)
     ui.vertical(|ui| {
         ui.set_width(180.0);
         ui.add_space(15.0);
-        if ui.selectable_label(*current_tab == SettingsTab::General, format!("  {}", text.settings_general)).clicked() {
+        if ui
+            .selectable_label(
+                *current_tab == SettingsTab::General,
+                format!("  {}", text.settings_general),
+            )
+            .clicked()
+        {
             *current_tab = SettingsTab::General;
         }
-        if ui.selectable_label(*current_tab == SettingsTab::Hotkeys, format!("  {}", text.settings_shortcut_key)).clicked() {
+        if ui
+            .selectable_label(
+                *current_tab == SettingsTab::Hotkeys,
+                format!("  {}", text.settings_shortcut_key),
+            )
+            .clicked()
+        {
             *current_tab = SettingsTab::Hotkeys;
         }
         ui.add_space(ui.available_height());
@@ -119,20 +141,22 @@ fn render_content_body(
                             ui.selectable_value(&mut selected, Language::En, Language::En.as_str());
                             ui.selectable_value(&mut selected, Language::Ja, Language::Ja.as_str());
                         });
-                    if selected != config.language { config.language = selected; }
+                    if selected != config.language {
+                        config.language = selected;
+                    }
                 });
                 ui.add_space(10.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.label(format!("{}:", text.settings_minimize_on_close));
                     ui.add(toggle(&mut config.minimize_on_close));
                 });
                 ui.add_space(10.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.label(format!("{}:", text.settings_magnifier_enabled));
                     ui.add(toggle(&mut config.magnifier_enabled));
                 });
                 ui.add_space(10.0);
-                ui.horizontal(|ui|{
+                ui.horizontal(|ui| {
                     ui.label(format!("{}:", text.settings_screenshot_hides_main_window));
                     ui.add(toggle(&mut config.screenshot_hides_main_window));
                 });
@@ -146,8 +170,20 @@ fn render_content_body(
                     .spacing([40.0, 10.0])
                     .striped(true)
                     .show(ui, |ui| {
-                        render_hotkey_row(ui, &text.shortcut_key_screenshot, &mut config.hotkeys.show_screenshot, recording_state, RecordingState::ShowScreenshot);
-                        render_hotkey_row(ui, &text.shortcut_key_copy_color, &mut config.hotkeys.copy_screenshot, recording_state, RecordingState::CopyScreenshot);
+                        render_hotkey_row(
+                            ui,
+                            &text.shortcut_key_screenshot,
+                            &mut config.hotkeys.show_screenshot,
+                            recording_state,
+                            RecordingState::ShowScreenshot,
+                        );
+                        render_hotkey_row(
+                            ui,
+                            &text.shortcut_key_copy_color,
+                            &mut config.hotkeys.copy_screenshot,
+                            recording_state,
+                            RecordingState::CopyScreenshot,
+                        );
                     });
             }
         }
@@ -165,10 +201,21 @@ fn render_hotkey_row(
 
     let text = get_i18n_text(ui.ctx());
     let is_recording = *recording_state == this_recorder;
-    let button_text = if is_recording { text.shortcut_key_modified } else { hotkey_str.as_str() };
+    let button_text = if is_recording {
+        text.shortcut_key_modified
+    } else {
+        hotkey_str.as_str()
+    };
 
-    if ui.add_sized([120.0, 20.0], Button::new(button_text)).clicked() {
-        *recording_state = if is_recording { RecordingState::None } else { this_recorder };
+    if ui
+        .add_sized([120.0, 20.0], Button::new(button_text))
+        .clicked()
+    {
+        *recording_state = if is_recording {
+            RecordingState::None
+        } else {
+            this_recorder
+        };
     }
 
     if is_recording {
@@ -181,7 +228,13 @@ fn render_hotkey_row(
             let modifiers = i.modifiers;
 
             for event in &i.events {
-                if let egui::Event::Key { key, pressed: true, repeat: false, .. } = event {
+                if let egui::Event::Key {
+                    key,
+                    pressed: true,
+                    repeat: false,
+                    ..
+                } = event
+                {
                     *hotkey_str = format_hotkey(modifiers, *key);
                     *recording_state = RecordingState::None;
                     break;
@@ -197,11 +250,19 @@ fn format_hotkey(modifiers: Modifiers, key: Key) -> String {
     let mut parts = Vec::new();
 
     // 检查具体的修饰键状态
-    if modifiers.ctrl { parts.push("Ctrl"); }
-    if modifiers.alt { parts.push("Alt"); }
-    if modifiers.shift { parts.push("Shift"); }
+    if modifiers.ctrl {
+        parts.push("Ctrl");
+    }
+    if modifiers.alt {
+        parts.push("Alt");
+    }
+    if modifiers.shift {
+        parts.push("Shift");
+    }
     // 注意：mac_cmd 仅在 macOS 上对应 Command 键
-    if modifiers.mac_cmd { parts.push("Cmd"); }
+    if modifiers.mac_cmd {
+        parts.push("Cmd");
+    }
     // 如果你在非 Mac 系统上想用 Win 键，可以使用 modifiers.command 或手动检查 os
     // 但通常 egui 的 modifiers.command 在 Mac 上是 Cmd，在 Win/Linux 上是 Ctrl
 

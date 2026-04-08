@@ -1,5 +1,7 @@
-use egui::{Align2, Area, Color32, Context, Id, Order, RichText, Sense, Ui, LayerId, Layout, Align};
-use crate::ui::widgets::icons::{draw_icon_button, IconType};
+use crate::ui::widgets::icons::{IconType, draw_icon_button};
+use egui::{
+    Align, Align2, Area, Color32, Context, Id, LayerId, Layout, Order, RichText, Sense, Ui,
+};
 /// 弹窗基类
 pub struct ModalFrame;
 
@@ -83,7 +85,7 @@ impl ModalFrame {
 
         // 3. 安全地提取返回值
         if let Some(inner_r) = window_response {
-            if let Some(action_content) = inner_r.inner{
+            if let Some(action_content) = inner_r.inner {
                 action_from_content = action_content;
             }
         }

@@ -1,4 +1,3 @@
-
 /// iOS-style toggle switch:
 ///
 /// ``` text
@@ -80,7 +79,6 @@ pub fn toggle_ui(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
 /// ``` ignore
 /// ui.add(toggle(&mut my_bool));
 /// ```
-pub fn toggle(on: &mut bool) -> impl egui::Widget + '_{
+pub fn toggle(on: &mut bool) -> impl egui::Widget + '_ {
     move |ui: &mut egui::Ui| toggle_ui(ui, on)
 }
-

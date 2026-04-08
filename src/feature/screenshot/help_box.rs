@@ -1,24 +1,21 @@
-use egui::{Color32, Id, Pos2, Rect, RichText, Stroke, Ui};
 use crate::feature::screenshot::state::ScreenshotState;
 use crate::i18n::lang::get_i18n_text;
 use crate::model::config::get_context_config;
 use crate::model::device::{find_target_screen_rect, get_screen_phys_rect};
-use crate::ui::widgets::icons::{draw_inline_icon, IconType};
+use crate::ui::widgets::icons::{IconType, draw_inline_icon};
+use egui::{Color32, Id, Pos2, Rect, RichText, Stroke, Ui};
 
 /// 绘制左下角快捷键与帮助提示框（支持多语言、动态配置和图标混合排版）
-pub fn render_help_box(
-    ui: &mut Ui,
-    state: &ScreenshotState,
-    global_offset_phys: Pos2,
-    ppp: f32,
-) {
+pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys: Pos2, ppp: f32) {
     if let Some(global_sel_phys) = state.selection {
         let sel_center_phys = global_sel_phys.center();
 
         // 1. 获取目标屏幕
-        let screen_phys = find_target_screen_rect(&state.captures, sel_center_phys)
-            .unwrap_or_else(|| {
-                state.captures.first()
+        let screen_phys =
+            find_target_screen_rect(&state.captures, sel_center_phys).unwrap_or_else(|| {
+                state
+                    .captures
+                    .first()
                     .map(|cap| get_screen_phys_rect(&cap.screen_info))
                     .unwrap_or_else(|| Rect::from_min_size(Pos2::ZERO, egui::vec2(1920.0, 1080.0)))
             });
@@ -38,7 +35,8 @@ pub fn render_help_box(
         let estimated_rect = Rect::from_min_max(
             Pos2::new(target_pos.x, target_pos.y - 350.0),
             Pos2::new(target_pos.x + 300.0, target_pos.y),
-        ).expand(10.0);
+        )
+        .expand(10.0);
 
         if !sel_logical.intersects(estimated_rect) {
             let text_bundle = get_i18n_text(ui.ctx());
@@ -66,29 +64,38 @@ pub fn render_help_box(
 
                             // --- 1. 快捷键 ---
                             // 显式追加 .color(text_color)，否则默认使用区域主题就是黑色
-                            ui.label(RichText::new(text_bundle.help_shortcuts)
-                                .font(font_id.clone())
-                                .color(text_color)
-                                .strong());
+                            ui.label(
+                                RichText::new(text_bundle.help_shortcuts)
+                                    .font(font_id.clone())
+                                    .color(text_color)
+                                    .strong(),
+                            );
                             ui.label(RichText::new(text_bundle.help_esc).font(font_id.clone()));
                             ui.label(RichText::new(text_bundle.help_undo).font(font_id.clone()));
-                            ui.label(RichText::new(format!(
-                                "{} : {}",
-                                config.hotkeys.copy_screenshot, text_bundle.help_copy
-                            )).font(font_id.clone()));
+                            ui.label(
+                                RichText::new(format!(
+                                    "{} : {}",
+                                    config.hotkeys.copy_screenshot, text_bundle.help_copy
+                                ))
+                                .font(font_id.clone()),
+                            );
                             ui.add_space(6.0);
 
                             // --- 2. 图标说明 ---
-                            ui.label(RichText::new(text_bundle.help_tools)
-                                .font(font_id.clone())
-                                .color(text_color)
-                                .strong());
+                            ui.label(
+                                RichText::new(text_bundle.help_tools)
+                                    .font(font_id.clone())
+                                    .color(text_color)
+                                    .strong(),
+                            );
 
                             // 提取一个小闭包，专门负责“图标 + 冒号 + 文字”的标准同行排版
                             let mut draw_icon_row = |icon: IconType, desc: &str| {
                                 ui.horizontal(|ui| {
                                     draw_inline_icon(ui, icon);
-                                    ui.label(RichText::new(format!(": {}", desc)).font(font_id.clone()));
+                                    ui.label(
+                                        RichText::new(format!(": {}", desc)).font(font_id.clone()),
+                                    );
                                 });
                             };
 
@@ -100,7 +107,10 @@ pub fn render_help_box(
                             draw_icon_row(IconType::Text, text_bundle.tooltip_draw_text);
                             draw_icon_row(IconType::Ocr, text_bundle.tooltip_ocr);
                             draw_icon_row(IconType::Save, text_bundle.tooltip_save);
-                            draw_icon_row(IconType::SaveToClipboard, text_bundle.tooltip_save_to_clipboard);
+                            draw_icon_row(
+                                IconType::SaveToClipboard,
+                                text_bundle.tooltip_save_to_clipboard,
+                            );
                         });
                 });
         }

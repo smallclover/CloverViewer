@@ -1,10 +1,10 @@
+pub mod about;
+pub mod context_menu;
 pub mod icons;
 pub mod loading;
-pub mod modal;
-pub mod toast;
-pub mod tray;
-pub mod toggle;
-pub mod about;
-pub mod settings;
-pub mod context_menu;
 pub mod menu;
+pub mod modal;
+pub mod settings;
+pub mod toast;
+pub mod toggle;
+pub mod tray;

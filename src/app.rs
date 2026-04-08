@@ -1,32 +1,32 @@
-use eframe::egui;
-use tray_icon::TrayIcon;
-use egui::{Context, FontData, FontDefinitions, FontFamily, Pos2, Vec2, ViewportBuilder, ViewportCommand, WindowLevel};
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-    env
-};
+use crate::model::config::init_config_arc;
 use crate::{
     core::config_manager::ConfigManager,
-    model::{
-        config::{load_config, update_context_config, Config},
-        state::{AppState},
-        mode::AppMode,
-    },
-    os::window::get_hwnd_usize,
-    utils::image::load_icon,
-    ui::{
-        widgets::{
-            modal::ModalAction,
-            tray::init_tray
-        },
-        resources::APP_FONT,
-    },
     feature::Feature,
-    feature::viewer::ViewerFeature,
     feature::screenshot::ScreenshotFeature,
+    feature::viewer::ViewerFeature,
+    model::{
+        config::{Config, load_config, update_context_config},
+        mode::AppMode,
+        state::AppState,
+    },
+    os::current_platform,
+    ui::{
+        resources::APP_FONT,
+        widgets::{modal::ModalAction, tray::init_tray},
+    },
+    utils::image::load_icon,
 };
-use crate::model::config::init_config_arc;
+use eframe::egui;
+use egui::{
+    Context, FontData, FontDefinitions, FontFamily, Pos2, Vec2, ViewportBuilder, ViewportCommand,
+    WindowLevel,
+};
+use std::{
+    env,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
+use tray_icon::TrayIcon;
 
 pub fn run() -> eframe::Result<()> {
     // 提前加载配置
@@ -60,9 +60,7 @@ pub fn run() -> eframe::Result<()> {
         options,
         Box::new(move |cc| {
             Ok(Box::new(CloverApp::new(
-                cc,
-                start_path,
-                config, // 将读取好的 config 传给 new()
+                cc, start_path, config, // 将读取好的 config 传给 new()
             )))
         }),
     )
@@ -86,7 +84,8 @@ impl CloverApp {
 
         let visible = Arc::new(Mutex::new(true));
         let allow_quit = Arc::new(Mutex::new(false));
-        let hwnd_usize = get_hwnd_usize(&cc);
+        let platform = current_platform();
+        let hwnd_usize = platform.get_window_handle(&cc);
 
         let config_arc = Arc::new(config);
         init_config_arc(&cc.egui_ctx, &Arc::clone(&config_arc));
@@ -94,7 +93,15 @@ impl CloverApp {
         let state = AppState::new(&cc.egui_ctx, visible, allow_quit, hwnd_usize);
 
         // 创建托盘，使用 tray_restore_requested 标志在点击时通知模式需要重置
-        let tray = init_tray(&cc, &state.common.window_state.visible, &state.common.window_state.allow_quit, hwnd_usize, &state.common.tray_restore_requested, &state.common.tray_screenshot_requested, &config_arc.hotkeys.show_screenshot);
+        let tray = init_tray(
+            &cc,
+            &state.common.window_state.visible,
+            &state.common.window_state.allow_quit,
+            hwnd_usize,
+            &state.common.tray_restore_requested,
+            &state.common.tray_screenshot_requested,
+            &config_arc.hotkeys.show_screenshot,
+        );
 
         // 创建 ConfigManager 用于防抖保存配置
         let config_manager = ConfigManager::new(Arc::clone(&config_arc));
@@ -104,7 +111,9 @@ impl CloverApp {
 
         // 打开启动路径
         if let Some(path) = start_path {
-            viewer_feature.state.open_new_context(cc.egui_ctx.clone(), path);
+            viewer_feature
+                .state
+                .open_new_context(cc.egui_ctx.clone(), path);
         }
 
         Self {
@@ -116,9 +125,12 @@ impl CloverApp {
         }
     }
 
-    fn init_fonts(cc: &eframe::CreationContext<'_>){
+    fn init_fonts(cc: &eframe::CreationContext<'_>) {
         let mut fonts = FontDefinitions::default();
-        fonts.font_data.insert("my_font".to_owned(), Arc::new(FontData::from_static(APP_FONT)));
+        fonts.font_data.insert(
+            "my_font".to_owned(),
+            Arc::new(FontData::from_static(APP_FONT)),
+        );
         if let Some(family) = fonts.families.get_mut(&FontFamily::Proportional) {
             family.insert(0, "my_font".to_owned());
         }
@@ -128,16 +140,20 @@ impl CloverApp {
     /// 处理全局输入事件（窗口关闭等）
     fn handle_global_input(&mut self, ctx: &Context) {
         use crate::model::config::get_context_config;
-        use crate::os::window::show_window_hide;
+        use crate::os::current_platform;
 
         if ctx.input(|i| i.viewport().close_requested()) {
             let config = get_context_config(ctx);
-            let Ok(aq) = self.state.common.window_state.allow_quit.lock() else { return; };
-            let Ok(mut vis) = self.state.common.window_state.visible.lock() else { return; };
+            let Ok(aq) = self.state.common.window_state.allow_quit.lock() else {
+                return;
+            };
+            let Ok(mut vis) = self.state.common.window_state.visible.lock() else {
+                return;
+            };
             if config.minimize_on_close && !*aq {
                 ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
                 *vis = false;
-                show_window_hide(self.state.common.window_state.hwnd_usize);
+                current_platform().show_window_hide(self.state.common.window_state.hwnd_usize);
             }
         }
 
@@ -155,14 +171,17 @@ impl CloverApp {
                 self.state.mode = new_mode;
             }
         }
-
     }
 
-    fn handle_cache_win_pos(&mut self, ctx: &Context, _frame: &mut eframe::Frame){
-        if self.state.mode != AppMode::Viewer { return; }
+    fn handle_cache_win_pos(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        if self.state.mode != AppMode::Viewer {
+            return;
+        }
 
         if let Ok(visible) = self.state.common.window_state.visible.lock() {
-            if !*visible { return; }
+            if !*visible {
+                return;
+            }
         }
 
         let viewport = ctx.input(|i| i.viewport().clone());
@@ -185,29 +204,34 @@ impl CloverApp {
         // 从最小化恢复
         if was_minimized && !is_minimized {
             let current_config = self.config_manager.config();
-            tracing::debug!("从最小化恢复，config 中窗口位置: {:?}, 尺寸: {:?}", current_config.window_pos, current_config.window_size);
+            tracing::debug!(
+                "从最小化恢复，config 中窗口位置: {:?}, 尺寸: {:?}",
+                current_config.window_pos,
+                current_config.window_size
+            );
             ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
             ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
             ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
 
             // 移回截图前的原始位置和尺寸
-            if let Some((x, y))  = current_config.window_pos {
-                    ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
+            if let Some((x, y)) = current_config.window_pos {
+                ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
             }
-            if let Some((w, h))  = current_config.window_size {
+            if let Some((w, h)) = current_config.window_size {
                 ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(w, h)));
             }
         }
 
-        if is_minimized
-            || viewport.maximized == Some(true)
-            || viewport.fullscreen == Some(true) {
+        if is_minimized || viewport.maximized == Some(true) || viewport.fullscreen == Some(true) {
             return;
         }
 
         if let (Some(outer), Some(inner)) = (viewport.outer_rect, viewport.inner_rect) {
-            if outer.min.x > -10000.0 && outer.min.y > -10000.0 && inner.width() < 4000.0 && inner.height() < 3000.0 {
-
+            if outer.min.x > -10000.0
+                && outer.min.y > -10000.0
+                && inner.width() < 4000.0
+                && inner.height() < 3000.0
+            {
                 let current_pos = (outer.min.x, outer.min.y);
                 let current_size = (inner.width(), inner.height());
 
@@ -227,24 +251,25 @@ impl CloverApp {
                     let new_config_arc = Arc::new(new_config);
 
                     // 更新并触发保存
-                    self.config_manager.update_and_save(Arc::clone(&new_config_arc));
+                    self.config_manager
+                        .update_and_save(Arc::clone(&new_config_arc));
 
                     // 更新 Context 里的配置（保证全局同步）
                     update_context_config(ctx, &new_config_arc);
-
                 }
             }
         }
     }
 
     /// 更新应用配置
-    fn handle_update_config(&mut self, ctx: &Context){
+    fn handle_update_config(&mut self, ctx: &Context) {
         if let Some(ModalAction::Apply) = self.viewer_feature.get_pending_config_action() {
             if let Some(config) = self.viewer_feature.take_pending_config() {
                 let new_config_arc = Arc::new(config);
 
                 // 直接立刻保存（因为这是手动点确认修改的，无需防抖）
-                self.config_manager.update_and_save(Arc::clone(&new_config_arc));
+                self.config_manager
+                    .update_and_save(Arc::clone(&new_config_arc));
                 self.config_manager.save_now();
 
                 self.state.reload_hotkeys(&new_config_arc);
@@ -271,13 +296,14 @@ impl eframe::App for CloverApp {
                 self.state.mode = AppMode::Viewer;
             }
         }
-        
+
         // 检查是否从托盘请求截图
         if let Ok(mut flag) = self.state.common.tray_screenshot_requested.lock() {
             if *flag {
                 *flag = false;
                 use crate::feature::screenshot::state::WindowPrevState;
-                self.screenshot_feature.enter_screenshot_mode(WindowPrevState::Tray);
+                self.screenshot_feature
+                    .enter_screenshot_mode(WindowPrevState::Tray);
                 self.state.mode = AppMode::Screenshot;
             }
         }
@@ -286,13 +312,15 @@ impl eframe::App for CloverApp {
         let common = &mut self.state.common;
         match self.state.mode {
             AppMode::Viewer => {
-                self.viewer_feature.update(ctx, common, &mut self.state.mode);
+                self.viewer_feature
+                    .update(ctx, common, &mut self.state.mode);
                 // 处理配置应用（从 overlay 状态）
                 self.handle_update_config(ctx);
-            },
+            }
             AppMode::Screenshot => {
-                self.screenshot_feature.update(ctx, common, &mut self.state.mode);
-            },
+                self.screenshot_feature
+                    .update(ctx, common, &mut self.state.mode);
+            }
         }
     }
 

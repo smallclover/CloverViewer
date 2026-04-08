@@ -5,8 +5,8 @@ use crate::ui::widgets::context_menu::{
 use crate::ui::widgets::menu::{MenuAction, draw_menu};
 use crate::{
     core::{
-        viewer_state::{ViewMode, ViewerState},
         hotkeys::HotkeyAction,
+        viewer_state::{ViewMode, ViewerState},
     },
     feature::Feature,
     i18n::lang::get_i18n_text,
