@@ -1,6 +1,7 @@
 use egui::{ColorImage, Rect};
 use image::DynamicImage;
 use std::path::Path;
+use crate::i18n::lang::Language;
 
 #[cfg(target_os = "linux")]
 pub mod linux;
@@ -27,7 +28,7 @@ pub trait Platform {
     fn load_thumbnail(&self, path: &Path, size: (u32, u32)) -> Result<ColorImage, String>;
 
     // OCR 识别
-    fn recognize_text(&self, img: DynamicImage) -> Result<String, String>;
+    fn recognize_text(&self, img: DynamicImage, language: Language) -> Result<String, String>;
 }
 
 // 获取当前平台的 Handler

@@ -2,6 +2,7 @@ use super::Platform;
 use egui::{ColorImage, Rect};
 use image::DynamicImage;
 use std::path::Path;
+use crate::i18n::lang::Language;
 
 pub struct MacosPlatform;
 
@@ -31,7 +32,7 @@ impl Platform for MacosPlatform {
         Err("Not implemented on macOS".to_string())
     }
 
-    fn recognize_text(&self, _img: DynamicImage) -> Result<String, String> {
+    fn recognize_text(&self, _img: DynamicImage, _language: Language) -> Result<String, String> {
         Err("Not implemented on macOS".to_string())
     }
 }

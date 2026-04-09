@@ -4,6 +4,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::{iter, slice};
+use crate::i18n::lang::Language;
 use windows::Win32::Foundation::{HWND, POINT, RECT, SIZE};
 use windows::Win32::Graphics::Gdi::{
     BITMAP, DeleteObject, GetMonitorInfoW, GetObjectW, HGDIOBJ, MONITOR_DEFAULTTONEAREST,
@@ -259,7 +260,7 @@ impl Platform for WindowsPlatform {
         }
     }
 
-    fn recognize_text(&self, img: DynamicImage) -> Result<String, String> {
-        ocr::recognize_text_windows(img)
+    fn recognize_text(&self, img: DynamicImage, language: Language) -> Result<String, String> {
+        ocr::recognize_text_windows(img, language)
     }
 }

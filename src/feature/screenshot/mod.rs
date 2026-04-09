@@ -12,6 +12,7 @@ use self::state::{ScreenshotState, WindowPrevState};
 use crate::core::hotkeys::HotkeyAction;
 use crate::feature::Feature;
 use crate::feature::screenshot::capture::handle_screenshot_system;
+use crate::model::config::get_context_config;
 use crate::model::mode::AppMode;
 use crate::model::state::CommonState;
 use eframe::egui::Context;
@@ -136,9 +137,10 @@ impl Feature for ScreenshotFeature {
             let (tx, rx) = std::sync::mpsc::channel();
             common.ocr_state.receiver = Some(rx);
 
+            let language = get_context_config(ctx).language;
             std::thread::spawn(move || {
                 let platform = crate::os::current_platform();
-                let result = platform.recognize_text(image);
+                let result = platform.recognize_text(image, language);
                 let _ = tx.send(result);
             });
         }
