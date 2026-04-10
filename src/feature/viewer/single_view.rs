@@ -1,13 +1,15 @@
 use eframe::egui;
 use egui::{
-    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, Spinner, TextureHandle, Ui,
-    UiBuilder,
+    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, Spinner, TextureHandle, Ui, UiBuilder,
 };
 
 use crate::feature::viewer::arrows::{Nav, draw_arrows};
 use crate::feature::viewer::preview::show_preview_window;
 use crate::i18n::lang::get_i18n_text;
-use crate::{core::viewer_state::ViewerState, model::mode::OverlayMode};
+use crate::{
+    core::viewer_state::{TransitionPhase, ViewerState},
+    model::mode::OverlayMode,
+};
 
 pub fn draw_single_view(
     ctx: &Context,
@@ -19,10 +21,11 @@ pub fn draw_single_view(
     let text = get_i18n_text(ctx);
 
     let current_texture = viewer.current_texture.clone();
+    let is_transitioning = viewer.transition_phase != TransitionPhase::None;
 
-    if let Some(tex) = current_texture.as_ref() {
-        render_image_viewer(ui, tex, viewer);
+    render_image_viewer(ui, rect, current_texture.as_ref(), viewer);
 
+    if !is_transitioning {
         if ui.input(|i| i.pointer.secondary_clicked()) {
             if let Some(pos) = ui.input(|i| i.pointer.hover_pos()) {
                 if rect.contains(pos) {
@@ -43,33 +46,37 @@ pub fn draw_single_view(
                 }
             }
         }
-    } else if let Some(err) = viewer.error.as_ref() {
-        ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(ui.available_height() * 0.4);
-                ui.label(
-                    RichText::new(text.viewer_error)
-                        .color(Color32::RED)
-                        .size(14.0),
-                );
-                ui.add_space(8.0);
-                ui.label(
-                    RichText::new(err.to_string())
-                        .color(Color32::GRAY)
-                        .size(12.0),
-                );
+    }
+
+    if current_texture.is_none() && viewer.transition_phase == TransitionPhase::None {
+        if let Some(err) = viewer.error.as_ref() {
+            ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(ui.available_height() * 0.4);
+                    ui.label(
+                        RichText::new(text.viewer_error)
+                            .color(Color32::RED)
+                            .size(14.0),
+                    );
+                    ui.add_space(8.0);
+                    ui.label(
+                        RichText::new(err.to_string())
+                            .color(Color32::GRAY)
+                            .size(12.0),
+                    );
+                });
             });
-        });
-    } else if viewer.loader.is_loading {
-        ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
-            ui.centered_and_justified(|ui| {
-                ui.add(Spinner::new().size(32.0));
+        } else if viewer.loader.is_loading {
+            ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
+                ui.centered_and_justified(|ui| {
+                    ui.add(Spinner::new().size(32.0));
+                });
             });
-        });
-    } else if viewer.list.is_empty() {
-        ui.centered_and_justified(|ui| ui.label(text.viewer_no_images));
-    } else {
-        ui.centered_and_justified(|ui| ui.label(text.viewer_drag_hint));
+        } else if viewer.list.is_empty() {
+            ui.centered_and_justified(|ui| ui.label(text.viewer_no_images));
+        } else {
+            ui.centered_and_justified(|ui| ui.label(text.viewer_drag_hint));
+        }
     }
 
     if viewer.current().is_some() {
@@ -86,7 +93,84 @@ pub fn draw_single_view(
     }
 }
 
-fn render_image_viewer(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerState) {
+fn render_image_viewer(
+    ui: &mut Ui,
+    view_rect: Rect,
+    tex: Option<&TextureHandle>,
+    viewer: &mut ViewerState,
+) {
+    let now = ui.input(|i| i.time);
+
+    let fade_in_duration = 0.12;
+
+    let next_ready = viewer.transition_target_path.is_some()
+        && viewer.current_texture.is_some()
+        && viewer.current_texture_path.as_ref() == viewer.transition_target_path.as_ref();
+
+    if viewer.transition_phase == TransitionPhase::WaitNext && next_ready {
+        viewer.transition_phase = TransitionPhase::FadeIn;
+        viewer.transition_phase_start_time = Some(now);
+    }
+
+    match viewer.transition_phase {
+        TransitionPhase::None => {
+            if let Some(tex) = tex {
+                render_normal_image(ui, tex, viewer);
+            }
+        }
+        TransitionPhase::WaitNext => {
+            ui.painter().rect_filled(view_rect, 0.0, Color32::BLACK);
+
+            if viewer.loader.is_loading {
+                let spinner_rect =
+                    Rect::from_center_size(view_rect.center(), egui::vec2(32.0, 32.0));
+                ui.put(spinner_rect, egui::Spinner::new().size(32.0));
+            }
+
+            if viewer.error.is_some() && !viewer.loader.is_loading {
+                viewer.transition_phase = TransitionPhase::None;
+                viewer.transition_phase_start_time = None;
+                viewer.transition_target_path = None;
+            } else if viewer.loader.is_loading {
+                ui.ctx().request_repaint();
+            }
+        }
+        TransitionPhase::FadeIn => {
+            if !next_ready {
+                viewer.transition_phase = TransitionPhase::WaitNext;
+                viewer.transition_phase_start_time = Some(now);
+                return;
+            }
+
+            let start = viewer.transition_phase_start_time.unwrap_or(now);
+            let progress = ((now - start) / fade_in_duration).clamp(0.0, 1.0) as f32;
+            let overlay_alpha = 1.0 - progress;
+
+            if let Some(tex) = tex {
+                render_normal_image(ui, tex, viewer);
+            }
+            if overlay_alpha > 0.0 {
+                ui.painter().rect_filled(
+                    view_rect,
+                    0.0,
+                    Color32::from_black_alpha((overlay_alpha * 255.0) as u8),
+                );
+            }
+
+            if progress < 1.0 {
+                ui.ctx().request_repaint();
+            } else {
+                viewer.transition_phase = TransitionPhase::None;
+                viewer.transition_phase_start_time = None;
+                viewer.transition_target_path = None;
+                viewer.previous_texture = None;
+                viewer.previous_zoom = None;
+            }
+        }
+    }
+}
+
+fn render_normal_image(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerState) {
     let available_size = ui.available_size();
     if let Some(last_size) = viewer.last_view_size {
         if (last_size.x - available_size.x).abs() > 1.0
@@ -96,16 +180,14 @@ fn render_image_viewer(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerStat
         }
     }
     viewer.last_view_size = Some(available_size);
-    // let zoom = viewer.zoom;
+
     let is_loading_high_res = viewer.loader.is_loading;
-    let zoom = viewer.zoom.max(0.01); // 保证最小缩放比例为 1%
+    let zoom = viewer.zoom.max(0.01);
     let size = (tex.size_vec2() * zoom).max(egui::Vec2::ZERO);
     let is_draggable = size.x > available_size.x || size.y > available_size.y;
 
-    if is_draggable {
-        if ui.rect_contains_pointer(ui.max_rect()) {
-            ui.ctx().set_cursor_icon(CursorIcon::Move);
-        }
+    if is_draggable && ui.rect_contains_pointer(ui.max_rect()) {
+        ui.ctx().set_cursor_icon(CursorIcon::Move);
     }
 
     let fade_alpha = ui.ctx().animate_bool_with_time(
@@ -127,76 +209,26 @@ fn render_image_viewer(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerStat
                     ui.add_space(y_offset);
                     let img_rect = ui.allocate_exact_size(size, egui::Sense::hover()).0;
 
-                    let mut prev_alpha = 0.0;
-                    let mut current_alpha = 1.0;
-                    let mut current_scale = 1.0;
-
-                    if let Some(start_time) = viewer.transition_start_time {
-                        let now = ui.input(|i| i.time);
-                        let progress = ((now - start_time) as f32 / 0.25).clamp(0.0, 1.0); // 0.25秒阻尼动画
-
-                        if progress < 1.0 {
-                            let ease_out = 1.0 - (1.0 - progress).powi(3);
-                            prev_alpha = 1.0 - ease_out;
-                            current_alpha = ease_out;
-                            current_scale = 0.98 + 0.02 * ease_out; // 微微放大效果
-
-                            ui.ctx().request_repaint();
-                        } else {
-                            viewer.transition_start_time = None;
-                            viewer.previous_texture = None;
-                        }
-                    }
-
-                    if let Some(prev_tex) = &viewer.previous_texture {
-                        if prev_alpha > 0.0 {
-                            let prev_size = prev_tex.size_vec2() * zoom;
-                            let prev_x_offset = (available_size.x - prev_size.x).max(0.0) * 0.5;
-                            let prev_y_offset = (available_size.y - prev_size.y).max(0.0) * 0.5;
-
-                            let content_origin = img_rect.min - egui::vec2(x_offset, y_offset);
-                            let prev_rect = Rect::from_min_size(
-                                content_origin + egui::vec2(prev_x_offset, prev_y_offset),
-                                prev_size,
-                            );
-
-                            let painter = ui.painter();
-                            painter.image(
-                                prev_tex.id(),
-                                prev_rect,
-                                Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                                Color32::WHITE.gamma_multiply(prev_alpha),
-                            );
-                        }
-                    }
-
-                    let scaled_size = size * current_scale;
-                    let center = img_rect.center();
-                    let current_rect = Rect::from_center_size(center, scaled_size);
-
                     ui.painter().image(
                         tex.id(),
-                        current_rect,
+                        img_rect,
                         Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                        Color32::WHITE.gamma_multiply(current_alpha),
+                        Color32::WHITE,
                     );
 
                     if fade_alpha > 0.0 {
-                        let painter = ui.painter_at(current_rect);
+                        let painter = ui.painter_at(img_rect);
                         painter.rect_filled(
-                            current_rect,
+                            img_rect,
                             0.0,
                             Color32::BLACK.gamma_multiply(fade_alpha * 0.4),
                         );
-                        let spinner_size = 32.0;
-                        let spinner_rect = Rect::from_center_size(
-                            current_rect.center(),
-                            egui::vec2(spinner_size, spinner_size),
-                        );
+                        let spinner_rect =
+                            Rect::from_center_size(img_rect.center(), egui::vec2(32.0, 32.0));
                         ui.put(
                             spinner_rect,
                             egui::Spinner::new()
-                                .size(spinner_size)
+                                .size(32.0)
                                 .color(Color32::WHITE.gamma_multiply(fade_alpha)),
                         );
                     }

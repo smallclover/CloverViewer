@@ -1,17 +1,20 @@
+use crate::i18n::lang::Language;
 use image::imageops::FilterType;
 use image::{DynamicImage, GrayImage, ImageBuffer, Luma};
 use std::future::IntoFuture;
-use crate::i18n::lang::Language;
 use windows::{
+    Globalization::Language as WinLanguage,
     Graphics::Imaging::{BitmapPixelFormat, SoftwareBitmap},
     Media::Ocr::OcrEngine,
     Security::Cryptography::CryptographicBuffer,
-    Globalization::Language as WinLanguage,
-    core::Result,
     core::HSTRING,
+    core::Result,
 };
 
-pub fn recognize_text_windows(img: DynamicImage, language: Language) -> std::result::Result<String, String> {
+pub fn recognize_text_windows(
+    img: DynamicImage,
+    language: Language,
+) -> std::result::Result<String, String> {
     recognize_text_internal(img, language).map_err(|e| e.to_string())
 }
 
@@ -139,8 +142,8 @@ fn score_text(text: &str, preferred: Option<Language>) -> f64 {
 
         if ch.is_ascii() {
             match ch {
-                '{' | '}' | '(' | ')' | '[' | ']' | '<' | '>' | ';' | ':' | ',' | '.' | '_' | '='
-                | '+' | '-' | '*' | '/' | '\\' | '|' | '&' | '!' | '?' | '\'' | '"' => {
+                '{' | '}' | '(' | ')' | '[' | ']' | '<' | '>' | ';' | ':' | ',' | '.' | '_'
+                | '=' | '+' | '-' | '*' | '/' | '\\' | '|' | '&' | '!' | '?' | '\'' | '"' => {
                     code_symbols += 1;
                 }
                 _ => {}

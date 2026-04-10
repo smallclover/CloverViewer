@@ -14,6 +14,13 @@ pub enum ViewMode {
     Grid,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum TransitionPhase {
+    None,
+    WaitNext,
+    FadeIn,
+}
+
 pub struct ViewerState {
     pub loader: ImageLoader,
     pub list: Vec<PathBuf>,
@@ -21,6 +28,7 @@ pub struct ViewerState {
     pub texture_cache: LruCache<PathBuf, TextureHandle>,
     pub thumb_cache: LruCache<PathBuf, TextureHandle>,
     pub current_texture: Option<TextureHandle>,
+    pub current_texture_path: Option<PathBuf>,
     pub current_properties: Option<ImageProperties>,
     pub current_raw_pixels: Option<Arc<Vec<Color32>>>,
     pub error: Option<ImageLoadError>,
@@ -29,7 +37,10 @@ pub struct ViewerState {
     pub failed_thumbs: HashSet<PathBuf>,
     pub loading_thumbs: HashSet<PathBuf>,
     pub previous_texture: Option<TextureHandle>,
-    pub transition_start_time: Option<f64>,
+    pub previous_zoom: Option<f32>,
+    pub transition_phase: TransitionPhase,
+    pub transition_phase_start_time: Option<f64>,
+    pub transition_target_path: Option<PathBuf>,
     pub view_mode: ViewMode,
 }
 
@@ -42,6 +53,7 @@ impl ViewerState {
             texture_cache: LruCache::new(NonZeroUsize::new(10).expect("10 is non-zero")),
             thumb_cache: LruCache::new(NonZeroUsize::new(1000).expect("1000 is non-zero")),
             current_texture: None,
+            current_texture_path: None,
             current_properties: None,
             current_raw_pixels: None,
             error: None,
@@ -50,7 +62,10 @@ impl ViewerState {
             failed_thumbs: HashSet::new(),
             loading_thumbs: HashSet::new(),
             previous_texture: None,
-            transition_start_time: None,
+            previous_zoom: None,
+            transition_phase: TransitionPhase::None,
+            transition_phase_start_time: None,
+            transition_target_path: None,
             view_mode: ViewMode::Single,
         }
     }
@@ -123,6 +138,16 @@ impl ViewerState {
     }
 
     pub fn open_new_context(&mut self, ctx: Context, path: PathBuf) {
+        self.current_texture = None;
+        self.current_texture_path = None;
+        self.current_properties = None;
+        self.current_raw_pixels = None;
+        self.previous_texture = None;
+        self.previous_zoom = None;
+        self.transition_phase = TransitionPhase::None;
+        self.transition_phase_start_time = None;
+        self.transition_target_path = None;
+
         if path.is_dir() {
             self.f_folder(&path);
             self.view_mode = ViewMode::Grid;
@@ -134,13 +159,6 @@ impl ViewerState {
     }
 
     pub fn process_load_results(&mut self, ctx: &Context) -> bool {
-        if let Some(start_time) = self.transition_start_time {
-            let now = ctx.input(|i| i.time);
-            if now - start_time < 0.3 {
-                return false;
-            }
-        }
-
         let mut processed_count = 0;
         let mut should_trigger_preloads = false;
         let mut received_any = false;
@@ -155,9 +173,10 @@ impl ViewerState {
                                 self.loading_thumbs.remove(&msg.path);
                                 self.thumb_cache
                                     .put(msg.path.clone(), success.texture.clone());
-                                if Some(msg.path) == self.current() {
-                                    if self.current_texture.is_none() {
+                                if Some(msg.path.clone()) == self.current() {
+                                    if !self.texture_cache.contains(&msg.path) {
                                         self.current_texture = Some(success.texture);
+                                        self.current_texture_path = Some(msg.path);
                                     }
                                 }
                             } else {
@@ -165,10 +184,12 @@ impl ViewerState {
                                 self.texture_cache
                                     .put(msg.path.clone(), success.texture.clone());
                                 if Some(msg.path) == self.current() {
-                                    self.zoom =
+                                    let new_zoom =
                                         self.calc_fit_zoom(ctx, success.texture.size_vec2());
+                                    self.zoom = new_zoom;
 
                                     self.current_texture = Some(success.texture);
+                                    self.current_texture_path = self.current();
                                     self.current_properties = Some(success.properties);
                                     self.loader.is_loading = false;
                                     should_trigger_preloads = true;
@@ -181,6 +202,10 @@ impl ViewerState {
                             if msg.is_priority {
                                 self.loader.is_loading = false;
                                 self.error = Some(e.clone());
+                            }
+                            if Some(msg.path.clone()) == self.current() {
+                                self.current_texture = None;
+                                self.current_texture_path = None;
                             }
                             tracing::warn!("图片加载失败 {}: {}", msg.path.display(), e);
                         }
@@ -201,10 +226,15 @@ impl ViewerState {
     pub fn trigger_preloads(&mut self, ctx: &Context) {
         let to_load = self.get_preview_window();
         for (_, path) in to_load {
-            if !self.thumb_cache.contains(&path) {
-                self.loader
-                    .load_async(ctx.clone(), path, false, Some((160, 120)));
+            if self.thumb_cache.contains(&path)
+                || self.failed_thumbs.contains(&path)
+                || self.loading_thumbs.contains(&path)
+            {
+                continue;
             }
+            self.loading_thumbs.insert(path.clone());
+            self.loader
+                .load_async(ctx.clone(), path, false, Some((160, 120)));
         }
     }
 
@@ -214,21 +244,28 @@ impl ViewerState {
             self.trigger_preloads(&ctx);
             let cached_tex = self.texture_cache.get(&path).cloned();
             if let Some(tex) = cached_tex {
-                self.zoom = self.calc_fit_zoom(&ctx, tex.size_vec2());
+                let new_zoom = self.calc_fit_zoom(&ctx, tex.size_vec2());
+                self.zoom = new_zoom;
                 self.current_texture = Some(tex.clone());
+                self.current_texture_path = Some(path);
                 self.loader.is_loading = false;
             } else {
                 if self.failed_thumbs.contains(&path) {
                     self.error = Some(ImageLoadError::DecodeError("缩略图加载失败".to_string()));
                     self.current_texture = None;
+                    self.current_texture_path = None;
                     self.loader.is_loading = false;
                 } else {
-                    self.current_texture = self.thumb_cache.get(&path).cloned();
+                    if let Some(thumb) = self.thumb_cache.get(&path).cloned() {
+                        self.current_texture = Some(thumb);
+                        self.current_texture_path = Some(path.clone());
+                    }
                     self.loader.load_async(ctx, path, true, None);
                 }
             }
         } else {
             self.current_texture = None;
+            self.current_texture_path = None;
         }
     }
 
@@ -248,24 +285,20 @@ impl ViewerState {
 
     pub fn jump_to_index(&mut self, ctx: Context, index: usize) {
         if index != self.index && index < self.list.len() {
-            self.start_transition(&ctx);
             self.set_index(index);
+            self.start_transition(&ctx);
             self.load_current(ctx);
         }
     }
 
     fn start_transition(&mut self, ctx: &Context) {
-        let is_transitioning = self
-            .transition_start_time
-            .map_or(false, |start| ctx.input(|i| i.time) - start < 0.25);
-
-        if is_transitioning {
-            self.previous_texture = None;
-            self.transition_start_time = None;
-        } else {
-            self.previous_texture = self.current_texture.clone();
-            self.transition_start_time = Some(ctx.input(|i| i.time));
-        }
+        self.previous_texture = None;
+        self.previous_zoom = None;
+        self.current_texture = None;
+        self.current_texture_path = None;
+        self.transition_phase = TransitionPhase::WaitNext;
+        self.transition_phase_start_time = Some(ctx.input(|i| i.time));
+        self.transition_target_path = self.current();
     }
 
     pub fn handle_dropped_file(&mut self, ctx: Context, path: PathBuf) {
