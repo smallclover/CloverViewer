@@ -28,10 +28,8 @@ pub struct ViewerState {
     pub last_view_size: Option<egui::Vec2>,
     pub failed_thumbs: HashSet<PathBuf>,
     pub loading_thumbs: HashSet<PathBuf>,
-    pub current_directory: Option<PathBuf>,
     pub previous_texture: Option<TextureHandle>,
     pub transition_start_time: Option<f64>,
-    pub transition_direction: i8,
     pub view_mode: ViewMode,
 }
 
@@ -51,17 +49,14 @@ impl ViewerState {
             last_view_size: None,
             failed_thumbs: HashSet::new(),
             loading_thumbs: HashSet::new(),
-            current_directory: None,
             previous_texture: None,
             transition_start_time: None,
-            transition_direction: 0,
             view_mode: ViewMode::Single,
         }
     }
 
     pub fn f_image(&mut self, path: &Path) {
         if let Some(dir) = path.parent() {
-            self.current_directory = Some(dir.to_path_buf());
             let mut v = collect_images(dir);
             v.sort();
             self.index = v.iter().position(|p| p == path).unwrap_or(0);
@@ -70,7 +65,6 @@ impl ViewerState {
     }
 
     pub fn f_folder(&mut self, path: &Path) {
-        self.current_directory = Some(path.to_path_buf());
         let mut v = collect_images(path);
         v.sort();
         self.index = 0;
@@ -240,28 +234,27 @@ impl ViewerState {
 
     pub fn prev_image(&mut self, ctx: Context) {
         if self.prev().is_some() {
-            self.start_transition(&ctx, -1);
+            self.start_transition(&ctx);
             self.load_current(ctx);
         }
     }
 
     pub fn next_image(&mut self, ctx: Context) {
         if self.next().is_some() {
-            self.start_transition(&ctx, 1);
+            self.start_transition(&ctx);
             self.load_current(ctx);
         }
     }
 
     pub fn jump_to_index(&mut self, ctx: Context, index: usize) {
         if index != self.index && index < self.list.len() {
-            let direction = if index > self.index { 1 } else { -1 };
-            self.start_transition(&ctx, direction);
+            self.start_transition(&ctx);
             self.set_index(index);
             self.load_current(ctx);
         }
     }
 
-    fn start_transition(&mut self, ctx: &Context, direction: i8) {
+    fn start_transition(&mut self, ctx: &Context) {
         let is_transitioning = self
             .transition_start_time
             .map_or(false, |start| ctx.input(|i| i.time) - start < 0.25);
@@ -271,7 +264,6 @@ impl ViewerState {
             self.transition_start_time = None;
         } else {
             self.previous_texture = self.current_texture.clone();
-            self.transition_direction = direction;
             self.transition_start_time = Some(ctx.input(|i| i.time));
         }
     }

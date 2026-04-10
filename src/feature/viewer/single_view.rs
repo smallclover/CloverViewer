@@ -1,6 +1,7 @@
 use eframe::egui;
 use egui::{
-    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, TextureHandle, Ui, UiBuilder,
+    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, Spinner, TextureHandle, Ui,
+    UiBuilder,
 };
 
 use crate::feature::viewer::arrows::{Nav, draw_arrows};
@@ -60,7 +61,12 @@ pub fn draw_single_view(
             });
         });
     } else if viewer.loader.is_loading {
-    } else if viewer.current().is_some() && viewer.list.is_empty() {
+        ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
+            ui.centered_and_justified(|ui| {
+                ui.add(Spinner::new().size(32.0));
+            });
+        });
+    } else if viewer.list.is_empty() {
         ui.centered_and_justified(|ui| ui.label(text.viewer_no_images));
     } else {
         ui.centered_and_justified(|ui| ui.label(text.viewer_drag_hint));
