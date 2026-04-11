@@ -6,6 +6,10 @@ use std::sync::Arc;
 use crate::feature::screenshot::color_picker::ColorPicker;
 use crate::model::device::MonitorInfo;
 
+const DEFAULT_ACTIVE_COLOR: Color32 = Color32::from_rgb(204, 0, 0);
+const DEFAULT_STROKE_WIDTH: f32 = 2.0;
+const DEFAULT_MOSAIC_WIDTH: f32 = 16.0;
+
 #[derive(PartialEq, Clone, Copy)]
 pub enum ScreenshotAction {
     None,
@@ -95,7 +99,6 @@ impl Default for ScreenshotState {
 
 impl ScreenshotState {
     pub fn new(prev_state: WindowPrevState) -> Self {
-        let default_color = Color32::from_rgb(204, 0, 0);
         Self {
             captures: Vec::new(),
             selection: None,
@@ -106,10 +109,10 @@ impl ScreenshotState {
             is_capturing: false,
             capture_receiver: None,
             current_tool: None,
-            active_color: default_color,
-            stroke_width: 2.0,
-            mosaic_width: 16.0, // 【新增】马赛克默认非常粗
-            color_picker: ColorPicker::new(default_color),
+            active_color: DEFAULT_ACTIVE_COLOR,
+            stroke_width: DEFAULT_STROKE_WIDTH,
+            mosaic_width: DEFAULT_MOSAIC_WIDTH,
+            color_picker: ColorPicker::new(DEFAULT_ACTIVE_COLOR),
             color_picker_anchor: None,
             shapes: Vec::new(),
             current_shape_start: None,

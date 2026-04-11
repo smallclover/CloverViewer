@@ -5,6 +5,15 @@ use eframe::egui::ColorImage;
 use eframe::egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, StrokeKind, Ui, Vec2};
 use egui::epaint::Vertex;
 
+const MAGNIFIER_GRID_SIZE: i32 = 15;
+const MAGNIFIER_PIXEL_SIZE: f32 = 10.0;
+const MAGNIFIER_CARD_OFFSET: f32 = 20.0;
+const MAGNIFIER_INFO_BAR_HEIGHT: f32 = 64.0;
+const MAGNIFIER_CARD_CORNER_RADIUS: f32 = 4.0;
+const MAGNIFIER_BORDER_COLOR: Color32 = Color32::from_gray(200);
+const MAGNIFIER_GRID_LINE_ALPHA: u8 = 80;
+const MAGNIFIER_MESH_RESERVE_CELLS: usize = 961;
+
 /// 处理放大镜和取色器的核心入口
 pub fn handle_magnifier(
     ui: &mut Ui,
@@ -89,16 +98,13 @@ fn draw_magnifier_ui(
 ) {
     let text = get_i18n_text(ui.ctx());
     // --- 1. 参数调整 ---
-    let pixel_grid_size = 15;
-    let zoom_pixel_size = 10.0;
-    let half_grid = pixel_grid_size / 2;
-
-    let magnifier_size = pixel_grid_size as f32 * zoom_pixel_size;
-    let info_bar_height = 64.0;
+    let half_grid = MAGNIFIER_GRID_SIZE / 2;
+    let magnifier_size = MAGNIFIER_GRID_SIZE as f32 * MAGNIFIER_PIXEL_SIZE;
+    let info_bar_height = MAGNIFIER_INFO_BAR_HEIGHT;
     let card_size = Vec2::new(magnifier_size, magnifier_size + info_bar_height);
 
     // --- 2. 计算卡片位置 ---
-    let offset = Vec2::new(20.0, 20.0);
+    let offset = Vec2::new(MAGNIFIER_CARD_OFFSET, MAGNIFIER_CARD_OFFSET);
     let mut card_pos = draw_pos + offset;
 
     let screen_rect = ui.ctx().viewport_rect();
@@ -112,7 +118,7 @@ fn draw_magnifier_ui(
     let card_rect = Rect::from_min_size(card_pos, card_size);
 
     // --- 3. 绘制卡片背景和边框 ---
-    painter.rect_filled(card_rect, 4.0, Color32::WHITE);
+    painter.rect_filled(card_rect, MAGNIFIER_CARD_CORNER_RADIUS, Color32::WHITE);
     // --- 4. 绘制上半部分：像素放大镜 ---
     let magnifier_rect = Rect::from_min_size(card_pos, Vec2::new(magnifier_size, magnifier_size));
     let center_phys_x = (sample_pos.x * ppp).round() as isize;
@@ -121,106 +127,45 @@ fn draw_magnifier_ui(
     let img_height = image.height() as isize;
 
     let mut mesh = eframe::egui::Mesh::default();
-    mesh.reserve_triangles(3721 * 2);
-    mesh.reserve_vertices(3721 * 4);
+    mesh.reserve_triangles(MAGNIFIER_MESH_RESERVE_CELLS * 2);
+    mesh.reserve_vertices(MAGNIFIER_MESH_RESERVE_CELLS * 4);
 
-    for dy in -half_grid..=half_grid {
-        for dx in -half_grid..=half_grid {
-            let src_x = center_phys_x + dx;
-            let src_y = center_phys_y + dy;
-            let color = if src_x >= 0 && src_x < img_width && src_y >= 0 && src_y < img_height {
-                let idx = src_y as usize * image.width() + src_x as usize;
-                image.pixels[idx]
-            } else {
-                Color32::BLACK
-            };
-
-            let grid_x = (dx + half_grid) as f32;
-            let grid_y = (dy + half_grid) as f32;
-            let pixel_rect = Rect::from_min_size(
-                card_pos + Vec2::new(grid_x * zoom_pixel_size, grid_y * zoom_pixel_size),
-                Vec2::new(zoom_pixel_size, zoom_pixel_size),
-            );
-
-            // 使用圆角而非粗暴切角，完美贴合卡片的 4.0 弧度
-            if dy == -half_grid && dx == -half_grid {
-                // 左上角像素：单独绘制，应用 4.0 的左上圆角 (nw: North-West)
-                painter.rect_filled(
-                    pixel_rect,
-                    egui::CornerRadius {
-                        nw: 4,
-                        ne: 0,
-                        sw: 0,
-                        se: 0,
-                    },
-                    color,
-                );
-            } else if dy == -half_grid && dx == half_grid {
-                // 右上角像素：单独绘制，应用 4.0 的右上圆角 (ne: North-East)
-                painter.rect_filled(
-                    pixel_rect,
-                    egui::CornerRadius {
-                        nw: 0,
-                        ne: 4,
-                        sw: 0,
-                        se: 0,
-                    },
-                    color,
-                );
-            } else {
-                // 其他正常的像素：画完整的正方形 (两个三角形) 合并入 mesh 以提高性能
-                let idx = mesh.vertices.len() as u32;
-                mesh.add_triangle(idx, idx + 1, idx + 2);
-                mesh.add_triangle(idx, idx + 2, idx + 3);
-                mesh.vertices.push(Vertex {
-                    pos: pixel_rect.left_top(),
-                    uv: Pos2::ZERO,
-                    color,
-                });
-                mesh.vertices.push(Vertex {
-                    pos: pixel_rect.right_top(),
-                    uv: Pos2::ZERO,
-                    color,
-                });
-                mesh.vertices.push(Vertex {
-                    pos: pixel_rect.right_bottom(),
-                    uv: Pos2::ZERO,
-                    color,
-                });
-                mesh.vertices.push(Vertex {
-                    pos: pixel_rect.left_bottom(),
-                    uv: Pos2::ZERO,
-                    color,
-                });
-            }
-        }
-    }
-    // 将普通像素统一绘制
+    paint_magnifier_pixels(
+        painter,
+        image,
+        card_pos,
+        center_phys_x,
+        center_phys_y,
+        img_width,
+        img_height,
+        half_grid,
+        &mut mesh,
+    );
     painter.add(eframe::egui::Shape::mesh(mesh));
 
     // --- 4.5 绘制像素格子 ---
-    let grid_line_color = Color32::from_rgba_unmultiplied(0, 0, 0, 80);
+    let grid_line_color = Color32::from_rgba_unmultiplied(0, 0, 0, MAGNIFIER_GRID_LINE_ALPHA);
     let grid_line_width = 1.0;
-    for dy in 0..pixel_grid_size {
-        for dx in 0..pixel_grid_size {
-            let x = card_pos.x + dx as f32 * zoom_pixel_size;
-            let y = card_pos.y + dy as f32 * zoom_pixel_size;
+    for dy in 0..MAGNIFIER_GRID_SIZE {
+        for dx in 0..MAGNIFIER_GRID_SIZE {
+            let x = card_pos.x + dx as f32 * MAGNIFIER_PIXEL_SIZE;
+            let y = card_pos.y + dy as f32 * MAGNIFIER_PIXEL_SIZE;
             // 竖线（向右延伸一格），最后一列不画避免与边框重合
-            if dx < pixel_grid_size - 1 {
+            if dx < MAGNIFIER_GRID_SIZE - 1 {
                 painter.line_segment(
                     [
-                        Pos2::new(x + zoom_pixel_size, y),
-                        Pos2::new(x + zoom_pixel_size, y + zoom_pixel_size),
+                        Pos2::new(x + MAGNIFIER_PIXEL_SIZE, y),
+                        Pos2::new(x + MAGNIFIER_PIXEL_SIZE, y + MAGNIFIER_PIXEL_SIZE),
                     ],
                     Stroke::new(grid_line_width, grid_line_color),
                 );
             }
             // 横线（向下一格），最后一行不画避免与边框重合
-            if dy < pixel_grid_size - 1 {
+            if dy < MAGNIFIER_GRID_SIZE - 1 {
                 painter.line_segment(
                     [
-                        Pos2::new(x, y + zoom_pixel_size),
-                        Pos2::new(x + zoom_pixel_size, y + zoom_pixel_size),
+                        Pos2::new(x, y + MAGNIFIER_PIXEL_SIZE),
+                        Pos2::new(x + MAGNIFIER_PIXEL_SIZE, y + MAGNIFIER_PIXEL_SIZE),
                     ],
                     Stroke::new(grid_line_width, grid_line_color),
                 );
@@ -231,8 +176,8 @@ fn draw_magnifier_ui(
     // --- 4.6 绘制卡片边框 (在画完网格之后画，让边框压在最上面，确保完美闭合) ---
     painter.rect_stroke(
         card_rect,
-        4.0,
-        Stroke::new(1.0, Color32::from_gray(200)),
+        MAGNIFIER_CARD_CORNER_RADIUS,
+        Stroke::new(1.0, MAGNIFIER_BORDER_COLOR),
         StrokeKind::Inside, // Inside 向内绘制
     );
     // --- 5. 绘制十字准星 ---
@@ -240,10 +185,10 @@ fn draw_magnifier_ui(
     let center_pixel_rect = Rect::from_min_size(
         card_pos
             + Vec2::new(
-                center_grid_idx * zoom_pixel_size,
-                center_grid_idx * zoom_pixel_size,
+                center_grid_idx * MAGNIFIER_PIXEL_SIZE,
+                center_grid_idx * MAGNIFIER_PIXEL_SIZE,
             ),
-        Vec2::new(zoom_pixel_size, zoom_pixel_size),
+        Vec2::new(MAGNIFIER_PIXEL_SIZE, MAGNIFIER_PIXEL_SIZE),
     );
     painter.rect_stroke(
         center_pixel_rect,
@@ -350,4 +295,84 @@ fn draw_magnifier_ui(
         hint_font_id,
         hint_color,
     );
+}
+
+fn paint_magnifier_pixels(
+    painter: &Painter,
+    image: &ColorImage,
+    card_pos: Pos2,
+    center_phys_x: isize,
+    center_phys_y: isize,
+    img_width: isize,
+    img_height: isize,
+    half_grid: i32,
+    mesh: &mut eframe::egui::Mesh,
+) {
+    for dy in -half_grid..=half_grid {
+        for dx in -half_grid..=half_grid {
+            let src_x = center_phys_x + dx as isize;
+            let src_y = center_phys_y + dy as isize;
+            let color = if src_x >= 0 && src_x < img_width && src_y >= 0 && src_y < img_height {
+                let idx = src_y as usize * image.width() + src_x as usize;
+                image.pixels[idx]
+            } else {
+                Color32::BLACK
+            };
+
+            let grid_x = (dx + half_grid) as f32;
+            let grid_y = (dy + half_grid) as f32;
+            let pixel_rect = Rect::from_min_size(
+                card_pos + Vec2::new(grid_x * MAGNIFIER_PIXEL_SIZE, grid_y * MAGNIFIER_PIXEL_SIZE),
+                Vec2::new(MAGNIFIER_PIXEL_SIZE, MAGNIFIER_PIXEL_SIZE),
+            );
+
+            if dy == -half_grid && dx == -half_grid {
+                painter.rect_filled(
+                    pixel_rect,
+                    egui::CornerRadius {
+                        nw: MAGNIFIER_CARD_CORNER_RADIUS as u8,
+                        ne: 0,
+                        sw: 0,
+                        se: 0,
+                    },
+                    color,
+                );
+            } else if dy == -half_grid && dx == half_grid {
+                painter.rect_filled(
+                    pixel_rect,
+                    egui::CornerRadius {
+                        nw: 0,
+                        ne: MAGNIFIER_CARD_CORNER_RADIUS as u8,
+                        sw: 0,
+                        se: 0,
+                    },
+                    color,
+                );
+            } else {
+                let idx = mesh.vertices.len() as u32;
+                mesh.add_triangle(idx, idx + 1, idx + 2);
+                mesh.add_triangle(idx, idx + 2, idx + 3);
+                mesh.vertices.push(Vertex {
+                    pos: pixel_rect.left_top(),
+                    uv: Pos2::ZERO,
+                    color,
+                });
+                mesh.vertices.push(Vertex {
+                    pos: pixel_rect.right_top(),
+                    uv: Pos2::ZERO,
+                    color,
+                });
+                mesh.vertices.push(Vertex {
+                    pos: pixel_rect.right_bottom(),
+                    uv: Pos2::ZERO,
+                    color,
+                });
+                mesh.vertices.push(Vertex {
+                    pos: pixel_rect.left_bottom(),
+                    uv: Pos2::ZERO,
+                    color,
+                });
+            }
+        }
+    }
 }

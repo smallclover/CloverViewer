@@ -3,7 +3,15 @@ use crate::ui::widgets::icons::{IconType, draw_icon_button};
 use eframe::egui::{self, Color32, Painter, Pos2, Rect, Stroke, StrokeKind, Ui, Vec2};
 use egui::{Response, UiBuilder};
 
-/// 预先计算工具栏应该显示的位置和尺寸
+const TOOLBAR_WIDTH: f32 = 433.0;
+const TOOLBAR_HEIGHT: f32 = 48.0;
+const TOOLBAR_SCREEN_PADDING: f32 = 10.0;
+const TOOLBAR_CONTENT_PADDING: f32 = 8.0;
+const TOOLBAR_ITEM_SPACING: f32 = 8.0;
+const TOOLBAR_BUTTON_SIZE: f32 = 32.0;
+const TOOLBAR_DIVIDER_WIDTH: f32 = 1.0;
+const TOOLBAR_DIVIDER_HEIGHT: f32 = 16.0;
+
 /// 预先计算工具栏应该显示的位置和尺寸
 pub fn calculate_toolbar_rect(
     state: &ScreenshotState,
@@ -15,10 +23,10 @@ pub fn calculate_toolbar_rect(
     let vec_phys = global_toolbar_pos_phys - global_offset_phys;
     let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
 
-    // 10个按钮(320) + 10个标准间距(80) + 2个额外分隔间距(16) + 1个分割线(1) + 左右内边距(16) = 433.0
-    let toolbar_width = 433.0;
-    let toolbar_height = 48.0;
-    let padding = 10.0;
+    // 10个按钮 + 标准间距 + 分隔间距 + 分割线 + 左右内边距
+    let toolbar_width = TOOLBAR_WIDTH;
+    let toolbar_height = TOOLBAR_HEIGHT;
+    let padding = TOOLBAR_SCREEN_PADDING;
 
     // 1. 计算默认位置：选区右下角外部
     let mut target_x = local_pos_logical.x - toolbar_width;
@@ -126,88 +134,66 @@ fn draw_screenshot_toolbar(
     );
 
     // --- 2. 布局 ---
-    let content_rect = toolbar_rect.shrink(8.0);
+    let content_rect = toolbar_rect.shrink(TOOLBAR_CONTENT_PADDING);
 
     ui.scope_builder(UiBuilder::new().max_rect(content_rect), |ui| {
         // 主轴：全部统一水平布局，不再截断使用向右对齐，保证间距的数学级对称
         ui.horizontal(|ui| {
-            ui.style_mut().spacing.item_spacing = Vec2::new(8.0, 0.0);
+            ui.style_mut().spacing.item_spacing = Vec2::new(TOOLBAR_ITEM_SPACING, 0.0);
 
             // =========================
             // 【左侧布局】绘画工具专区
             // =========================
-            let is_rect = state.current_tool == Some(ScreenshotTool::Rect);
-            let rect_button = draw_icon_button(ui, is_rect, IconType::DrawRect, 32.0);
-            if rect_button.clicked() {
-                state.current_tool = Some(ScreenshotTool::Rect);
+            let tool_buttons = [
+                (ScreenshotTool::Rect, IconType::DrawRect),
+                (ScreenshotTool::Circle, IconType::DrawCircle),
+                (ScreenshotTool::Arrow, IconType::DrawArrow),
+                (ScreenshotTool::Pen, IconType::Pencil),
+                (ScreenshotTool::Mosaic, IconType::Mosaic),
+                (ScreenshotTool::Text, IconType::Text),
+            ];
+            for (tool, icon) in tool_buttons {
+                let is_selected = state.current_tool == Some(tool);
+                let button = draw_icon_button(ui, is_selected, icon, TOOLBAR_BUTTON_SIZE);
+                if button.clicked() {
+                    state.current_tool = Some(tool);
+                }
+                handle_tool_interaction(ui, &button, tool, state);
             }
-            handle_tool_interaction(ui, &rect_button, ScreenshotTool::Rect, state);
 
-            let is_circle = state.current_tool == Some(ScreenshotTool::Circle);
-            let circle_button = draw_icon_button(ui, is_circle, IconType::DrawCircle, 32.0);
-            if circle_button.clicked() {
-                state.current_tool = Some(ScreenshotTool::Circle);
-            }
-            handle_tool_interaction(ui, &circle_button, ScreenshotTool::Circle, state);
-
-            let is_arrow = state.current_tool == Some(ScreenshotTool::Arrow);
-            let arrow_button = draw_icon_button(ui, is_arrow, IconType::DrawArrow, 32.0);
-            if arrow_button.clicked() {
-                state.current_tool = Some(ScreenshotTool::Arrow);
-            }
-            handle_tool_interaction(ui, &arrow_button, ScreenshotTool::Arrow, state);
-
-            let is_pen = state.current_tool == Some(ScreenshotTool::Pen);
-            let pen_button = draw_icon_button(ui, is_pen, IconType::Pencil, 32.0);
-            if pen_button.clicked() {
-                state.current_tool = Some(ScreenshotTool::Pen);
-            }
-            handle_tool_interaction(ui, &pen_button, ScreenshotTool::Pen, state);
-
-            let is_mosaic = state.current_tool == Some(ScreenshotTool::Mosaic);
-            let mosaic_button = draw_icon_button(ui, is_mosaic, IconType::Mosaic, 32.0);
-            if mosaic_button.clicked() {
-                state.current_tool = Some(ScreenshotTool::Mosaic);
-            }
-            handle_tool_interaction(ui, &mosaic_button, ScreenshotTool::Mosaic, state);
-
-            let is_text = state.current_tool == Some(ScreenshotTool::Text);
-            let text_button = draw_icon_button(ui, is_text, IconType::Text, 32.0);
-            if text_button.clicked() {
-                state.current_tool = Some(ScreenshotTool::Text);
-            }
-            handle_tool_interaction(ui, &text_button, ScreenshotTool::Text, state);
-
-            if draw_icon_button(ui, false, IconType::Ocr, 32.0).clicked() {
+            if draw_icon_button(ui, false, IconType::Ocr, TOOLBAR_BUTTON_SIZE).clicked() {
                 action = ScreenshotAction::Ocr; // <--- 触发 OCR
             }
 
             // =========================
             // 【视觉分割】居中对称的分割线
             // =========================
-            ui.add_space(8.0); // 在文字按钮右侧补充额外的留白
+            ui.add_space(TOOLBAR_ITEM_SPACING); // 在文字按钮右侧补充额外的留白
 
-            let (sep_rect, _) = ui.allocate_exact_size(Vec2::new(1.0, 16.0), egui::Sense::hover());
+            let (sep_rect, _) = ui.allocate_exact_size(
+                Vec2::new(TOOLBAR_DIVIDER_WIDTH, TOOLBAR_DIVIDER_HEIGHT),
+                egui::Sense::hover(),
+            );
             ui.painter().line_segment(
                 [sep_rect.center_top(), sep_rect.center_bottom()],
                 Stroke::new(1.0, Color32::from_gray(220)),
             );
 
-            ui.add_space(8.0); // 在 Cancel (x) 按钮左侧补充等距的留白
+            ui.add_space(TOOLBAR_ITEM_SPACING); // 在 Cancel (x) 按钮左侧补充等距的留白
 
             // =========================
             // 【右侧布局】行为动作专区
             // =========================
             // 顺序恢复视觉上的从左到右自然排布
-            if draw_icon_button(ui, false, IconType::Cancel, 32.0).clicked() {
+            if draw_icon_button(ui, false, IconType::Cancel, TOOLBAR_BUTTON_SIZE).clicked() {
                 action = ScreenshotAction::Close;
             }
 
-            if draw_icon_button(ui, false, IconType::SaveToClipboard, 32.0).clicked() {
+            if draw_icon_button(ui, false, IconType::SaveToClipboard, TOOLBAR_BUTTON_SIZE).clicked() {
                 action = ScreenshotAction::SaveToClipboard;
             }
 
-            if draw_icon_button(ui, false, IconType::Save, 32.0).clicked() {
+            if draw_icon_button(ui, false, IconType::Save, TOOLBAR_BUTTON_SIZE).clicked() {
                 action = ScreenshotAction::SaveAndClose;
             }
         });
