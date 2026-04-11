@@ -19,6 +19,12 @@ struct GridLayout {
     left_padding: f32,
 }
 
+#[derive(Default)]
+struct GridInteraction {
+    clicked_index: Option<usize>,
+    double_clicked_index: Option<usize>,
+}
+
 pub fn draw_grid_view(ctx: &Context, ui: &mut Ui, viewer: &mut ViewerState) {
     let text = get_i18n_text(ctx);
 
@@ -29,10 +35,8 @@ pub fn draw_grid_view(ctx: &Context, ui: &mut Ui, viewer: &mut ViewerState) {
         return;
     }
 
-    let layout = compute_grid_layout(ui.available_width());
-
-    let mut clicked_index = None;
-    let mut double_clicked_index = None;
+    let layout = calculate_grid_layout(ui.available_width());
+    let mut interaction = GridInteraction::default();
 
     let list = &viewer.list;
     let current_index = viewer.index;
@@ -44,68 +48,98 @@ pub fn draw_grid_view(ctx: &Context, ui: &mut Ui, viewer: &mut ViewerState) {
     let visible_rect = ui.clip_rect();
     let preload_rect = visible_rect.expand(GRID_PRELOAD_MARGIN);
 
-    // 3. 开始渲染
     ScrollArea::vertical()
-        .auto_shrink([false; 2]) // 强制占满可用高度
+        .auto_shrink([false; 2])
         .show(ui, |ui| {
-            ui.add_space(GRID_SPACING); // 顶部的呼吸空间
-
-            // 将一维列表按列数切分成一块块的 row
-            for (row_idx, row_items) in list.chunks(layout.columns).enumerate() {
-                ui.horizontal(|ui| {
-                    // 填入计算好的左侧空白，瞬间居中！
-                    ui.add_space(layout.left_padding);
-                    // 覆盖默认的水平间距，使用我们自定义的间距
-                    ui.spacing_mut().item_spacing.x = GRID_SPACING;
-
-                    for (col_idx, path) in row_items.iter().enumerate() {
-                        let global_index = row_idx * layout.columns + col_idx;
-                        let is_selected = global_index == current_index;
-                        render_grid_item(
-                            ui,
-                            ctx,
-                            text.grid_loading,
-                            path,
-                            is_selected,
-                            preload_rect,
-                            thumb_cache,
-                            failed_thumbs,
-                            loading_thumbs,
-                            loader,
-                            global_index,
-                            &mut clicked_index,
-                            &mut double_clicked_index,
-                        );
-                    }
-                });
-
-                ui.add_space(GRID_SPACING); // 行与行之间的垂直间距
-            }
+            render_grid_rows(
+                ui,
+                ctx,
+                text.grid_loading,
+                list,
+                &layout,
+                current_index,
+                preload_rect,
+                thumb_cache,
+                failed_thumbs,
+                loading_thumbs,
+                loader,
+                &mut interaction,
+            );
         });
 
-    // 处理交互状态改变
-    if let Some(index) = double_clicked_index {
-        viewer.set_index(index);
-        viewer.view_mode = ViewMode::Single;
-        viewer.load_current(ctx.clone());
-    } else if let Some(index) = clicked_index {
-        viewer.set_index(index);
-    }
+    apply_grid_interaction(ctx, viewer, interaction);
 }
 
-fn compute_grid_layout(available_width: f32) -> GridLayout {
+fn calculate_grid_layout(available_width: f32) -> GridLayout {
     let cell_total_width =
         GRID_ITEM_SIZE.x + (GRID_FRAME_MARGIN * 2.0) + (GRID_BORDER_WIDTH * 2.0);
     let mut columns =
         ((available_width + GRID_SPACING) / (cell_total_width + GRID_SPACING)).floor() as usize;
     columns = columns.max(1);
 
-    let content_width = (columns as f32 * cell_total_width) + ((columns as f32 - 1.0) * GRID_SPACING);
+    let content_width =
+        (columns as f32 * cell_total_width) + ((columns as f32 - 1.0) * GRID_SPACING);
     let left_padding = ((available_width - content_width) / 2.0).max(0.0);
 
     GridLayout {
         columns,
         left_padding,
+    }
+}
+
+fn render_grid_rows(
+    ui: &mut Ui,
+    ctx: &Context,
+    loading_text: &str,
+    list: &[std::path::PathBuf],
+    layout: &GridLayout,
+    current_index: usize,
+    preload_rect: Rect,
+    thumb_cache: &mut lru::LruCache<std::path::PathBuf, egui::TextureHandle>,
+    failed_thumbs: &std::collections::HashSet<std::path::PathBuf>,
+    loading_thumbs: &mut std::collections::HashSet<std::path::PathBuf>,
+    loader: &mut crate::core::image_loader::ImageLoader,
+    interaction: &mut GridInteraction,
+) {
+    ui.add_space(GRID_SPACING);
+
+    for (row_idx, row_items) in list.chunks(layout.columns).enumerate() {
+        ui.horizontal(|ui| {
+            ui.add_space(layout.left_padding);
+            ui.spacing_mut().item_spacing.x = GRID_SPACING;
+
+            for (col_idx, path) in row_items.iter().enumerate() {
+                let global_index = row_idx * layout.columns + col_idx;
+                let is_selected = global_index == current_index;
+                render_grid_item(
+                    ui,
+                    ctx,
+                    loading_text,
+                    path,
+                    is_selected,
+                    preload_rect,
+                    thumb_cache,
+                    failed_thumbs,
+                    loading_thumbs,
+                    loader,
+                    global_index,
+                    &mut interaction.clicked_index,
+                    &mut interaction.double_clicked_index,
+                );
+            }
+        });
+
+        ui.add_space(GRID_SPACING);
+    }
+}
+
+fn apply_grid_interaction(ctx: &Context, viewer: &mut ViewerState, interaction: GridInteraction) {
+    if let Some(index) = interaction.double_clicked_index {
+        viewer.set_index(index);
+        viewer.view_mode = ViewMode::Single;
+        viewer.load_current(ctx.clone());
+    } else if let Some(index) = interaction.clicked_index {
+        viewer.set_index(index);
     }
 }
 

@@ -11,6 +11,13 @@ use windows::{
     core::Result,
 };
 
+const OCR_SCORE_OK_RATIO_WEIGHT: f64 = 120.0;
+const OCR_SCORE_ASCII_ZH_WEIGHT: f64 = 0.6;
+const OCR_CONTRAST_LOW_PERCENTILE: f32 = 0.01;
+const OCR_CONTRAST_HIGH_PERCENTILE: f32 = 0.99;
+const OCR_UNSHARP_SIGMA: f32 = 0.6;
+const OCR_INVERT_BRIGHTNESS_THRESHOLD: f64 = 120.0;
+
 pub fn recognize_text_windows(
     img: DynamicImage,
     language: Language,
@@ -162,7 +169,7 @@ fn score_text(text: &str, preferred: Option<Language>) -> f64 {
 
     let total_f = total.max(1) as f64;
     let ok_ratio = ok_chars as f64 / total_f;
-    let mut score = (non_ws as f64) * 1.2 + ok_ratio * 120.0;
+    let mut score = (non_ws as f64) * 1.2 + ok_ratio * OCR_SCORE_OK_RATIO_WEIGHT;
     score -= (control as f64) * 25.0;
     score -= (replacement as f64) * 60.0;
     score += (newlines as f64) * 1.5;
@@ -171,7 +178,7 @@ fn score_text(text: &str, preferred: Option<Language>) -> f64 {
     match preferred {
         Some(Language::Zh) => {
             score += (cjk as f64) * 2.0;
-            score += (ascii_alnum as f64) * 0.6;
+            score += (ascii_alnum as f64) * OCR_SCORE_ASCII_ZH_WEIGHT;
         }
         Some(Language::En) => {
             score += (ascii_alnum as f64) * 2.0;
@@ -228,7 +235,7 @@ fn preprocess_for_ocr(img: DynamicImage) -> DynamicImage {
         invert_in_place(&mut gray);
     }
 
-    gray = auto_contrast(gray, 0.01, 0.99);
+    gray = auto_contrast(gray, OCR_CONTRAST_LOW_PERCENTILE, OCR_CONTRAST_HIGH_PERCENTILE);
 
     let scale = choose_scale(gray.width(), gray.height());
     if scale > 1 {
@@ -240,7 +247,7 @@ fn preprocess_for_ocr(img: DynamicImage) -> DynamicImage {
         );
     }
 
-    gray = unsharp_mask(gray, 0.6, 0.7);
+    gray = unsharp_mask(gray, OCR_UNSHARP_SIGMA, 0.7);
 
     let threshold = otsu_threshold(&gray);
     gray = binarize(gray, threshold);
@@ -275,7 +282,7 @@ fn should_invert(gray: &GrayImage) -> bool {
 
     let sum: u64 = preview.pixels().map(|p| p[0] as u64).sum();
     let mean = sum as f64 / (preview.width() as f64 * preview.height() as f64);
-    mean < 120.0
+    mean < OCR_INVERT_BRIGHTNESS_THRESHOLD
 }
 
 fn invert_in_place(gray: &mut GrayImage) {

@@ -301,125 +301,117 @@ impl ShapeRender for DrawnShape {
         start_state: &ResizeStartState,
         selection: Option<Rect>,
     ) {
-        let min_size = MIN_SHAPE_SIZE;
         let clamped = clamp_pos_to_rect(current_phys, selection.unwrap_or(Rect::EVERYTHING));
+        let (new_start, new_end) = resized_endpoints(self.tool, handle, clamped, start_state);
 
-        let mut new_start = self.start;
-        let mut new_end = self.end;
-
-        match self.tool {
-            ScreenshotTool::Arrow => {
-                // 箭头只有两个控制点
-                match handle {
-                    0 => new_start = clamped, // 起点
-                    1 => new_end = clamped,   // 终点
-                    _ => {}
-                }
-            }
-            _ => {
-                // Rect, Circle, Text: 8 控制点
-                match handle {
-                    0 => {
-                        // NW: 移动 start，固定 end
-                        new_start = clamped;
-                        new_end = start_state.end;
-                    }
-                    1 => {
-                        // NE: 移动 end.x 和 start.y，固定 start.x 和 end.y
-                        new_start = Pos2::new(start_state.start.x, clamped.y);
-                        new_end = Pos2::new(clamped.x, start_state.end.y);
-                    }
-                    2 => {
-                        // SE: 移动 end，固定 start
-                        new_start = start_state.start;
-                        new_end = clamped;
-                    }
-                    3 => {
-                        // SW: 移动 start.x 和 end.y，固定 end.x 和 start.y
-                        new_start = Pos2::new(clamped.x, start_state.start.y);
-                        new_end = Pos2::new(start_state.end.x, clamped.y);
-                    }
-                    4 => {
-                        // N: 移动 start.y，固定 start.x 和 end
-                        new_start = Pos2::new(start_state.start.x, clamped.y);
-                        new_end = start_state.end;
-                    }
-                    5 => {
-                        // E: 移动 end.x，固定 start 和 end.y
-                        new_start = start_state.start;
-                        new_end = Pos2::new(clamped.x, start_state.end.y);
-                    }
-                    6 => {
-                        // S: 移动 end.y，固定 start 和 end.x
-                        new_start = start_state.start;
-                        new_end = Pos2::new(start_state.end.x, clamped.y);
-                    }
-                    7 => {
-                        // W: 移动 start.x，固定 start.y 和 end
-                        new_start = Pos2::new(clamped.x, start_state.start.y);
-                        new_end = start_state.end;
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        // 检查最小尺寸保护（对于文本框，只检查宽度）
-        let w = (new_end.x - new_start.x).abs();
-        let h = (new_end.y - new_start.y).abs();
-        if self.tool == ScreenshotTool::Text {
-            // 文本框：宽度至少 10px，高度至少 4px
-            if w < 10.0 || h < min_size {
-                return;
-            }
-        } else if w < min_size || h < min_size {
-            return; // 不改变，保持上一帧状态
+        if !is_valid_resize(self.tool, new_start, new_end) {
+            return;
         }
 
         if self.tool == ScreenshotTool::Text {
-            // 使用增量缩放（相比上一帧），避免依赖错乱的 start_state.end
-            let prev_w = (self.end.x - self.start.x).abs();
-            let new_w = (new_end.x - new_start.x).abs();
-
-            if prev_w > 1.0 {
-                let ratio = new_w / prev_w;
-                let sw0 = self.stroke_width;
-
-                // 修正 1：解决“拖好久才放大一点”。
-                // 反推公式：我们想要的是 font_size_新 = ratio * font_size_旧
-                // 即: 20.0 + sw1 * 2.0 = ratio * (20.0 + sw0 * 2.0)
-                let mut sw1 = ratio * (10.0 + sw0) - 10.0;
-                sw1 = sw1.clamp(1.0, 48.0);
-                self.stroke_width = sw1;
-
-                // 修正 2：解决“再次点击缩回去”。
-                // 计算在 clamp (最大值/最小值) 限制下，实际上真实达成的缩放比例
-                let actual_ratio = (10.0 + sw1) / (10.0 + sw0);
-
-                let actual_new_w = prev_w * actual_ratio;
-                let actual_new_h = (self.end.y - self.start.y).abs() * actual_ratio;
-
-                let sign_x = (new_end.x - new_start.x).signum();
-                let sign_y = (new_end.y - new_start.y).signum();
-
-                self.start = new_start;
-                // 极其关键：将 end 坐标严格“锁死”在实际排版的边界上，切断与越界鼠标坐标的联系！
-                self.end = Pos2::new(
-                    new_start.x + actual_new_w * sign_x,
-                    new_start.y + actual_new_h * sign_y,
-                );
-            } else {
-                // 如果是刚刚创建文字第一次轻微拖动，初始化基准坐标
-                self.start = new_start;
-                self.end = new_end;
-            }
-            self.invalidate_galley();
+            apply_text_resize(self, new_start, new_end);
         } else {
-            // 矩形、圆形、箭头的常规更新逻辑
             self.start = new_start;
             self.end = new_end;
         }
     }
+}
+
+fn resized_endpoints(
+    tool: ScreenshotTool,
+    handle: usize,
+    clamped: Pos2,
+    start_state: &ResizeStartState,
+) -> (Pos2, Pos2) {
+    let mut new_start = start_state.start;
+    let mut new_end = start_state.end;
+
+    match tool {
+        ScreenshotTool::Arrow => match handle {
+            0 => new_start = clamped,
+            1 => new_end = clamped,
+            _ => {}
+        },
+        _ => match handle {
+            0 => {
+                new_start = clamped;
+                new_end = start_state.end;
+            }
+            1 => {
+                new_start = Pos2::new(start_state.start.x, clamped.y);
+                new_end = Pos2::new(clamped.x, start_state.end.y);
+            }
+            2 => {
+                new_start = start_state.start;
+                new_end = clamped;
+            }
+            3 => {
+                new_start = Pos2::new(clamped.x, start_state.start.y);
+                new_end = Pos2::new(start_state.end.x, clamped.y);
+            }
+            4 => {
+                new_start = Pos2::new(start_state.start.x, clamped.y);
+                new_end = start_state.end;
+            }
+            5 => {
+                new_start = start_state.start;
+                new_end = Pos2::new(clamped.x, start_state.end.y);
+            }
+            6 => {
+                new_start = start_state.start;
+                new_end = Pos2::new(start_state.end.x, clamped.y);
+            }
+            7 => {
+                new_start = Pos2::new(clamped.x, start_state.start.y);
+                new_end = start_state.end;
+            }
+            _ => {}
+        },
+    }
+
+    (new_start, new_end)
+}
+
+fn is_valid_resize(tool: ScreenshotTool, new_start: Pos2, new_end: Pos2) -> bool {
+    let width = (new_end.x - new_start.x).abs();
+    let height = (new_end.y - new_start.y).abs();
+
+    if tool == ScreenshotTool::Text {
+        width >= 10.0 && height >= MIN_SHAPE_SIZE
+    } else {
+        width >= MIN_SHAPE_SIZE && height >= MIN_SHAPE_SIZE
+    }
+}
+
+fn apply_text_resize(shape: &mut DrawnShape, new_start: Pos2, new_end: Pos2) {
+    let prev_w = (shape.end.x - shape.start.x).abs();
+    let prev_h = (shape.end.y - shape.start.y).abs();
+
+    if prev_w > 1.0 {
+        let new_w = (new_end.x - new_start.x).abs();
+        let ratio = new_w / prev_w;
+        let stroke_width_before = shape.stroke_width;
+        let mut stroke_width_after = ratio * (10.0 + stroke_width_before) - 10.0;
+        stroke_width_after = stroke_width_after.clamp(1.0, 48.0);
+        shape.stroke_width = stroke_width_after;
+
+        let actual_ratio = (10.0 + stroke_width_after) / (10.0 + stroke_width_before);
+        let actual_new_w = prev_w * actual_ratio;
+        let actual_new_h = prev_h * actual_ratio;
+        let sign_x = (new_end.x - new_start.x).signum();
+        let sign_y = (new_end.y - new_start.y).signum();
+
+        shape.start = new_start;
+        shape.end = Pos2::new(
+            new_start.x + actual_new_w * sign_x,
+            new_start.y + actual_new_h * sign_y,
+        );
+    } else {
+        shape.start = new_start;
+        shape.end = new_end;
+    }
+
+    shape.invalidate_galley();
 }
 
 /// 点到线段的距离

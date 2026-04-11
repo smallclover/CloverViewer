@@ -11,6 +11,7 @@ const TOOLBAR_ITEM_SPACING: f32 = 8.0;
 const TOOLBAR_BUTTON_SIZE: f32 = 32.0;
 const TOOLBAR_DIVIDER_WIDTH: f32 = 1.0;
 const TOOLBAR_DIVIDER_HEIGHT: f32 = 16.0;
+const TOOLBAR_LONG_PRESS_DURATION: f64 = 0.6;
 
 /// 预先计算工具栏应该显示的位置和尺寸
 pub fn calculate_toolbar_rect(
@@ -233,7 +234,7 @@ fn handle_tool_interaction(
                     let press_time = ui.input(|i| i.pointer.press_start_time()).unwrap_or(0.0);
                     let current_time = ui.input(|i| i.time);
 
-                    if current_time - press_time > 0.6 {
+                    if current_time - press_time > TOOLBAR_LONG_PRESS_DURATION {
                         // === 触发长按 ===
                         state.drawing.color_picker.open();
                         state.drawing.color_picker_anchor = Some(response.rect);

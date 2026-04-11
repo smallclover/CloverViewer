@@ -8,6 +8,8 @@ use crate::{
 use eframe::emath::Pos2;
 use egui::{Align, Area, Context, Frame, Id, Layout, Order, Sense};
 
+const CONTEXT_MENU_WIDTH: f32 = 120.0;
+
 pub enum ContextMenuAction {
     Copy,
     CopyPath,
@@ -36,7 +38,7 @@ pub fn render_context_menu(ctx: &Context, pos: &mut Option<Pos2>) -> Option<Cont
             .fixed_pos(*position)
             .show(ctx, |ui| {
                 Frame::menu(ui.style()).show(ui, |ui| {
-                    ui.set_width(120.0);
+                    ui.set_width(CONTEXT_MENU_WIDTH);
                     ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
                         if ui.button(text.context_menu_copy).clicked() {
                             action = Some(ContextMenuAction::Copy);

@@ -35,6 +35,7 @@ pub struct ToastSystem {
 // 定义一些固定尺寸常数
 const TOAST_WIDTH: f32 = 100.0;
 const TOAST_MIN_HEIGHT: f32 = 20.0;
+const TOAST_LOADING_DURATION: f32 = 999.0;
 
 impl ToastSystem {
     pub fn new() -> Self {
@@ -235,7 +236,7 @@ impl ToastManager {
         let _ = self.sender.send(ToastCommand::Show(ToastConfig {
             message: message.into(),
             level: ToastLevel::Loading,
-            duration: 999.0, // Loading 状态下这个值会被渲染逻辑忽略
+            duration: TOAST_LOADING_DURATION, // Loading 状态下这个值会被渲染逻辑忽略
             show_progress: false,
         }));
     }
