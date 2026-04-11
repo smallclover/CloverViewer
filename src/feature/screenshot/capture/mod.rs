@@ -13,9 +13,154 @@ use egui::WindowLevel;
 
 // 重新导出 state 模块的类型
 pub use crate::feature::screenshot::state::{
-    CapturedScreen, DrawnShape, HistoryEntry, ScreenshotAction, ScreenshotState, ScreenshotTool,
-    WindowPrevState,
+    CapturedScreen, DrawnShape, ScreenshotAction, ScreenshotState, ScreenshotTool, WindowPrevState,
 };
+
+fn hidden_window_pos() -> Pos2 {
+    Pos2::new(-20000.0, -20000.0)
+}
+
+fn handle_capture_stage(
+    ctx: &Context,
+    is_active: &mut bool,
+    screenshot_state: &mut ScreenshotState,
+) -> bool {
+    if !screenshot_state.capture.captures.is_empty() {
+        return false;
+    }
+
+    if !screenshot_state.capture.is_capturing {
+        ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
+        ctx.send_viewport_cmd(ViewportCommand::OuterPosition(hidden_window_pos()));
+    }
+
+    let should_exit = capture_impl::handle_capture_process(ctx, screenshot_state);
+    if should_exit {
+        *is_active = false;
+    }
+
+    true
+}
+
+fn configure_screenshot_viewport(ctx: &Context, screenshot_state: &mut ScreenshotState) {
+    if screenshot_state.runtime.window_configured {
+        current_platform().lock_cursor_for_screenshot();
+        return;
+    }
+
+    let ppp = ctx.pixels_per_point();
+
+    let mut min_x = f32::MAX;
+    let mut min_y = f32::MAX;
+    let mut max_x = f32::MIN;
+    let mut max_y = f32::MIN;
+
+    for cap in &screenshot_state.capture.captures {
+        let info = &cap.screen_info;
+        let phys_x = info.x as f32 * info.scale_factor;
+        let phys_y = info.y as f32 * info.scale_factor;
+        let phys_w = info.width as f32 * info.scale_factor;
+        let phys_h = info.height as f32 * info.scale_factor;
+
+        min_x = min_x.min(phys_x);
+        min_y = min_y.min(phys_y);
+        max_x = max_x.max(phys_x + phys_w);
+        max_y = max_y.max(phys_y + phys_h);
+    }
+
+    let total_phys_width = max_x - min_x + 100.0;
+    let total_phys_height = max_y - min_y + 100.0;
+    let exact_logical_pos = Pos2::new(min_x / ppp, min_y / ppp);
+    let exact_logical_size = Vec2::new(total_phys_width / ppp, total_phys_height / ppp);
+
+    ctx.send_viewport_cmd(ViewportCommand::Decorations(false));
+    ctx.send_viewport_cmd(ViewportCommand::Transparent(true));
+    ctx.send_viewport_cmd(ViewportCommand::Visible(true));
+    ctx.send_viewport_cmd(ViewportCommand::Focus);
+    ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::AlwaysOnTop));
+    ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(exact_logical_size));
+    ctx.send_viewport_cmd(ViewportCommand::OuterPosition(exact_logical_pos));
+    ctx.send_viewport_cmd(ViewportCommand::InnerSize(exact_logical_size));
+
+    screenshot_state.runtime.window_configured = true;
+    ctx.request_repaint();
+}
+
+fn resolve_effective_prev_state(
+    ctx: &Context,
+    action: ScreenshotAction,
+    screenshot_state: &ScreenshotState,
+) -> WindowPrevState {
+    let config = get_context_config(ctx);
+    if config.screenshot_hides_main_window {
+        return WindowPrevState::Tray;
+    }
+
+    if action == ScreenshotAction::Ocr {
+        WindowPrevState::Normal
+    } else {
+        screenshot_state.runtime.prev_window_state
+    }
+}
+
+fn restore_window_after_screenshot(
+    ctx: &Context,
+    common: &CommonState,
+    effective_prev_state: WindowPrevState,
+) {
+    current_platform().unlock_cursor();
+    ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::ZERO));
+
+    match effective_prev_state {
+        WindowPrevState::Tray => {
+            if let Ok(mut visible) = common.window_state.visible.lock() {
+                *visible = false;
+            }
+            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(hidden_window_pos()));
+            ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
+            ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+        }
+        WindowPrevState::Minimized => {
+            ctx.send_viewport_cmd(ViewportCommand::Visible(true));
+            ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
+        }
+        WindowPrevState::Normal => {
+            ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
+            ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
+            let config = get_context_config(ctx);
+            if let Some((x, y)) = config.window_pos {
+                ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
+            }
+            if let Some((w, h)) = config.window_size {
+                ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(w, h)));
+            }
+            ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
+            ctx.send_viewport_cmd(ViewportCommand::Visible(true));
+            ctx.send_viewport_cmd(ViewportCommand::Focus);
+        }
+    }
+}
+
+fn handle_completion_action(
+    ctx: &Context,
+    screenshot_state: &mut ScreenshotState,
+    common: &CommonState,
+    action: ScreenshotAction,
+) -> Option<image::DynamicImage> {
+    let ocr_result_image = if action == ScreenshotAction::Ocr {
+        actions::extract_cropped_image(screenshot_state).map(image::DynamicImage::ImageRgba8)
+    } else {
+        actions::handle_save_action(action, screenshot_state);
+        None
+    };
+
+    let effective_prev_state = resolve_effective_prev_state(ctx, action, screenshot_state);
+    restore_window_after_screenshot(ctx, common, effective_prev_state);
+    *screenshot_state = ScreenshotState::default();
+    ctx.request_repaint();
+
+    ocr_result_image
+}
 
 /// 处理截图系统的更新
 /// `is_active` - 是否处于截图模式，函数内部可将其设为 false 以退出截图模式
@@ -29,150 +174,19 @@ pub fn handle_screenshot_system(
         return None;
     }
 
-    // 1. 发起和轮询截图阶段
-    if screenshot_state.capture.captures.is_empty() {
-        if !screenshot_state.capture.is_capturing {
-            ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
-            ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(
-                -20000.0, -20000.0,
-            )));
-        }
-        let should_exit = capture_impl::handle_capture_process(ctx, screenshot_state);
-        if should_exit {
-            *is_active = false;
-        }
+    if handle_capture_stage(ctx, is_active, screenshot_state) {
         return None;
     }
 
-    // 2. 截图完成，全屏展开逻辑
-    if !screenshot_state.runtime.window_configured {
-        let ppp = ctx.pixels_per_point();
+    configure_screenshot_viewport(ctx, screenshot_state);
 
-        // 1. 获取包含所有显示器的【绝对物理边界】
-        // 算出总物理宽高
-        let mut min_x = f32::MAX;
-        let mut min_y = f32::MAX;
-        let mut max_x = f32::MIN;
-        let mut max_y = f32::MIN;
-
-        for cap in &screenshot_state.capture.captures {
-            let info = &cap.screen_info;
-            let phys_x = info.x as f32 * info.scale_factor;
-            let phys_y = info.y as f32 * info.scale_factor;
-            let phys_w = info.width as f32 * info.scale_factor;
-            let phys_h = info.height as f32 * info.scale_factor;
-
-            min_x = min_x.min(phys_x);
-            min_y = min_y.min(phys_y);
-            max_x = max_x.max(phys_x + phys_w);
-            max_y = max_y.max(phys_y + phys_h);
-        }
-
-        // 2. 计算出物理总宽高，并加一点冗余防裁剪 (比如加 100 物理像素)
-        let total_phys_width = max_x - min_x + 100.0;
-        let total_phys_height = max_y - min_y + 100.0;
-
-        // 3. 将物理坐标除以当前的 ppp，换算成当下操作系统能听懂的逻辑坐标
-        let exact_logical_pos = Pos2::new(min_x / ppp, min_y / ppp);
-        let exact_logical_size = Vec2::new(total_phys_width / ppp, total_phys_height / ppp);
-
-        ctx.send_viewport_cmd(ViewportCommand::Decorations(false));
-        ctx.send_viewport_cmd(ViewportCommand::Transparent(true));
-        ctx.send_viewport_cmd(ViewportCommand::Visible(true));
-        ctx.send_viewport_cmd(ViewportCommand::Focus);
-        ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::AlwaysOnTop));
-
-        // 4. 使用精准计算出的逻辑尺寸，替代之前的 (pos, size*2.0)
-        ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(exact_logical_size));
-        ctx.send_viewport_cmd(ViewportCommand::OuterPosition(exact_logical_pos));
-        ctx.send_viewport_cmd(ViewportCommand::InnerSize(exact_logical_size));
-
-        screenshot_state.runtime.window_configured = true;
-        ctx.request_repaint();
-    } else {
-        current_platform().lock_cursor_for_screenshot();
-    }
-
-    // 3. 绘制截图 UI
     let action = draw_screenshot_ui(ctx, screenshot_state, &common.device_info);
-
-    let mut ocr_result_image = None;
-    // 4. 退出截图模式，使用缓存的正常坐标恢复
     if action != ScreenshotAction::None {
-        if action == ScreenshotAction::Ocr {
-            // 如果是 OCR，极速裁剪图片，包装为 DynamicImage 并暂存
-            if let Some(rgba_img) = actions::extract_cropped_image(screenshot_state) {
-                ocr_result_image = Some(image::DynamicImage::ImageRgba8(rgba_img));
-            }
-        } else {
-            // 普通保存走老路子
-            actions::handle_save_action(action, screenshot_state);
-        }
-
-        //开启截图模式之后，将不再显示住窗口
-        let config = get_context_config(ctx);
-        let force_hide_to_tray = config.screenshot_hides_main_window;
-
-        let effective_prev_state = if force_hide_to_tray {
-            WindowPrevState::Tray
-        } else {
-            // 如果是ocr模式，那无论如何都显示主窗口
-            if action == ScreenshotAction::Ocr {
-                WindowPrevState::Normal
-            } else {
-                screenshot_state.runtime.prev_window_state
-            }
-        };
-        current_platform().unlock_cursor();
-
-        // 恢复默认的最小，否则截图完成时无法手动改变窗口大小
-        ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::ZERO));
-
-        match effective_prev_state {
-            WindowPrevState::Tray => {
-                if let Ok(mut visible) = common.window_state.visible.lock() {
-                    *visible = false;
-                }
-                // 让托盘式无感
-                ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(
-                    -20000.0, -20000.0,
-                )));
-                ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
-                ctx.send_viewport_cmd(ViewportCommand::Visible(false));
-                // 调用系统 API 隐藏到托盘,似乎没用，暂时注释掉
-                // show_window_hide(common.window_state.hwnd_usize);
-            }
-            WindowPrevState::Minimized => {
-                ctx.send_viewport_cmd(ViewportCommand::Visible(true));
-                // 发送最小化指令
-                ctx.send_viewport_cmd(ViewportCommand::Minimized(true));
-            }
-            WindowPrevState::Normal => {
-                // 恢复窗口的常规属性
-                ctx.send_viewport_cmd(ViewportCommand::Decorations(true));
-                ctx.send_viewport_cmd(ViewportCommand::Transparent(false));
-                let config = get_context_config(ctx);
-                // 移回截图前的原始位置和尺寸
-                if let Some((x, y)) = config.window_pos {
-                    ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(x, y)));
-                }
-                if let Some((w, h)) = config.window_size {
-                    ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(w, h)));
-                }
-                // 恢复窗口的显示层次，否则会一直在最顶部
-                ctx.send_viewport_cmd(ViewportCommand::WindowLevel(WindowLevel::Normal));
-                ctx.send_viewport_cmd(ViewportCommand::Visible(true));
-                ctx.send_viewport_cmd(ViewportCommand::Focus);
-            }
-        }
-
         *is_active = false;
-        *screenshot_state = ScreenshotState::default();
-
-        ctx.request_repaint();
+        return handle_completion_action(ctx, screenshot_state, common, action);
     }
-    // 将图片交给 App 外层！
-    ocr_result_image
+
+    None
 }
 
 pub fn draw_screenshot_ui(
@@ -284,20 +298,12 @@ pub fn draw_screenshot_ui(
             // Ctrl+Z 撤销
             if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z)) {
                 if let Some(entry) = state.edit.history.pop() {
-                    state.edit.shapes = entry.shapes;
-                    state.select.selection = entry.selection;
-                    // 更新 toolbar 位置
-                    if let Some(sel) = state.select.selection {
-                        state.select.toolbar_pos = Some(sel.right_bottom());
-                    } else {
-                        state.select.toolbar_pos = None;
-                    }
+                    state.restore_history_entry(entry);
                 }
             }
 
             if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                let can_save_to_clipboard =
-                    state.select.selection.map(|r| r.is_positive()).unwrap_or(false);
+                let can_save_to_clipboard = state.has_positive_selection();
 
                 if can_save_to_clipboard && state.input.active_text_input.is_none() {
                     action = ScreenshotAction::SaveToClipboard;

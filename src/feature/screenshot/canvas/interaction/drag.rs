@@ -3,7 +3,7 @@ use crate::feature::screenshot::{
         CanvasState, ResizeStartState, drag,
         shape::{ShapeRender, clamp_pos_to_rect},
     },
-    capture::{DrawnShape, HistoryEntry, ScreenshotState, ScreenshotTool},
+    capture::{DrawnShape, ScreenshotState, ScreenshotTool},
 };
 use eframe::egui::{Pos2, Rect, Ui};
 
@@ -25,16 +25,15 @@ pub(super) fn on_drag_start(
             if shape.supports_resize() {
                 if let Some(handle) = get_hovered_handle(local_pos, shape, global_offset_phys, ppp)
                 {
+                    let start = shape.start;
+                    let end = shape.end;
                     // 开始 resize 拖拽
-                    state.edit.history.push(HistoryEntry {
-                        shapes: state.edit.shapes.clone(),
-                        selection: state.select.selection,
-                    });
+                    state.push_history_snapshot();
                     canvas_state.dragging_shape = Some(selected_idx);
                     canvas_state.dragging_handle = Some(handle);
                     canvas_state.resize_start_state = Some(ResizeStartState {
-                        start: shape.start,
-                        end: shape.end,
+                        start,
+                        end,
                     });
                     return;
                 }
@@ -56,10 +55,7 @@ pub(super) fn on_drag_start(
 
     if let Some(index) = interaction_hovered {
         // 在修改 shapes 之前记录历史，这样撤销时才能正确删除复制出来的图形
-        state.edit.history.push(HistoryEntry {
-            shapes: state.edit.shapes.clone(),
-            selection: state.select.selection,
-        });
+        state.push_history_snapshot();
 
         // 检查是否按下了 Alt 键
         if ui.ctx().input(|i| i.modifiers.alt) {
@@ -97,7 +93,7 @@ pub(super) fn on_drag_start(
     } else if is_hovering_selection_bg && state.drawing.current_tool.is_none() {
         canvas_state.dragging_selection = true;
         canvas_state.drag_start_phys = Some(global_phys);
-        state.select.toolbar_pos = None;
+        state.clear_toolbar();
         state.drawing.color_picker.close();
     } else if can_draw {
         // 如果已有选择区域且其中有图形，不允许创建新选择区域
@@ -107,7 +103,7 @@ pub(super) fn on_drag_start(
             }
         }
         state.select.drag_start = Some(global_phys);
-        state.select.toolbar_pos = None;
+        state.clear_toolbar();
         state.drawing.color_picker.close();
     }
 }
@@ -154,7 +150,7 @@ pub(super) fn on_dragged(
         {
             let delta_phys = current_phys - drag_start_phys;
             drag::move_selection(&mut sel, delta_phys);
-            state.select.selection = Some(sel);
+            state.update_selection_only(Some(sel));
             canvas_state.drag_start_phys = Some(current_phys);
         }
     } else if (state.drawing.current_tool == Some(ScreenshotTool::Pen)
@@ -179,7 +175,7 @@ pub(super) fn on_dragged(
     } else if let Some(drag_start_phys) = state.select.drag_start {
         let rect = Rect::from_two_pos(drag_start_phys, current_phys);
         if state.select.selection.map_or(true, |s| s != rect) {
-            state.select.selection = Some(rect);
+            state.update_selection_only(Some(rect));
         }
     }
 }
@@ -194,9 +190,7 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
     } else if canvas_state.dragging_selection {
         canvas_state.dragging_selection = false;
         canvas_state.drag_start_phys = None;
-        if let Some(sel) = state.select.selection {
-            state.select.toolbar_pos = Some(sel.right_bottom());
-        }
+        state.sync_toolbar_to_selection();
     } else if !state.input.current_pen_points.is_empty() {
         if state.input.current_pen_points.len() > 1 {
             let mut min_pos = state.input.current_pen_points[0];
@@ -206,10 +200,7 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
                 max_pos = max_pos.max(*p);
             }
 
-            state.edit.history.push(HistoryEntry {
-                shapes: state.edit.shapes.clone(),
-                selection: state.select.selection,
-            });
+            state.push_history_snapshot();
 
             let Some(tool) = state.drawing.current_tool else {
                 return;
@@ -237,10 +228,7 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
         let end_pos = state.input.current_shape_end.unwrap_or(start_pos);
         if start_pos.distance(end_pos) > 5.0 {
             if let Some(tool) = state.drawing.current_tool {
-                state.edit.history.push(HistoryEntry {
-                    shapes: state.edit.shapes.clone(),
-                    selection: state.select.selection,
-                });
+                state.push_history_snapshot();
                 state.edit.shapes.push(DrawnShape {
                     tool,
                     start: start_pos,
@@ -261,21 +249,14 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
             if sel.width() > 10.0 && sel.height() > 10.0 {
                 // 重新选择区域时，清除已有图形
                 if !state.edit.shapes.is_empty() {
-                    state.edit.history.push(HistoryEntry {
-                        shapes: state.edit.shapes.clone(),
-                        selection: state.select.selection,
-                    });
+                    state.push_history_snapshot();
                     state.edit.shapes.clear();
                     canvas_state.selected_shape = None;
                 }
-                state.edit.history.push(HistoryEntry {
-                    shapes: state.edit.shapes.clone(),
-                    selection: state.select.selection,
-                });
-                state.select.toolbar_pos = Some(sel.right_bottom());
+                state.push_history_snapshot();
+                state.sync_toolbar_to_selection();
             } else {
-                state.select.selection = None;
-                state.select.toolbar_pos = None;
+                state.set_selection(None);
             }
         }
     }

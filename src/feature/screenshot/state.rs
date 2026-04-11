@@ -196,6 +196,39 @@ impl ScreenshotState {
             input: ScreenshotInputState::default(),
         }
     }
+
+    pub fn push_history_snapshot(&mut self) {
+        self.edit.history.push(HistoryEntry {
+            shapes: self.edit.shapes.clone(),
+            selection: self.select.selection,
+        });
+    }
+
+    pub fn set_selection(&mut self, selection: Option<Rect>) {
+        self.select.selection = selection;
+        self.sync_toolbar_to_selection();
+    }
+
+    pub fn update_selection_only(&mut self, selection: Option<Rect>) {
+        self.select.selection = selection;
+    }
+
+    pub fn sync_toolbar_to_selection(&mut self) {
+        self.select.toolbar_pos = self.select.selection.map(|selection| selection.right_bottom());
+    }
+
+    pub fn has_positive_selection(&self) -> bool {
+        self.select.selection.map(|rect| rect.is_positive()).unwrap_or(false)
+    }
+
+    pub fn clear_toolbar(&mut self) {
+        self.select.toolbar_pos = None;
+    }
+
+    pub fn restore_history_entry(&mut self, entry: HistoryEntry) {
+        self.edit.shapes = entry.shapes;
+        self.set_selection(entry.selection);
+    }
 }
 
 #[derive(Clone)]

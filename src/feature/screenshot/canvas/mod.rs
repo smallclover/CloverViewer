@@ -7,9 +7,7 @@ pub mod render;
 pub mod shape;
 pub mod text_input;
 
-use crate::feature::screenshot::capture::{
-    DrawnShape, HistoryEntry, ScreenshotState, ScreenshotTool,
-};
+use crate::feature::screenshot::capture::{DrawnShape, ScreenshotState, ScreenshotTool};
 use eframe::egui::{Color32, Id, Pos2, Ui, Vec2};
 
 /// 物理坐标转换为本地逻辑坐标
@@ -159,10 +157,7 @@ pub fn commit_text_shape(
     let text_width_phys = galley.size().x * ppp;
     let end_pos = start_pos_phys + Vec2::new(text_width_phys, 0.0);
 
-    state.edit.history.push(HistoryEntry {
-        shapes: state.edit.shapes.clone(),
-        selection: state.select.selection,
-    });
+    state.push_history_snapshot();
 
     state.edit.shapes.push(DrawnShape {
         tool: ScreenshotTool::Text,

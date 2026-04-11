@@ -136,16 +136,14 @@ fn handle_click(
         }
 
         if let Some(hovered) = state.select.hovered_window {
-            state.select.selection = Some(hovered);
-            state.select.toolbar_pos = Some(hovered.right_bottom());
+            state.set_selection(Some(hovered));
             return;
         } else if let Some(pointer_pos) = response.interact_pointer_pos() {
             let global_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
             if let Some(cap_phys_rect) =
                 find_target_screen_rect(&state.capture.captures, global_phys)
             {
-                state.select.selection = Some(cap_phys_rect);
-                state.select.toolbar_pos = Some(cap_phys_rect.right_bottom());
+                state.set_selection(Some(cap_phys_rect));
                 return;
             }
         }
