@@ -11,7 +11,7 @@ pub fn copy_image_to_clipboard_async(
 ) {
     let text = get_i18n_text(ctx);
 
-    toast_manager.loading(text.coping_message);
+    toast_manager.loading(text.copying_message);
 
     let toast_clone = toast_manager.clone();
     let copied_message = text.copied_message;

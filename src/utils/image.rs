@@ -28,7 +28,7 @@ pub fn collect_images(dir: &Path) -> Vec<PathBuf> {
 
 pub fn load_icon() -> egui::IconData {
     let img = image::load_from_memory(APP_IMG)
-        .expect("无法读取内嵌图标")
+        .expect("Failed to read embedded app icon")
         .into_rgba8();
     let (w, h) = img.dimensions();
 
@@ -41,7 +41,7 @@ pub fn load_icon() -> egui::IconData {
 
 pub fn load_tray_icon() -> Icon {
     let img = image::load_from_memory(APP_IMG)
-        .expect("无法读取内嵌图标")
+        .expect("Failed to read embedded app icon")
         .resize_exact(16, 16, image::imageops::FilterType::Lanczos3)
         .into_rgba8();
 

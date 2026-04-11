@@ -75,18 +75,17 @@ pub struct TextBundle {
     // Toast
     pub copied_message: &'static str,
     pub copy_failed_message: &'static str,
-    pub coping_message: &'static str,
+    pub copying_message: &'static str,
 
     // 属性
     pub img_prop: &'static str,
     pub img_name: &'static str,
     pub img_date: &'static str,
     pub img_path: &'static str,
-    // pub img_size:  &'static str,
     pub img_dim: &'static str,
 
     // 状态栏
-    pub status_gird: &'static str,
+    pub status_grid: &'static str,
     pub status_single: &'static str,
 
     // Tooltips
@@ -168,15 +167,14 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     loading_parsing: "正在解析像素...",
     copied_message: "已复制",
     copy_failed_message: "复制失败",
-    coping_message: "正在复制中...",
+    copying_message: "正在复制中...",
     img_prop: "属性",
 
     img_name: "名称",
     img_date: "日期",
     img_path: "图片路径",
-    // img_size: "图片大小",
     img_dim: "图片尺寸",
-    status_gird: "网格视图",
+    status_grid: "网格视图",
     status_single: "单图视图",
 
     tooltip_draw_text: "文字",
@@ -250,15 +248,14 @@ pub const EN_TEXT: TextBundle = TextBundle {
     loading_parsing: "Parsing pixels...",
     copied_message: "Copied",
     copy_failed_message: "Copy failed",
-    coping_message: "Coping...",
+    copying_message: "Copying...",
 
     img_prop: "Properties",
     img_name: "Name",
     img_date: "Datetime",
     img_path: "File Path",
-    // img_size: "Size",
     img_dim: "Dimension",
-    status_gird: "Grid View",
+    status_grid: "Grid View",
     status_single: "Single View",
 
     tooltip_draw_text: "Font",
@@ -332,15 +329,14 @@ pub const JA_TEXT: TextBundle = TextBundle {
     loading_parsing: "ピクセルを解析中...",
     copied_message: "コピーしました",
     copy_failed_message: "コピーに失敗しました",
-    coping_message: "コピー中...",
+    copying_message: "コピー中...",
 
     img_prop: "プロパティーズ",
     img_name: "ネーム",
     img_date: "日付",
     img_path: "ファイルパス",
-    // img_size: "サイズ",
     img_dim: "ディメンション",
-    status_gird: "グリッド表示",
+    status_grid: "グリッド表示",
     status_single: "単一表示",
 
     tooltip_draw_text: "文字",

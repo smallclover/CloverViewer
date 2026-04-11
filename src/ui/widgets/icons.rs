@@ -21,7 +21,7 @@ pub enum IconType {
 impl IconType {
     pub fn tooltip(&self, text: &TextBundle) -> &'static str {
         match self {
-            IconType::Grid => text.status_gird,
+            IconType::Grid => text.status_grid,
             IconType::Single => text.status_single,
             IconType::Text => text.tooltip_draw_text,
             IconType::DrawRect => text.tooltip_draw_rect,
