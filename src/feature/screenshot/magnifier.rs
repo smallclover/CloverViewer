@@ -26,7 +26,7 @@ pub fn handle_magnifier(
 
     // 1. 寻找鼠标当前所在的具体屏幕
     let mut target_screen = None;
-    for cap in &state.captures {
+    for cap in &state.capture.captures {
         let rect = Rect::from_min_size(
             Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
             eframe::egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32),
@@ -54,10 +54,10 @@ pub fn handle_magnifier(
         );
 
         // 4. 处理颜色复制 (Ctrl + C 或按钮请求)
-        if state.copy_requested
+        if state.input.copy_requested
             || ui.input(|i| i.modifiers.ctrl && i.key_pressed(eframe::egui::Key::C))
         {
-            state.copy_requested = false;
+            state.input.copy_requested = false;
 
             let center_phys_x =
                 (global_pointer_phys.x - screen.screen_info.x as f32).round() as isize;

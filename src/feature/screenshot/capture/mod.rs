@@ -30,8 +30,8 @@ pub fn handle_screenshot_system(
     }
 
     // 1. 发起和轮询截图阶段
-    if screenshot_state.captures.is_empty() {
-        if !screenshot_state.is_capturing {
+    if screenshot_state.capture.captures.is_empty() {
+        if !screenshot_state.capture.is_capturing {
             ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::ZERO));
             ctx.send_viewport_cmd(ViewportCommand::OuterPosition(Pos2::new(
                 -20000.0, -20000.0,
@@ -45,7 +45,7 @@ pub fn handle_screenshot_system(
     }
 
     // 2. 截图完成，全屏展开逻辑
-    if !screenshot_state.window_configured {
+    if !screenshot_state.runtime.window_configured {
         let ppp = ctx.pixels_per_point();
 
         // 1. 获取包含所有显示器的【绝对物理边界】
@@ -55,7 +55,7 @@ pub fn handle_screenshot_system(
         let mut max_x = f32::MIN;
         let mut max_y = f32::MIN;
 
-        for cap in &screenshot_state.captures {
+        for cap in &screenshot_state.capture.captures {
             let info = &cap.screen_info;
             let phys_x = info.x as f32 * info.scale_factor;
             let phys_y = info.y as f32 * info.scale_factor;
@@ -87,7 +87,7 @@ pub fn handle_screenshot_system(
         ctx.send_viewport_cmd(ViewportCommand::OuterPosition(exact_logical_pos));
         ctx.send_viewport_cmd(ViewportCommand::InnerSize(exact_logical_size));
 
-        screenshot_state.window_configured = true;
+        screenshot_state.runtime.window_configured = true;
         ctx.request_repaint();
     } else {
         current_platform().lock_cursor_for_screenshot();
@@ -120,7 +120,7 @@ pub fn handle_screenshot_system(
             if action == ScreenshotAction::Ocr {
                 WindowPrevState::Normal
             } else {
-                screenshot_state.prev_window_state
+                screenshot_state.runtime.prev_window_state
             }
         };
         current_platform().unlock_cursor();
@@ -191,8 +191,8 @@ pub fn draw_screenshot_ui(
         .show(ctx, |ui| {
             let painter = ui.painter();
 
-            for cap in &state.captures {
-                if let Some(texture) = state.texture_pool.get(&cap.screen_info.name) {
+            for cap in &state.capture.captures {
+                if let Some(texture) = state.capture.texture_pool.get(&cap.screen_info.name) {
                     let rect = device_info.screen_logical_rect(&cap.screen_info, ppp);
 
                     painter.image(
@@ -204,17 +204,20 @@ pub fn draw_screenshot_ui(
                 }
             }
 
-            state.hovered_window = None;
+            state.select.hovered_window = None;
             let is_hovered = ui.rect_contains_pointer(ui.max_rect());
 
-            if is_hovered && state.selection.is_none() && state.drag_start.is_none() {
+            if is_hovered
+                && state.select.selection.is_none()
+                && state.select.drag_start.is_none()
+            {
                 if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
                     let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
 
-                    for rect in &state.window_rects {
+                    for rect in &state.capture.window_rects {
                         if rect.contains(global_pointer_phys) {
                             let mut is_fullscreen = false;
-                            for cap in &state.captures {
+                            for cap in &state.capture.captures {
                                 if (rect.width() - cap.screen_info.width as f32).abs() < 5.0
                                     && (rect.height() - cap.screen_info.height as f32).abs() < 5.0
                                 {
@@ -223,7 +226,7 @@ pub fn draw_screenshot_ui(
                                 }
                             }
                             if !is_fullscreen {
-                                state.hovered_window = Some(*rect);
+                                state.select.hovered_window = Some(*rect);
                             }
                             break;
                         }
@@ -270,7 +273,7 @@ pub fn draw_screenshot_ui(
                     let is_over_toolbar =
                         local_toolbar_rect.map_or(false, |r| r.contains(pointer_pos));
                     let is_interacting_popup =
-                        state.color_picker.is_open && ui.ctx().is_pointer_over_area();
+                        state.drawing.color_picker.is_open && ui.ctx().is_pointer_over_area();
 
                     if !is_over_toolbar && !is_interacting_popup {
                         handle_magnifier(ui, state, global_offset_phys, ppp, pointer_pos);
@@ -280,23 +283,23 @@ pub fn draw_screenshot_ui(
 
             // Ctrl+Z 撤销
             if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z)) {
-                if let Some(entry) = state.history.pop() {
-                    state.shapes = entry.shapes;
-                    state.selection = entry.selection;
+                if let Some(entry) = state.edit.history.pop() {
+                    state.edit.shapes = entry.shapes;
+                    state.select.selection = entry.selection;
                     // 更新 toolbar 位置
-                    if let Some(sel) = state.selection {
-                        state.toolbar_pos = Some(sel.right_bottom());
+                    if let Some(sel) = state.select.selection {
+                        state.select.toolbar_pos = Some(sel.right_bottom());
                     } else {
-                        state.toolbar_pos = None;
+                        state.select.toolbar_pos = None;
                     }
                 }
             }
 
             if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                 let can_save_to_clipboard =
-                    state.selection.map(|r| r.is_positive()).unwrap_or(false);
+                    state.select.selection.map(|r| r.is_positive()).unwrap_or(false);
 
-                if can_save_to_clipboard && state.active_text_input.is_none() {
+                if can_save_to_clipboard && state.input.active_text_input.is_none() {
                     action = ScreenshotAction::SaveToClipboard;
                 }
             }

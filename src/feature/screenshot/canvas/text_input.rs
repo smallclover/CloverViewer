@@ -12,8 +12,8 @@ pub fn render_text_input(
     global_offset_phys: Pos2,
     ppp: f32,
 ) {
-    if let Some((pos_phys, mut text)) = state.active_text_input.clone() {
-        let font_size = 20.0 + (state.stroke_width * 2.0);
+    if let Some((pos_phys, mut text)) = state.input.active_text_input.clone() {
+        let font_size = 20.0 + (state.drawing.stroke_width * 2.0);
         let mut pos_local = Pos2::ZERO + ((pos_phys - global_offset_phys) / ppp);
 
         // 默认文本框宽度（逻辑坐标）：约1字宽 + 内边距16
@@ -21,7 +21,7 @@ pub fn render_text_input(
         // 默认文本框高度（逻辑坐标）：约1行高 + 内边距16 + 行间距余量
         let default_box_height = font_size + 24.0;
 
-        let (max_width, clip_rect) = if let Some(sel) = state.selection {
+        let (max_width, clip_rect) = if let Some(sel) = state.select.selection {
             let sel_min_x_local = Pos2::ZERO.x + ((sel.min.x - global_offset_phys.x) / ppp);
             let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
             let sel_min_y_local = Pos2::ZERO.y + ((sel.min.y - global_offset_phys.y) / ppp);
@@ -100,14 +100,14 @@ pub fn render_text_input(
                         egui::TextEdit::multiline(&mut text)
                             .id(text_edit_id)
                             .font(font_id)
-                            .text_color(state.active_color)
+                            .text_color(state.drawing.active_color)
                             .frame(false)
                             .desired_rows(1)
                             .desired_width(dynamic_width),
                     );
 
                     // 首次创建时请求焦点（只请求一次）
-                    if state.active_text_input.is_some()
+                    if state.input.active_text_input.is_some()
                         && !response.has_focus()
                         && !response.lost_focus()
                     {
@@ -116,7 +116,7 @@ pub fn render_text_input(
 
                     // 焦点丢失时提交文本（点击工具栏、点击外部区域等）
                     if response.lost_focus() && !text.trim().is_empty() {
-                        state.active_text_input = None;
+                        state.input.active_text_input = None;
                         commit_text_shape(
                             ui,
                             state,
@@ -126,9 +126,9 @@ pub fn render_text_input(
                             ppp,
                         );
                     } else if response.lost_focus() {
-                        state.active_text_input = None;
+                        state.input.active_text_input = None;
                     } else {
-                        state.active_text_input = Some((adjusted_pos_phys, text));
+                        state.input.active_text_input = Some((adjusted_pos_phys, text));
                     }
                 });
 

@@ -39,7 +39,7 @@ pub fn render_canvas_elements(
     let dragging_index = canvas_state.dragging_shape;
     let selected_index = canvas_state.selected_shape;
 
-    for (index, shape) in state.shapes.iter_mut().enumerate() {
+    for (index, shape) in state.edit.shapes.iter_mut().enumerate() {
         // 视口裁剪
         let rect = shape.bounding_rect(global_offset_phys, ppp);
         let mut visible = viewport_rect.intersects(rect);
@@ -60,7 +60,7 @@ pub fn render_canvas_elements(
         let is_highlighted = (Some(index) == hovered_index
             || Some(index) == dragging_index
             || Some(index) == selected_index)
-            && state.current_shape_start.is_none();
+            && state.input.current_shape_start.is_none();
 
         // 马赛克特殊处理：需要 captures
         if shape.tool == ScreenshotTool::Mosaic {
@@ -85,8 +85,8 @@ pub fn render_canvas_elements(
                         shape.stroke_width,
                         global_offset_phys,
                         ppp,
-                        state.selection,
-                        &state.captures,
+                        state.select.selection,
+                        &state.capture.captures,
                     );
                     // 异步生成纹理缓存（下一帧使用）
                     if let Some(cache) =
@@ -95,8 +95,8 @@ pub fn render_canvas_elements(
                             points,
                             shape.stroke_width,
                             ppp,
-                            state.selection,
-                            &state.captures,
+                            state.select.selection,
+                            &state.capture.captures,
                         )
                     {
                         shape.cached_mosaic = Some(std::sync::Arc::new(cache));
@@ -129,7 +129,7 @@ pub fn render_canvas_elements(
 
     // 绘制选中图形的控制点和选中边框
     if let Some(selected_idx) = selected_index {
-        if let Some(shape) = state.shapes.get(selected_idx) {
+        if let Some(shape) = state.edit.shapes.get(selected_idx) {
             if shape.supports_resize() {
                 // 绘制选中边框（蓝色实线）
                 let bbox = shape.bounding_rect(global_offset_phys, ppp);
@@ -170,7 +170,7 @@ fn render_overlay(
 ) {
     let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, OVERLAY_ALPHA);
 
-    if let Some(global_sel_phys) = state.selection {
+    if let Some(global_sel_phys) = state.select.selection {
         let vec_min = global_sel_phys.min - global_offset_phys;
         let vec_max = global_sel_phys.max - global_offset_phys;
         let local_logical_rect =
@@ -206,9 +206,9 @@ fn render_overlay(
         return;
     }
 
-    if state.current_shape_start.is_none() && state.drag_start.is_none() {
+    if state.input.current_shape_start.is_none() && state.select.drag_start.is_none() {
         if is_hovered {
-            if let Some(hover_phys_rect) = state.hovered_window {
+            if let Some(hover_phys_rect) = state.select.hovered_window {
                 paint_hover_window_overlay(
                     painter,
                     hover_phys_rect,
@@ -220,7 +220,7 @@ fn render_overlay(
             } else if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
                 let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
                 if let Some(cap_phys_rect) = crate::model::device::find_target_screen_rect(
-                    &state.captures,
+                    &state.capture.captures,
                     global_pointer_phys,
                 ) {
                     let vec_min = cap_phys_rect.min - global_offset_phys;
@@ -350,7 +350,7 @@ fn render_selection_frame(
     ppp: f32,
     viewport_rect: Rect,
 ) {
-    let Some(global_sel_phys) = state.selection else {
+    let Some(global_sel_phys) = state.select.selection else {
         return;
     };
 

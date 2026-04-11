@@ -51,12 +51,13 @@ pub(super) fn handle_save_action(
 }
 
 pub fn extract_cropped_image(screenshot_state: &ScreenshotState) -> Option<RgbaImage> {
-    let selection_phys = screenshot_state.selection?;
+    let selection_phys = screenshot_state.select.selection?;
     if !selection_phys.is_positive() {
         return None;
     }
 
     let captures_data: Vec<_> = screenshot_state
+        .capture
         .captures
         .iter()
         .map(|c| {
@@ -104,6 +105,6 @@ pub fn extract_cropped_image(screenshot_state: &ScreenshotState) -> Option<RgbaI
         let _ = final_image.copy_from(&cropped_part, paste_x, paste_y);
     }
 
-    draw_skia_shapes_on_image(&mut final_image, &screenshot_state.shapes, selection_phys);
+    draw_skia_shapes_on_image(&mut final_image, &screenshot_state.edit.shapes, selection_phys);
     Some(final_image)
 }

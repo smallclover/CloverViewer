@@ -102,7 +102,7 @@ fn handle_click(
     // 检查是否点击在选中图形的控制点上
     if let Some(pos) = response.interact_pointer_pos() {
         if let Some(selected_idx) = canvas_state.selected_shape {
-            if let Some(shape) = state.shapes.get(selected_idx) {
+            if let Some(shape) = state.edit.shapes.get(selected_idx) {
                 if shape.supports_resize() {
                     if let Some(_handle) =
                         hover::get_hovered_handle(pos, shape, global_offset_phys, ppp)
@@ -121,52 +121,54 @@ fn handle_click(
     // 第一优先级：点击图形选中它（无论当前工具是什么）
     if let Some(hovered_idx) = canvas_state.hovered_shape {
         canvas_state.selected_shape = Some(hovered_idx);
-        state.current_tool = None;
+        state.drawing.current_tool = None;
         return;
     }
 
     // 无工具时：选择窗口或屏幕区域，或取消选中
-    if state.current_tool.is_none() {
+    if state.drawing.current_tool.is_none() {
         if !is_moving_state {
             canvas_state.selected_shape = None;
         }
 
-        if state.selection.is_some() && !state.shapes.is_empty() {
+        if state.select.selection.is_some() && !state.edit.shapes.is_empty() {
             return;
         }
 
-        if let Some(hovered) = state.hovered_window {
-            state.selection = Some(hovered);
-            state.toolbar_pos = Some(hovered.right_bottom());
+        if let Some(hovered) = state.select.hovered_window {
+            state.select.selection = Some(hovered);
+            state.select.toolbar_pos = Some(hovered.right_bottom());
             return;
         } else if let Some(pointer_pos) = response.interact_pointer_pos() {
             let global_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
-            if let Some(cap_phys_rect) = find_target_screen_rect(&state.captures, global_phys) {
-                state.selection = Some(cap_phys_rect);
-                state.toolbar_pos = Some(cap_phys_rect.right_bottom());
+            if let Some(cap_phys_rect) =
+                find_target_screen_rect(&state.capture.captures, global_phys)
+            {
+                state.select.selection = Some(cap_phys_rect);
+                state.select.toolbar_pos = Some(cap_phys_rect.right_bottom());
                 return;
             }
         }
     }
 
     // 文本工具点击
-    if state.current_tool == Some(ScreenshotTool::Text) && can_draw {
+    if state.drawing.current_tool == Some(ScreenshotTool::Text) && can_draw {
         if let Some(pos) = response.interact_pointer_pos() {
             let global_phys = global_offset_phys + (pos.to_vec2() * ppp);
 
             // 点击必须在选区内才允许创建文本框
-            if let Some(sel) = state.selection {
+            if let Some(sel) = state.select.selection {
                 if !sel.contains(global_phys) {
                     return;
                 }
             }
 
-            if let Some((pos_old, text)) = state.active_text_input.take() {
+            if let Some((pos_old, text)) = state.input.active_text_input.take() {
                 if !text.trim().is_empty() {
                     commit_text_shape(ui, state, pos_old, text, global_offset_phys, ppp);
                 }
             } else {
-                state.active_text_input = Some((global_phys, String::new()));
+                state.input.active_text_input = Some((global_phys, String::new()));
             }
         }
     }

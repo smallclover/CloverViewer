@@ -7,13 +7,14 @@ use egui::{Color32, Id, Pos2, Rect, RichText, Stroke, Ui};
 
 /// 绘制左下角快捷键与帮助提示框（支持多语言、动态配置和图标混合排版）
 pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys: Pos2, ppp: f32) {
-    if let Some(global_sel_phys) = state.selection {
+    if let Some(global_sel_phys) = state.select.selection {
         let sel_center_phys = global_sel_phys.center();
 
         // 1. 获取目标屏幕
         let screen_phys =
-            find_target_screen_rect(&state.captures, sel_center_phys).unwrap_or_else(|| {
+            find_target_screen_rect(&state.capture.captures, sel_center_phys).unwrap_or_else(|| {
                 state
+                    .capture
                     .captures
                     .first()
                     .map(|cap| get_screen_phys_rect(&cap.screen_info))

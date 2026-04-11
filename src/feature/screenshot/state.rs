@@ -54,35 +54,123 @@ pub struct MosaicCache {
 }
 
 pub struct ScreenshotState {
+    pub capture: ScreenshotCaptureState,
+    pub select: ScreenshotSelectionState,
+    pub drawing: ScreenshotDrawingState,
+    pub edit: ScreenshotEditState,
+    pub runtime: ScreenshotRuntimeState,
+    pub input: ScreenshotInputState,
+}
+
+pub struct ScreenshotEditState {
+    pub shapes: Vec<DrawnShape>,
+    // 撤销功能：历史栈
+    pub history: Vec<HistoryEntry>,
+}
+
+impl Default for ScreenshotEditState {
+    fn default() -> Self {
+        Self {
+            shapes: Vec::new(),
+            history: Vec::new(),
+        }
+    }
+}
+
+pub struct ScreenshotCaptureState {
     pub captures: Vec<CapturedScreen>,
+    pub window_rects: Vec<Rect>,
+    pub is_capturing: bool,
+    pub capture_receiver: Option<std::sync::mpsc::Receiver<(Vec<CapturedScreen>, Vec<Rect>)>>,
+    pub texture_pool: HashMap<String, TextureHandle>,
+}
+
+impl Default for ScreenshotCaptureState {
+    fn default() -> Self {
+        Self {
+            captures: Vec::new(),
+            window_rects: Vec::new(),
+            is_capturing: false,
+            capture_receiver: None,
+            texture_pool: HashMap::new(),
+        }
+    }
+}
+
+pub struct ScreenshotSelectionState {
     pub selection: Option<Rect>,
     pub drag_start: Option<Pos2>,
     pub toolbar_pos: Option<Pos2>,
-    pub window_rects: Vec<Rect>,
     pub hovered_window: Option<Rect>,
-    pub is_capturing: bool,
-    pub capture_receiver: Option<std::sync::mpsc::Receiver<(Vec<CapturedScreen>, Vec<Rect>)>>,
+}
+
+impl Default for ScreenshotSelectionState {
+    fn default() -> Self {
+        Self {
+            selection: None,
+            drag_start: None,
+            toolbar_pos: None,
+            hovered_window: None,
+        }
+    }
+}
+
+pub struct ScreenshotDrawingState {
     pub current_tool: Option<ScreenshotTool>,
     pub active_color: Color32,
     pub stroke_width: f32,
-    pub mosaic_width: f32, // 马赛克专用的粗细度
+    pub mosaic_width: f32,
     pub color_picker: ColorPicker,
     pub color_picker_anchor: Option<Rect>,
-    pub shapes: Vec<DrawnShape>,
-    pub current_shape_start: Option<Pos2>,
-    pub current_shape_end: Option<Pos2>,
-    pub copy_requested: bool,
-    pub texture_pool: HashMap<String, TextureHandle>,
+}
 
+impl Default for ScreenshotDrawingState {
+    fn default() -> Self {
+        Self {
+            current_tool: None,
+            active_color: DEFAULT_ACTIVE_COLOR,
+            stroke_width: DEFAULT_STROKE_WIDTH,
+            mosaic_width: DEFAULT_MOSAIC_WIDTH,
+            color_picker: ColorPicker::new(DEFAULT_ACTIVE_COLOR),
+            color_picker_anchor: None,
+        }
+    }
+}
+
+pub struct ScreenshotRuntimeState {
     pub window_configured: bool,
     pub prev_window_state: WindowPrevState,
+}
 
-    // 撤销功能：历史栈
-    pub history: Vec<HistoryEntry>,
+impl ScreenshotRuntimeState {
+    fn new(prev_window_state: WindowPrevState) -> Self {
+        Self {
+            window_configured: false,
+            prev_window_state,
+        }
+    }
+}
+
+pub struct ScreenshotInputState {
+    pub copy_requested: bool,
+    pub current_shape_start: Option<Pos2>,
+    pub current_shape_end: Option<Pos2>,
     // 记录文本输入状态：Option<(文本所在的物理坐标, 文本内容)>
     pub active_text_input: Option<(Pos2, String)>,
     // 当前正在绘制的画笔轨迹
     pub current_pen_points: Vec<Pos2>,
+}
+
+impl Default for ScreenshotInputState {
+    fn default() -> Self {
+        Self {
+            copy_requested: false,
+            current_shape_start: None,
+            current_shape_end: None,
+            active_text_input: None,
+            current_pen_points: Vec::new(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -100,31 +188,12 @@ impl Default for ScreenshotState {
 impl ScreenshotState {
     pub fn new(prev_state: WindowPrevState) -> Self {
         Self {
-            captures: Vec::new(),
-            selection: None,
-            drag_start: None,
-            toolbar_pos: None,
-            window_rects: Vec::new(),
-            hovered_window: None,
-            is_capturing: false,
-            capture_receiver: None,
-            current_tool: None,
-            active_color: DEFAULT_ACTIVE_COLOR,
-            stroke_width: DEFAULT_STROKE_WIDTH,
-            mosaic_width: DEFAULT_MOSAIC_WIDTH,
-            color_picker: ColorPicker::new(DEFAULT_ACTIVE_COLOR),
-            color_picker_anchor: None,
-            shapes: Vec::new(),
-            current_shape_start: None,
-            current_shape_end: None,
-            copy_requested: false,
-            texture_pool: HashMap::new(),
-
-            window_configured: false,
-            prev_window_state: prev_state,
-            history: Vec::new(),
-            active_text_input: None,
-            current_pen_points: Vec::new(),
+            capture: ScreenshotCaptureState::default(),
+            select: ScreenshotSelectionState::default(),
+            drawing: ScreenshotDrawingState::default(),
+            edit: ScreenshotEditState::default(),
+            runtime: ScreenshotRuntimeState::new(prev_state),
+            input: ScreenshotInputState::default(),
         }
     }
 }

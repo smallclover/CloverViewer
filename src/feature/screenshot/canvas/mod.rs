@@ -126,8 +126,8 @@ pub fn commit_text_shape(
     global_offset_phys: Pos2,
     ppp: f32,
 ) {
-    let font_size = 20.0 + (state.stroke_width * 2.0);
-    let max_width_logical = if let Some(sel) = state.selection {
+    let font_size = 20.0 + (state.drawing.stroke_width * 2.0);
+    let max_width_logical = if let Some(sel) = state.select.selection {
         let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
         let start_local_x = Pos2::ZERO.x + ((pos.x - global_offset_phys.x) / ppp);
         (sel_max_x_local - start_local_x - 16.0).max(20.0)
@@ -159,17 +159,17 @@ pub fn commit_text_shape(
     let text_width_phys = galley.size().x * ppp;
     let end_pos = start_pos_phys + Vec2::new(text_width_phys, 0.0);
 
-    state.history.push(HistoryEntry {
-        shapes: state.shapes.clone(),
-        selection: state.selection,
+    state.edit.history.push(HistoryEntry {
+        shapes: state.edit.shapes.clone(),
+        selection: state.select.selection,
     });
 
-    state.shapes.push(DrawnShape {
+    state.edit.shapes.push(DrawnShape {
         tool: ScreenshotTool::Text,
         start: start_pos_phys,
         end: end_pos,
-        color: state.active_color,
-        stroke_width: state.stroke_width,
+        color: state.drawing.active_color,
+        stroke_width: state.drawing.stroke_width,
         text: Some(baked_text),
         points: None,
         cached_galley: None,

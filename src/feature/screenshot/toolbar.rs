@@ -18,7 +18,7 @@ pub fn calculate_toolbar_rect(
     global_offset_phys: Pos2,
     ppp: f32,
 ) -> Option<Rect> {
-    let global_toolbar_pos_phys = state.toolbar_pos?;
+    let global_toolbar_pos_phys = state.select.toolbar_pos?;
 
     let vec_phys = global_toolbar_pos_phys - global_offset_phys;
     let local_pos_logical = Pos2::ZERO + (vec_phys / ppp);
@@ -34,7 +34,7 @@ pub fn calculate_toolbar_rect(
 
     // 2. 找到当前工具栏所在的物理显示器边界
     let mut current_monitor_rect = None;
-    for cap in &state.captures {
+    for cap in &state.capture.captures {
         let cap_phys_rect = Rect::from_min_size(
             Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
             egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32),
@@ -92,23 +92,24 @@ pub fn render_toolbar_and_overlays(
         action = toolbar_action;
     }
 
-    let is_mosaic = state.current_tool == Some(ScreenshotTool::Mosaic);
+    let is_mosaic = state.drawing.current_tool == Some(ScreenshotTool::Mosaic);
     let mut width_value = if is_mosaic {
-        state.mosaic_width
+        state.drawing.mosaic_width
     } else {
-        state.stroke_width
+        state.drawing.stroke_width
     };
 
     if state
+        .drawing
         .color_picker
-        .show(ui, state.color_picker_anchor, &mut width_value, !is_mosaic)
+        .show(ui, state.drawing.color_picker_anchor, &mut width_value, !is_mosaic)
     {
         if is_mosaic {
-            state.mosaic_width = width_value;
+            state.drawing.mosaic_width = width_value;
         } else {
-            state.stroke_width = width_value;
+            state.drawing.stroke_width = width_value;
         }
-        state.active_color = state.color_picker.selected_color;
+        state.drawing.active_color = state.drawing.color_picker.selected_color;
         ui.ctx().request_repaint();
     }
 
@@ -153,10 +154,10 @@ fn draw_screenshot_toolbar(
                 (ScreenshotTool::Text, IconType::Text),
             ];
             for (tool, icon) in tool_buttons {
-                let is_selected = state.current_tool == Some(tool);
+                let is_selected = state.drawing.current_tool == Some(tool);
                 let button = draw_icon_button(ui, is_selected, icon, TOOLBAR_BUTTON_SIZE);
                 if button.clicked() {
-                    state.current_tool = Some(tool);
+                    state.drawing.current_tool = Some(tool);
                 }
                 handle_tool_interaction(ui, &button, tool, state);
             }
@@ -214,10 +215,10 @@ fn handle_tool_interaction(
 
     // --- 1. 处理点击 ---
     if response.clicked() {
-        state.current_tool = Some(target_tool);
+        state.drawing.current_tool = Some(target_tool);
         if !long_press_triggered {
-            if state.color_picker.is_open {
-                state.color_picker.close();
+            if state.drawing.color_picker.is_open {
+                state.drawing.color_picker.close();
             }
         }
     }
@@ -234,9 +235,9 @@ fn handle_tool_interaction(
 
                     if current_time - press_time > 0.6 {
                         // === 触发长按 ===
-                        state.color_picker.open();
-                        state.color_picker_anchor = Some(response.rect);
-                        state.current_tool = Some(target_tool);
+                        state.drawing.color_picker.open();
+                        state.drawing.color_picker_anchor = Some(response.rect);
+                        state.drawing.current_tool = Some(target_tool);
                         ui.data_mut(|d| d.insert_temp(button_id, true));
                     }
                 }

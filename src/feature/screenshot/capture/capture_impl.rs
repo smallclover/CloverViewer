@@ -15,13 +15,13 @@ pub(super) fn handle_capture_process(
     ctx: &Context,
     screenshot_state: &mut ScreenshotState,
 ) -> bool {
-    if !screenshot_state.is_capturing {
-        screenshot_state.is_capturing = true;
+    if !screenshot_state.capture.is_capturing {
+        screenshot_state.capture.is_capturing = true;
 
         ctx.request_repaint();
 
         let (tx, rx) = channel();
-        screenshot_state.capture_receiver = Some(rx);
+        screenshot_state.capture.capture_receiver = Some(rx);
         let ctx_clone = ctx.clone();
 
         thread::spawn(move || {
@@ -89,12 +89,13 @@ pub(super) fn handle_capture_process(
         });
     }
 
-    if let Some(rx) = &screenshot_state.capture_receiver {
+    if let Some(rx) = &screenshot_state.capture.capture_receiver {
         match rx.try_recv() {
             Ok((captures, window_rects)) => {
                 for cap in &captures {
                     let monitor_name = &cap.screen_info.name;
-                    if let Some(texture) = screenshot_state.texture_pool.get_mut(monitor_name) {
+                    if let Some(texture) = screenshot_state.capture.texture_pool.get_mut(monitor_name)
+                    {
                         texture.set(cap.image.clone(), Default::default());
                     } else {
                         let texture = ctx.load_texture(
@@ -103,23 +104,24 @@ pub(super) fn handle_capture_process(
                             Default::default(),
                         );
                         screenshot_state
+                            .capture
                             .texture_pool
                             .insert(monitor_name.clone(), texture);
                     }
                 }
 
-                screenshot_state.captures = captures;
-                screenshot_state.window_rects = window_rects;
-                screenshot_state.is_capturing = false;
-                screenshot_state.capture_receiver = None;
+                screenshot_state.capture.captures = captures;
+                screenshot_state.capture.window_rects = window_rects;
+                screenshot_state.capture.is_capturing = false;
+                screenshot_state.capture.capture_receiver = None;
                 ctx.request_repaint();
             }
             Err(TryRecvError::Empty) => {
                 ctx.request_repaint_after(Duration::from_millis(16));
             }
             Err(TryRecvError::Disconnected) => {
-                screenshot_state.is_capturing = false;
-                screenshot_state.capture_receiver = None;
+                screenshot_state.capture.is_capturing = false;
+                screenshot_state.capture.capture_receiver = None;
                 return true; // 表示应该退出截图模式
             }
         }

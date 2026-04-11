@@ -13,7 +13,7 @@ pub(super) fn check_hovering_ui(
     if let Some(pos) = ui.ctx().pointer_latest_pos() {
         let is_clicking_toolbar = toolbar_rect.map_or(false, |r| r.contains(pos));
         let is_interacting_with_picker =
-            state.color_picker.is_open && ui.ctx().is_pointer_over_area();
+            state.drawing.color_picker.is_open && ui.ctx().is_pointer_over_area();
         is_clicking_toolbar || is_interacting_with_picker
     } else {
         false
@@ -50,7 +50,7 @@ pub(super) fn update_hover_state(
             if !is_hovering_ui {
                 // 先检查是否悬停在选中图形的控制点上
                 if let Some(selected_idx) = canvas_state.selected_shape {
-                    if let Some(shape) = state.shapes.get(selected_idx) {
+                    if let Some(shape) = state.edit.shapes.get(selected_idx) {
                         if shape.supports_resize() {
                             if let Some(_handle) =
                                 get_hovered_handle(pos, shape, global_offset_phys, ppp)
@@ -65,7 +65,7 @@ pub(super) fn update_hover_state(
                 // 否则检查 shape body
                 canvas_state.hovered_shape = hit_test::get_hovered_shape_index(
                     pos,
-                    &state.shapes,
+                    &state.edit.shapes,
                     global_offset_phys,
                     ppp,
                     ui.painter(),
@@ -95,7 +95,7 @@ pub(super) fn update_cursor(
     // 检查是否悬停在选中图形的控制点上
     if let Some(pos) = ui.ctx().pointer_latest_pos() {
         if let Some(selected_idx) = canvas_state.selected_shape {
-            if let Some(shape) = state.shapes.get(selected_idx) {
+            if let Some(shape) = state.edit.shapes.get(selected_idx) {
                 if shape.supports_resize() {
                     if let Some(handle) = get_hovered_handle(pos, shape, global_offset_phys, ppp) {
                         // 根据 handle 索引设置对应的光标
@@ -144,10 +144,10 @@ pub(super) fn update_cursor(
     let mut is_hovering_selection_bg = false;
     if let Some(pos) = ui.ctx().pointer_latest_pos() {
         let global_phys = global_offset_phys + (pos.to_vec2() * ppp);
-        if let Some(sel) = state.selection {
+        if let Some(sel) = state.select.selection {
             is_hovering_selection_bg = sel.contains(global_phys)
                 && canvas_state.hovered_shape.is_none()
-                && state.shapes.is_empty();
+                && state.edit.shapes.is_empty();
         }
     }
 
@@ -158,12 +158,12 @@ pub(super) fn update_cursor(
     let cursor = if canvas_state.hovered_shape.is_some() && is_alt_down {
         CursorIcon::Copy // 悬浮在图形上且按下 Alt，显示复制指针
     } else if (is_moving_state
-        && state.current_shape_start.is_none()
-        && state.current_pen_points.is_empty())
+        && state.input.current_shape_start.is_none()
+        && state.input.current_pen_points.is_empty())
         || canvas_state.dragging_selection
     {
         CursorIcon::Move
-    } else if state.current_tool.is_none() && is_hovering_selection_bg {
+    } else if state.drawing.current_tool.is_none() && is_hovering_selection_bg {
         CursorIcon::Move
     } else {
         CursorIcon::Crosshair

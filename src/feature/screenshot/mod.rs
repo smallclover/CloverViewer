@@ -155,7 +155,7 @@ impl Feature for ScreenshotFeature {
         match action {
             // 截图模式
             HotkeyAction::RequestScreenshotCopy => {
-                self.state.copy_requested = true;
+                self.state.input.copy_requested = true;
                 None
             }
             // 复制截图
