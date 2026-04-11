@@ -43,7 +43,7 @@ impl Default for HotkeysConfig {
     fn default() -> Self {
         Self {
             show_screenshot: "Alt+S".to_string(),
-            copy_screenshot: "Ctrl+C".to_string(),
+            copy_screenshot: "Enter".to_string(),
         }
     }
 }

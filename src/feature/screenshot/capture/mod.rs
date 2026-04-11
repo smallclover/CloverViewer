@@ -292,6 +292,15 @@ pub fn draw_screenshot_ui(
                 }
             }
 
+            if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                let can_save_to_clipboard =
+                    state.selection.map(|r| r.is_positive()).unwrap_or(false);
+
+                if can_save_to_clipboard && state.active_text_input.is_none() {
+                    action = ScreenshotAction::SaveToClipboard;
+                }
+            }
+
             if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                 action = ScreenshotAction::Close;
             }

@@ -1,8 +1,8 @@
 use super::Platform;
+use crate::i18n::lang::Language;
 use egui::{ColorImage, Rect};
 use image::DynamicImage;
 use std::path::Path;
-use crate::i18n::lang::Language;
 
 pub struct LinuxPlatform;
 
