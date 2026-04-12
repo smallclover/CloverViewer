@@ -39,7 +39,7 @@ pub fn render_settings_window(
 
     let mut action = ModalAction::None;
 
-    ModalFrame::show(ctx, open, &text.settings_title, |ui| {
+    ModalFrame::show(ctx, open, text.settings_title, |ui| {
         ui.set_min_width(700.0);
         ui.set_min_height(500.0);
 
@@ -172,14 +172,14 @@ fn render_content_body(
                     .show(ui, |ui| {
                         render_hotkey_row(
                             ui,
-                            &text.shortcut_key_screenshot,
+                            text.shortcut_key_screenshot,
                             &mut config.hotkeys.show_screenshot,
                             recording_state,
                             RecordingState::ShowScreenshot,
                         );
                         render_hotkey_row(
                             ui,
-                            &text.shortcut_key_copy_color,
+                            text.shortcut_key_copy_color,
                             &mut config.hotkeys.copy_screenshot,
                             recording_state,
                             RecordingState::CopyScreenshot,

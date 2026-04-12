@@ -85,7 +85,7 @@ impl CloverApp {
         let visible = Arc::new(Mutex::new(true));
         let allow_quit = Arc::new(Mutex::new(false));
         let platform = current_platform();
-        let hwnd_usize = platform.get_window_handle(&cc);
+        let hwnd_usize = platform.get_window_handle(cc);
 
         let config_arc = Arc::new(config);
         init_config_arc(&cc.egui_ctx, &Arc::clone(&config_arc));
@@ -94,7 +94,7 @@ impl CloverApp {
 
         // 创建托盘，使用 tray_restore_requested 标志在点击时通知模式需要重置
         let tray = init_tray(
-            &cc,
+            cc,
             &state.common.window_state.visible,
             &state.common.window_state.allow_quit,
             hwnd_usize,
@@ -178,10 +178,10 @@ impl CloverApp {
             return;
         }
 
-        if let Ok(visible) = self.state.common.window_state.visible.lock() {
-            if !*visible {
-                return;
-            }
+        if let Ok(visible) = self.state.common.window_state.visible.lock()
+            && !*visible
+        {
+            return;
         }
 
         let viewport = ctx.input(|i| i.viewport().clone());
@@ -226,55 +226,54 @@ impl CloverApp {
             return;
         }
 
-        if let (Some(outer), Some(inner)) = (viewport.outer_rect, viewport.inner_rect) {
-            if outer.min.x > -10000.0
-                && outer.min.y > -10000.0
-                && inner.width() < 4000.0
-                && inner.height() < 3000.0
-            {
-                let current_pos = (outer.min.x, outer.min.y);
-                let current_size = (inner.width(), inner.height());
+        if let (Some(outer), Some(inner)) = (viewport.outer_rect, viewport.inner_rect)
+            && outer.min.x > -10000.0
+            && outer.min.y > -10000.0
+            && inner.width() < 4000.0
+            && inner.height() < 3000.0
+        {
+            let current_pos = (outer.min.x, outer.min.y);
+            let current_size = (inner.width(), inner.height());
 
-                // 检查是否发生变化
-                let current_config = self.config_manager.config();
-                let pos_changed = current_config.window_pos != Some(current_pos);
-                let size_changed = current_config.window_size != Some(current_size);
+            // 检查是否发生变化
+            let current_config = self.config_manager.config();
+            let pos_changed = current_config.window_pos != Some(current_pos);
+            let size_changed = current_config.window_size != Some(current_size);
 
-                // 鼠标没有任何按键被按下，说明用户的拖拽或缩放动作已经结束
-                let no_mouse_down = !ctx.input(|i| i.pointer.any_down());
+            // 鼠标没有任何按键被按下，说明用户的拖拽或缩放动作已经结束
+            let no_mouse_down = !ctx.input(|i| i.pointer.any_down());
 
-                if (pos_changed || size_changed) && no_mouse_down {
-                    // 更新内存配置
-                    let mut new_config = (*current_config).clone();
-                    new_config.window_pos = Some(current_pos);
-                    new_config.window_size = Some(current_size);
-                    let new_config_arc = Arc::new(new_config);
+            if (pos_changed || size_changed) && no_mouse_down {
+                // 更新内存配置
+                let mut new_config = (*current_config).clone();
+                new_config.window_pos = Some(current_pos);
+                new_config.window_size = Some(current_size);
+                let new_config_arc = Arc::new(new_config);
 
-                    // 更新并触发保存
-                    self.config_manager
-                        .update_and_save(Arc::clone(&new_config_arc));
+                // 更新并触发保存
+                self.config_manager
+                    .update_and_save(Arc::clone(&new_config_arc));
 
-                    // 更新 Context 里的配置（保证全局同步）
-                    update_context_config(ctx, &new_config_arc);
-                }
+                // 更新 Context 里的配置（保证全局同步）
+                update_context_config(ctx, &new_config_arc);
             }
         }
     }
 
     /// 更新应用配置
     fn handle_update_config(&mut self, ctx: &Context) {
-        if let Some(ModalAction::Apply) = self.viewer_feature.get_pending_config_action() {
-            if let Some(config) = self.viewer_feature.take_pending_config() {
-                let new_config_arc = Arc::new(config);
+        if let Some(ModalAction::Apply) = self.viewer_feature.get_pending_config_action()
+            && let Some(config) = self.viewer_feature.take_pending_config()
+        {
+            let new_config_arc = Arc::new(config);
 
-                // 直接立刻保存（因为这是手动点确认修改的，无需防抖）
-                self.config_manager
-                    .update_and_save(Arc::clone(&new_config_arc));
-                self.config_manager.save_now();
+            // 直接立刻保存（因为这是手动点确认修改的，无需防抖）
+            self.config_manager
+                .update_and_save(Arc::clone(&new_config_arc));
+            self.config_manager.save_now();
 
-                self.state.reload_hotkeys(&new_config_arc);
-                update_context_config(ctx, &new_config_arc)
-            }
+            self.state.reload_hotkeys(&new_config_arc);
+            update_context_config(ctx, &new_config_arc)
         }
     }
 }
@@ -290,22 +289,22 @@ impl eframe::App for CloverApp {
         self.config_manager.update(ctx);
 
         // 检查是否从托盘恢复，若是则重置模式为 Viewer
-        if let Ok(mut flag) = self.state.common.tray_restore_requested.lock() {
-            if *flag {
-                *flag = false;
-                self.state.mode = AppMode::Viewer;
-            }
+        if let Ok(mut flag) = self.state.common.tray_restore_requested.lock()
+            && *flag
+        {
+            *flag = false;
+            self.state.mode = AppMode::Viewer;
         }
 
         // 检查是否从托盘请求截图
-        if let Ok(mut flag) = self.state.common.tray_screenshot_requested.lock() {
-            if *flag {
-                *flag = false;
-                use crate::feature::screenshot::state::WindowPrevState;
-                self.screenshot_feature
-                    .enter_screenshot_mode(WindowPrevState::Tray);
-                self.state.mode = AppMode::Screenshot;
-            }
+        if let Ok(mut flag) = self.state.common.tray_screenshot_requested.lock()
+            && *flag
+        {
+            *flag = false;
+            use crate::feature::screenshot::state::WindowPrevState;
+            self.screenshot_feature
+                .enter_screenshot_mode(WindowPrevState::Tray);
+            self.state.mode = AppMode::Screenshot;
         }
 
         // 调用当前模式的 Feature 更新

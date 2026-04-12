@@ -11,7 +11,7 @@ pub(super) fn check_hovering_ui(
     toolbar_rect: Option<Rect>,
 ) -> bool {
     if let Some(pos) = ui.ctx().pointer_latest_pos() {
-        let is_clicking_toolbar = toolbar_rect.map_or(false, |r| r.contains(pos));
+        let is_clicking_toolbar = toolbar_rect.is_some_and(|r| r.contains(pos));
         let is_interacting_with_picker =
             state.drawing.color_picker.is_open && ui.ctx().is_pointer_over_area();
         is_clicking_toolbar || is_interacting_with_picker
@@ -49,17 +49,13 @@ pub(super) fn update_hover_state(
         if let Some(pos) = ui.ctx().pointer_latest_pos() {
             if !is_hovering_ui {
                 // 先检查是否悬停在选中图形的控制点上
-                if let Some(selected_idx) = canvas_state.selected_shape {
-                    if let Some(shape) = state.edit.shapes.get(selected_idx) {
-                        if shape.supports_resize() {
-                            if let Some(_handle) =
-                                get_hovered_handle(pos, shape, global_offset_phys, ppp)
-                            {
-                                // 找到悬停的控制点，不更新 hovered_shape（保持选中状态）
-                                return;
-                            }
-                        }
-                    }
+                if let Some(selected_idx) = canvas_state.selected_shape
+                    && let Some(shape) = state.edit.shapes.get(selected_idx)
+                    && shape.supports_resize()
+                    && let Some(_handle) = get_hovered_handle(pos, shape, global_offset_phys, ppp)
+                {
+                    // 找到悬停的控制点，不更新 hovered_shape（保持选中状态）
+                    return;
                 }
 
                 // 否则检查 shape body
@@ -93,49 +89,45 @@ pub(super) fn update_cursor(
     }
 
     // 检查是否悬停在选中图形的控制点上
-    if let Some(pos) = ui.ctx().pointer_latest_pos() {
-        if let Some(selected_idx) = canvas_state.selected_shape {
-            if let Some(shape) = state.edit.shapes.get(selected_idx) {
-                if shape.supports_resize() {
-                    if let Some(handle) = get_hovered_handle(pos, shape, global_offset_phys, ppp) {
-                        // 根据 handle 索引设置对应的光标
-                        let cursor = match shape.tool {
-                            ScreenshotTool::Arrow => {
-                                // 箭头：根据方向显示对应的 resize 光标
-                                let dx = (shape.end.x - shape.start.x).abs();
-                                let dy = (shape.end.y - shape.start.y).abs();
-                                if dx > dy * 2.0 {
-                                    CursorIcon::ResizeHorizontal
-                                } else if dy > dx * 2.0 {
-                                    CursorIcon::ResizeVertical
-                                } else {
-                                    let is_same_direction = (shape.end.x - shape.start.x)
-                                        * (shape.end.y - shape.start.y)
-                                        >= 0.0;
-                                    if is_same_direction {
-                                        CursorIcon::ResizeNwSe
-                                    } else {
-                                        CursorIcon::ResizeNeSw
-                                    }
-                                }
-                            }
-                            _ => {
-                                // Rect/Circle/Text: 8 控制点
-                                match handle {
-                                    0 | 2 => CursorIcon::ResizeNwSe,       // NW, SE
-                                    1 | 3 => CursorIcon::ResizeNeSw,       // NE, SW
-                                    4 | 6 => CursorIcon::ResizeVertical,   // N, S
-                                    5 | 7 => CursorIcon::ResizeHorizontal, // E, W
-                                    _ => CursorIcon::Crosshair,
-                                }
-                            }
-                        };
-                        ui.ctx().set_cursor_icon(cursor);
-                        return;
+    if let Some(pos) = ui.ctx().pointer_latest_pos()
+        && let Some(selected_idx) = canvas_state.selected_shape
+        && let Some(shape) = state.edit.shapes.get(selected_idx)
+        && shape.supports_resize()
+        && let Some(handle) = get_hovered_handle(pos, shape, global_offset_phys, ppp)
+    {
+        // 根据 handle 索引设置对应的光标
+        let cursor = match shape.tool {
+            ScreenshotTool::Arrow => {
+                // 箭头：根据方向显示对应的 resize 光标
+                let dx = (shape.end.x - shape.start.x).abs();
+                let dy = (shape.end.y - shape.start.y).abs();
+                if dx > dy * 2.0 {
+                    CursorIcon::ResizeHorizontal
+                } else if dy > dx * 2.0 {
+                    CursorIcon::ResizeVertical
+                } else {
+                    let is_same_direction =
+                        (shape.end.x - shape.start.x) * (shape.end.y - shape.start.y) >= 0.0;
+                    if is_same_direction {
+                        CursorIcon::ResizeNwSe
+                    } else {
+                        CursorIcon::ResizeNeSw
                     }
                 }
             }
-        }
+            _ => {
+                // Rect/Circle/Text: 8 控制点
+                match handle {
+                    0 | 2 => CursorIcon::ResizeNwSe,       // NW, SE
+                    1 | 3 => CursorIcon::ResizeNeSw,       // NE, SW
+                    4 | 6 => CursorIcon::ResizeVertical,   // N, S
+                    5 | 7 => CursorIcon::ResizeHorizontal, // E, W
+                    _ => CursorIcon::Crosshair,
+                }
+            }
+        };
+        ui.ctx().set_cursor_icon(cursor);
+        return;
     }
 
     let is_moving_state =
@@ -161,9 +153,8 @@ pub(super) fn update_cursor(
         && state.input.current_shape_start.is_none()
         && state.input.current_pen_points.is_empty())
         || canvas_state.dragging_selection
+        || (state.drawing.current_tool.is_none() && is_hovering_selection_bg)
     {
-        CursorIcon::Move
-    } else if state.drawing.current_tool.is_none() && is_hovering_selection_bg {
         CursorIcon::Move
     } else {
         CursorIcon::Crosshair

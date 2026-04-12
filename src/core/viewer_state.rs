@@ -169,15 +169,16 @@ impl ViewerState {
                     received_any = true;
                     match msg.result {
                         LoadResult::Ok(success) => {
+                            let success = *success;
                             if msg.is_thumbnail {
                                 self.loading_thumbs.remove(&msg.path);
                                 self.thumb_cache
                                     .put(msg.path.clone(), success.texture.clone());
-                                if Some(msg.path.clone()) == self.current() {
-                                    if !self.texture_cache.contains(&msg.path) {
-                                        self.current_texture = Some(success.texture);
-                                        self.current_texture_path = Some(msg.path);
-                                    }
+                                if Some(msg.path.clone()) == self.current()
+                                    && !self.texture_cache.contains(&msg.path)
+                                {
+                                    self.current_texture = Some(success.texture);
+                                    self.current_texture_path = Some(msg.path);
                                 }
                             } else {
                                 self.current_raw_pixels = Some(success.raw_pixels);

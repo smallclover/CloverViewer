@@ -17,7 +17,7 @@ pub fn copy_image_to_clipboard_async(
     let copied_message = text.copied_message;
     let copy_failed_message = text.copy_failed_message;
     // 将 Color32 直传底层 [u8] 数组，极大提升高分辨率图片的剪贴板复制性能
-    let raw_bytes: Vec<u8> = bytemuck::cast_slice(&**pixels_arc).to_vec();
+    let raw_bytes: Vec<u8> = bytemuck::cast_slice(&pixels_arc).to_vec();
     thread::spawn(move || {
         let Ok(mut clipboard) = arboard::Clipboard::new() else {
             tracing::error!("{}", copy_failed_message);

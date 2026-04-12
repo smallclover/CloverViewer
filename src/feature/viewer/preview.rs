@@ -35,13 +35,12 @@ struct PickerLayout {
 }
 
 pub fn show_preview_window(ctx: &Context, viewer: &mut ViewerState) -> bool {
-    if !viewer.list.is_empty() {
-        if let Some(new_idx) = draw_picker(ctx, viewer) {
-            if new_idx != viewer.index {
-                viewer.jump_to_index(ctx.clone(), new_idx);
-                return true;
-            }
-        }
+    if !viewer.list.is_empty()
+        && let Some(new_idx) = draw_picker(ctx, viewer)
+        && new_idx != viewer.index
+    {
+        viewer.jump_to_index(ctx.clone(), new_idx);
+        return true;
     }
     false
 }
@@ -145,13 +144,13 @@ fn update_picker_scroll_state(
 
     if response.drag_stopped() {
         state.target_offset = (state.scroll_offset / PICKER_ITEM_WIDTH).round() * PICKER_ITEM_WIDTH;
-    } else if response.clicked() {
-        if let Some(mouse_pos) = response.interact_pointer_pos() {
-            let offset_from_center = mouse_pos.x - rect.center().x;
-            let clicked_offset = state.scroll_offset + offset_from_center;
-            let clicked_idx = (clicked_offset / PICKER_ITEM_WIDTH).round();
-            state.target_offset = clicked_idx * PICKER_ITEM_WIDTH;
-        }
+    } else if response.clicked()
+        && let Some(mouse_pos) = response.interact_pointer_pos()
+    {
+        let offset_from_center = mouse_pos.x - rect.center().x;
+        let clicked_offset = state.scroll_offset + offset_from_center;
+        let clicked_idx = (clicked_offset / PICKER_ITEM_WIDTH).round();
+        state.target_offset = clicked_idx * PICKER_ITEM_WIDTH;
     }
 
     state.scroll_offset += (state.target_offset - state.scroll_offset) * PICKER_SPRING_FACTOR;
@@ -188,7 +187,9 @@ fn render_visible_items(
             let item_center_offset = (i as f32 * PICKER_ITEM_WIDTH) - state.scroll_offset;
             let item_x = center_x + item_center_offset;
 
-            if item_x <= rect.left() - PICKER_ITEM_WIDTH || item_x >= rect.right() + PICKER_ITEM_WIDTH {
+            if item_x <= rect.left() - PICKER_ITEM_WIDTH
+                || item_x >= rect.right() + PICKER_ITEM_WIDTH
+            {
                 continue;
             }
 
@@ -215,7 +216,11 @@ fn render_visible_items(
     to_load
 }
 
-fn visible_item_range(scroll_offset: f32, view_width: f32, item_count: usize) -> std::ops::Range<usize> {
+fn visible_item_range(
+    scroll_offset: f32,
+    view_width: f32,
+    item_count: usize,
+) -> std::ops::Range<usize> {
     let start_idx = ((scroll_offset - view_width / 2.0) / PICKER_ITEM_WIDTH).floor() as isize;
     let end_idx = ((scroll_offset + view_width / 2.0) / PICKER_ITEM_WIDTH).ceil() as isize;
     let start_idx = start_idx.max(0) as usize;
@@ -231,11 +236,17 @@ fn preview_scale(factor: f32) -> f32 {
     PICKER_SCALE_BASE + PICKER_SCALE_RANGE * factor.powf(2.0)
 }
 
-fn queue_thumbnail_loads(ctx: &Context, viewer: &mut ViewerState, to_load: Vec<std::path::PathBuf>) {
+fn queue_thumbnail_loads(
+    ctx: &Context,
+    viewer: &mut ViewerState,
+    to_load: Vec<std::path::PathBuf>,
+) {
     for path in to_load {
         if !viewer.loading_thumbs.contains(&path) {
             viewer.loading_thumbs.insert(path.clone());
-            viewer.loader.load_async(ctx.clone(), path, false, Some((160, 120)));
+            viewer
+                .loader
+                .load_async(ctx.clone(), path, false, Some((160, 120)));
         }
     }
 }

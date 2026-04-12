@@ -2,17 +2,12 @@ use crate::model::config::get_context_config;
 use egui::Context;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Language {
+    #[default]
     Zh,
     En,
     Ja,
-}
-
-impl Default for Language {
-    fn default() -> Self {
-        Language::Zh
-    }
 }
 
 impl Language {

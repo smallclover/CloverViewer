@@ -31,18 +31,18 @@ pub(super) fn handle_save_action(
                             tracing::info!("Saved to {:?}", path);
                         }
                     }
-                } else if final_action == ScreenshotAction::SaveToClipboard {
-                    if let Ok(mut clipboard) = Clipboard::new() {
-                        let image_data = ImageData {
-                            width: final_image.width() as usize,
-                            height: final_image.height() as usize,
-                            bytes: Cow::from(final_image.into_raw()),
-                        };
-                        if let Err(e) = clipboard.set_image(image_data) {
-                            tracing::error!("Failed to copy image to clipboard: {}", e);
-                        } else {
-                            tracing::info!("Copied image to clipboard.");
-                        }
+                } else if final_action == ScreenshotAction::SaveToClipboard
+                    && let Ok(mut clipboard) = Clipboard::new()
+                {
+                    let image_data = ImageData {
+                        width: final_image.width() as usize,
+                        height: final_image.height() as usize,
+                        bytes: Cow::from(final_image.into_raw()),
+                    };
+                    if let Err(e) = clipboard.set_image(image_data) {
+                        tracing::error!("Failed to copy image to clipboard: {}", e);
+                    } else {
+                        tracing::info!("Copied image to clipboard.");
                     }
                 }
             });
@@ -79,7 +79,7 @@ pub fn extract_cropped_image(screenshot_state: &ScreenshotState) -> Option<RgbaI
 
     let mut final_image = RgbaImage::new(final_width, final_height);
 
-    for (_, (raw_image, monitor_rect_phys)) in captures_data.iter().enumerate() {
+    for (raw_image, monitor_rect_phys) in captures_data.iter() {
         let intersection = selection_phys.intersect(*monitor_rect_phys);
         if !intersection.is_positive() {
             continue;
@@ -105,6 +105,10 @@ pub fn extract_cropped_image(screenshot_state: &ScreenshotState) -> Option<RgbaI
         let _ = final_image.copy_from(&cropped_part, paste_x, paste_y);
     }
 
-    draw_skia_shapes_on_image(&mut final_image, &screenshot_state.edit.shapes, selection_phys);
+    draw_skia_shapes_on_image(
+        &mut final_image,
+        &screenshot_state.edit.shapes,
+        selection_phys,
+    );
     Some(final_image)
 }

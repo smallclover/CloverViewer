@@ -51,7 +51,7 @@ pub struct LoadSuccess {
 }
 
 pub enum LoadResult {
-    Ok(LoadSuccess),
+    Ok(Box<LoadSuccess>),
     Err(ImageLoadError),
 }
 
@@ -101,7 +101,9 @@ impl ImageLoader {
             .expect("Failed to create main thread pool");
 
         // 缩略图池：利用剩余核心进行后台预加载
-        let thumb_threads = (num_cpus::get() - 2).max(2);
+        let thumb_threads = std::thread::available_parallelism()
+            .map(|parallelism| parallelism.get().saturating_sub(2).max(2))
+            .unwrap_or(2);
         let thumb_pool = ThreadPoolBuilder::new()
             .num_threads(thumb_threads)
             .thread_name(|i| format!("img-thumb-{}", i))
@@ -155,11 +157,11 @@ impl ImageLoader {
                             color_image,
                             Default::default(),
                         );
-                        LoadResult::Ok(LoadSuccess {
+                        LoadResult::Ok(Box::new(LoadSuccess {
                             texture: tex,
                             raw_pixels,
                             properties: ImageProperties::default(), // 缩略图不需要详细属性
-                        })
+                        }))
                     }
                     Err(_) => {
                         // 降级到普通加载
@@ -197,11 +199,11 @@ impl ImageLoader {
                 let tex = ctx.load_texture(name, color_image, Default::default());
 
                 // 3. 返回组合结构
-                LoadResult::Ok(LoadSuccess {
+                LoadResult::Ok(Box::new(LoadSuccess {
                     texture: tex,
                     raw_pixels,
                     properties,
-                })
+                }))
             }
             Err(e) => LoadResult::Err(e),
         }
@@ -235,14 +237,12 @@ impl ImageLoader {
             properties.f_number = get_val(Tag::FNumber).unwrap_or_default();
             properties.iso = exif
                 .get_field(Tag::PhotographicSensitivity, exif::In::PRIMARY)
-                .and_then(|f| f.value.get_uint(0))
-                .map(|v| v as u32);
+                .and_then(|f| f.value.get_uint(0));
             properties.focal_length = get_val(Tag::FocalLength).unwrap_or_default();
 
             return exif
                 .get_field(Tag::Orientation, exif::In::PRIMARY)
                 .and_then(|field| field.value.get_uint(0))
-                .map(|v| v as u32)
                 .unwrap_or(1);
         }
         1
@@ -326,5 +326,57 @@ impl ImageLoader {
         );
 
         Ok((color_image, properties))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ImageLoadError, ImageLoader};
+    use image::{DynamicImage, RgbaImage};
+    use std::{
+        env, fs,
+        path::PathBuf,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn unique_temp_path(extension: &str) -> PathBuf {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("System time should be after UNIX_EPOCH")
+            .as_nanos();
+        env::temp_dir().join(format!("cloverviewer-image-loader-{timestamp}.{extension}"))
+    }
+
+    #[test]
+    fn decode_image_reads_png_dimensions_and_metadata() {
+        let path = unique_temp_path("png");
+        let rgba = RgbaImage::from_fn(2, 3, |x, y| {
+            image::Rgba([(x * 40) as u8, (y * 60) as u8, 120, 255])
+        });
+        DynamicImage::ImageRgba8(rgba)
+            .save(&path)
+            .expect("Test image should be written");
+
+        let (image, properties) =
+            ImageLoader::decode_image(&path, None).expect("PNG image should decode successfully");
+
+        assert_eq!(image.size, [2, 3]);
+        assert_eq!(properties.width, 2);
+        assert_eq!(properties.height, 3);
+        assert_eq!(
+            properties.name,
+            path.file_name().unwrap_or_default().to_string_lossy()
+        );
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn decode_image_reports_missing_file() {
+        let path = unique_temp_path("png");
+
+        let result = ImageLoader::decode_image(&path, None);
+
+        assert!(matches!(result, Err(ImageLoadError::FileNotFound(_))));
     }
 }

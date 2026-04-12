@@ -100,11 +100,12 @@ pub fn render_toolbar_and_overlays(
         state.drawing.stroke_width
     };
 
-    if state
-        .drawing
-        .color_picker
-        .show(ui, state.drawing.color_picker_anchor, &mut width_value, !is_mosaic)
-    {
+    if state.drawing.color_picker.show(
+        ui,
+        state.drawing.color_picker_anchor,
+        &mut width_value,
+        !is_mosaic,
+    ) {
         if is_mosaic {
             state.drawing.mosaic_width = width_value;
         } else {
@@ -191,7 +192,8 @@ fn draw_screenshot_toolbar(
                 action = ScreenshotAction::Close;
             }
 
-            if draw_icon_button(ui, false, IconType::SaveToClipboard, TOOLBAR_BUTTON_SIZE).clicked() {
+            if draw_icon_button(ui, false, IconType::SaveToClipboard, TOOLBAR_BUTTON_SIZE).clicked()
+            {
                 action = ScreenshotAction::SaveToClipboard;
             }
 
@@ -217,10 +219,8 @@ fn handle_tool_interaction(
     // --- 1. 处理点击 ---
     if response.clicked() {
         state.drawing.current_tool = Some(target_tool);
-        if !long_press_triggered {
-            if state.drawing.color_picker.is_open {
-                state.drawing.color_picker.close();
-            }
+        if !long_press_triggered && state.drawing.color_picker.is_open {
+            state.drawing.color_picker.close();
         }
     }
 
@@ -228,20 +228,19 @@ fn handle_tool_interaction(
     if response.is_pointer_button_down_on() {
         ui.ctx().request_repaint();
 
-        if !long_press_triggered {
-            if let Some(press_origin) = ui.input(|i| i.pointer.press_origin()) {
-                if response.rect.contains(press_origin) {
-                    let press_time = ui.input(|i| i.pointer.press_start_time()).unwrap_or(0.0);
-                    let current_time = ui.input(|i| i.time);
+        if !long_press_triggered
+            && let Some(press_origin) = ui.input(|i| i.pointer.press_origin())
+            && response.rect.contains(press_origin)
+        {
+            let press_time = ui.input(|i| i.pointer.press_start_time()).unwrap_or(0.0);
+            let current_time = ui.input(|i| i.time);
 
-                    if current_time - press_time > TOOLBAR_LONG_PRESS_DURATION {
-                        // === 触发长按 ===
-                        state.drawing.color_picker.open();
-                        state.drawing.color_picker_anchor = Some(response.rect);
-                        state.drawing.current_tool = Some(target_tool);
-                        ui.data_mut(|d| d.insert_temp(button_id, true));
-                    }
-                }
+            if current_time - press_time > TOOLBAR_LONG_PRESS_DURATION {
+                // === 触发长按 ===
+                state.drawing.color_picker.open();
+                state.drawing.color_picker_anchor = Some(response.rect);
+                state.drawing.current_tool = Some(target_tool);
+                ui.data_mut(|d| d.insert_temp(button_id, true));
             }
         }
     } else {

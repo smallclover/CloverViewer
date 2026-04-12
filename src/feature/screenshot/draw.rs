@@ -184,30 +184,30 @@ pub fn draw_skia_shapes_on_image(
                     if width <= 0.0 || height <= 0.0 {
                         continue;
                     }
-                    if let Some(rect) = tiny_skia::Rect::from_xywh(x0, y0, width, height) {
-                        if let Some(path) = tiny_skia::PathBuilder::from_oval(rect) {
-                            pixmap.stroke_path(&path, &paint, &stroke, transform, None);
-                        }
+                    if let Some(rect) = tiny_skia::Rect::from_xywh(x0, y0, width, height)
+                        && let Some(path) = tiny_skia::PathBuilder::from_oval(rect)
+                    {
+                        pixmap.stroke_path(&path, &paint, &stroke, transform, None);
                     }
                 }
                 ScreenshotTool::Arrow => {
                     draw_arrow_skia(&mut pixmap, start_x, start_y, end_x, end_y, &paint, &stroke);
                 }
                 ScreenshotTool::Pen => {
-                    if let Some(points) = &shape.points {
-                        if points.len() > 1 {
-                            let mut pb = tiny_skia::PathBuilder::new();
-                            pb.move_to(
-                                points[0].x - selection_phys.min.x,
-                                points[0].y - selection_phys.min.y,
-                            );
+                    if let Some(points) = &shape.points
+                        && points.len() > 1
+                    {
+                        let mut pb = tiny_skia::PathBuilder::new();
+                        pb.move_to(
+                            points[0].x - selection_phys.min.x,
+                            points[0].y - selection_phys.min.y,
+                        );
 
-                            for p in points.iter().skip(1) {
-                                pb.line_to(p.x - selection_phys.min.x, p.y - selection_phys.min.y);
-                            }
-                            if let Some(path) = pb.finish() {
-                                pixmap.stroke_path(&path, &paint, &stroke, transform, None);
-                            }
+                        for p in points.iter().skip(1) {
+                            pb.line_to(p.x - selection_phys.min.x, p.y - selection_phys.min.y);
+                        }
+                        if let Some(path) = pb.finish() {
+                            pixmap.stroke_path(&path, &paint, &stroke, transform, None);
                         }
                     }
                 }
@@ -221,44 +221,44 @@ pub fn draw_skia_shapes_on_image(
     // ==========================================
 
     for shape in shapes {
-        if shape.tool == ScreenshotTool::Text {
-            if let Some(ref text) = shape.text {
-                let start_x = shape.start.x - selection_phys.min.x;
-                let start_y = shape.start.y - selection_phys.min.y;
+        if shape.tool == ScreenshotTool::Text
+            && let Some(ref text) = shape.text
+        {
+            let start_x = shape.start.x - selection_phys.min.x;
+            let start_y = shape.start.y - selection_phys.min.y;
 
-                // 字体大小基准计算（乘以 1.5 是模拟一般的屏幕缩放系数，保持与 UI 视觉一致）
-                let font_size = (20.0 + (shape.stroke_width * 2.0)) * 1.5;
-                let scale = PxScale::from(font_size);
+            // 字体大小基准计算（乘以 1.5 是模拟一般的屏幕缩放系数，保持与 UI 视觉一致）
+            let font_size = (20.0 + (shape.stroke_width * 2.0)) * 1.5;
+            let scale = PxScale::from(font_size);
 
-                // 行高计算 (基础高度 + 固定行距补偿)
-                let line_height = font_size + 6.0;
+            // 行高计算 (基础高度 + 固定行距补偿)
+            let line_height = font_size + 6.0;
 
-                // 转换颜色
-                let text_color = Rgba([
-                    shape.color.r(),
-                    shape.color.g(),
-                    shape.color.b(),
-                    shape.color.a(),
-                ]);
+            // 转换颜色
+            let text_color = Rgba([
+                shape.color.r(),
+                shape.color.g(),
+                shape.color.b(),
+                shape.color.a(),
+            ]);
 
-                let mut current_y = start_y as f32;
+            let mut current_y = start_y;
 
-                // 因为在 UI 层已经将排版”固化”成了带有 \n 的纯文本
-                // 所以这里什么都不用测算，遇到 \n 就无脑换行！
-                for line in text.split('\n') {
-                    // 过滤可能残留的 Windows 回车符，避免打印出乱码小方块
-                    let clean_line = line.trim_end_matches('\r');
-                    imageproc::drawing::draw_text_mut(
-                        final_image,
-                        text_color,
-                        start_x as i32,
-                        current_y as i32,
-                        scale,
-                        &*EMBEDDED_FONT,
-                        clean_line,
-                    );
-                    current_y += line_height;
-                }
+            // 因为在 UI 层已经将排版”固化”成了带有 \n 的纯文本
+            // 所以这里什么都不用测算，遇到 \n 就无脑换行！
+            for line in text.split('\n') {
+                // 过滤可能残留的 Windows 回车符，避免打印出乱码小方块
+                let clean_line = line.trim_end_matches('\r');
+                imageproc::drawing::draw_text_mut(
+                    final_image,
+                    text_color,
+                    start_x as i32,
+                    current_y as i32,
+                    scale,
+                    &*EMBEDDED_FONT,
+                    clean_line,
+                );
+                current_y += line_height;
             }
         }
     }

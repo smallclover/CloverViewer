@@ -20,25 +20,19 @@ pub(super) fn on_drag_start(
 ) {
     // ========== 第一优先级：选中图形的控制点拖拽 ==========
     // 只要有选中的图形，优先检查是否命中控制点
-    if let Some(selected_idx) = canvas_state.selected_shape {
-        if let Some(shape) = state.edit.shapes.get(selected_idx) {
-            if shape.supports_resize() {
-                if let Some(handle) = get_hovered_handle(local_pos, shape, global_offset_phys, ppp)
-                {
-                    let start = shape.start;
-                    let end = shape.end;
-                    // 开始 resize 拖拽
-                    state.push_history_snapshot();
-                    canvas_state.dragging_shape = Some(selected_idx);
-                    canvas_state.dragging_handle = Some(handle);
-                    canvas_state.resize_start_state = Some(ResizeStartState {
-                        start,
-                        end,
-                    });
-                    return;
-                }
-            }
-        }
+    if let Some(selected_idx) = canvas_state.selected_shape
+        && let Some(shape) = state.edit.shapes.get(selected_idx)
+        && shape.supports_resize()
+        && let Some(handle) = get_hovered_handle(local_pos, shape, global_offset_phys, ppp)
+    {
+        let start = shape.start;
+        let end = shape.end;
+        // 开始 resize 拖拽
+        state.push_history_snapshot();
+        canvas_state.dragging_shape = Some(selected_idx);
+        canvas_state.dragging_handle = Some(handle);
+        canvas_state.resize_start_state = Some(ResizeStartState { start, end });
+        return;
     }
 
     let interaction_hovered = canvas_state.hovered_shape;
@@ -75,19 +69,18 @@ pub(super) fn on_drag_start(
 
         canvas_state.drag_start_phys = Some(global_phys);
     } else if can_draw && state.drawing.current_tool.is_some() {
-        if let Some(selection) = state.select.selection {
-            if selection.contains(global_phys)
-                && state.drawing.current_tool != Some(ScreenshotTool::Text)
+        if let Some(selection) = state.select.selection
+            && selection.contains(global_phys)
+            && state.drawing.current_tool != Some(ScreenshotTool::Text)
+        {
+            if state.drawing.current_tool == Some(ScreenshotTool::Pen)
+                || state.drawing.current_tool == Some(ScreenshotTool::Mosaic)
             {
-                if state.drawing.current_tool == Some(ScreenshotTool::Pen)
-                    || state.drawing.current_tool == Some(ScreenshotTool::Mosaic)
-                {
-                    state.input.current_pen_points.clear();
-                    state.input.current_pen_points.push(global_phys);
-                } else {
-                    state.input.current_shape_start = Some(global_phys);
-                    state.input.current_shape_end = Some(global_phys);
-                }
+                state.input.current_pen_points.clear();
+                state.input.current_pen_points.push(global_phys);
+            } else {
+                state.input.current_shape_start = Some(global_phys);
+                state.input.current_shape_end = Some(global_phys);
             }
         }
     } else if is_hovering_selection_bg && state.drawing.current_tool.is_none() {
@@ -97,10 +90,11 @@ pub(super) fn on_drag_start(
         state.drawing.color_picker.close();
     } else if can_draw {
         // 如果已有选择区域且其中有图形，不允许创建新选择区域
-        if let Some(sel) = state.select.selection {
-            if sel.contains(global_phys) && !state.edit.shapes.is_empty() {
-                return;
-            }
+        if let Some(sel) = state.select.selection
+            && sel.contains(global_phys)
+            && !state.edit.shapes.is_empty()
+        {
+            return;
         }
         state.select.drag_start = Some(global_phys);
         state.clear_toolbar();
@@ -134,7 +128,12 @@ pub(super) fn on_dragged(
         canvas_state.resize_start_state,
     ) {
         if let Some(shape) = state.edit.shapes.get_mut(shape_idx) {
-            shape.apply_resize(handle_idx, current_phys, &start_state, state.select.selection);
+            shape.apply_resize(
+                handle_idx,
+                current_phys,
+                &start_state,
+                state.select.selection,
+            );
         }
     } else if let Some(index) = canvas_state.dragging_shape {
         if let Some(drag_start_phys) = canvas_state.drag_start_phys {
@@ -161,10 +160,10 @@ pub(super) fn on_dragged(
         if let Some(sel) = state.select.selection {
             clamped_phys = clamp_pos_to_rect(current_phys, sel);
         }
-        if let Some(last) = state.input.current_pen_points.last() {
-            if last.distance(clamped_phys) > 2.0 {
-                state.input.current_pen_points.push(clamped_phys);
-            }
+        if let Some(last) = state.input.current_pen_points.last()
+            && last.distance(clamped_phys) > 2.0
+        {
+            state.input.current_pen_points.push(clamped_phys);
         }
     } else if state.input.current_shape_start.is_some() {
         let mut clamped_phys = current_phys;
@@ -174,7 +173,7 @@ pub(super) fn on_dragged(
         state.input.current_shape_end = Some(clamped_phys);
     } else if let Some(drag_start_phys) = state.select.drag_start {
         let rect = Rect::from_two_pos(drag_start_phys, current_phys);
-        if state.select.selection.map_or(true, |s| s != rect) {
+        if state.select.selection != Some(rect) {
             state.update_selection_only(Some(rect));
         }
     }
@@ -226,38 +225,38 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
         state.input.current_pen_points.clear();
     } else if let Some(start_pos) = state.input.current_shape_start {
         let end_pos = state.input.current_shape_end.unwrap_or(start_pos);
-        if start_pos.distance(end_pos) > 5.0 {
-            if let Some(tool) = state.drawing.current_tool {
-                state.push_history_snapshot();
-                state.edit.shapes.push(DrawnShape {
-                    tool,
-                    start: start_pos,
-                    end: end_pos,
-                    color: state.drawing.active_color,
-                    stroke_width: state.drawing.stroke_width,
-                    text: None,
-                    points: None,
-                    cached_galley: None,
-                    cached_mosaic: None,
-                });
-            }
+        if start_pos.distance(end_pos) > 5.0
+            && let Some(tool) = state.drawing.current_tool
+        {
+            state.push_history_snapshot();
+            state.edit.shapes.push(DrawnShape {
+                tool,
+                start: start_pos,
+                end: end_pos,
+                color: state.drawing.active_color,
+                stroke_width: state.drawing.stroke_width,
+                text: None,
+                points: None,
+                cached_galley: None,
+                cached_mosaic: None,
+            });
         }
         state.input.current_shape_start = None;
         state.input.current_shape_end = None;
-    } else if state.select.drag_start.take().is_some() {
-        if let Some(sel) = state.select.selection {
-            if sel.width() > 10.0 && sel.height() > 10.0 {
-                // 重新选择区域时，清除已有图形
-                if !state.edit.shapes.is_empty() {
-                    state.push_history_snapshot();
-                    state.edit.shapes.clear();
-                    canvas_state.selected_shape = None;
-                }
+    } else if state.select.drag_start.take().is_some()
+        && let Some(sel) = state.select.selection
+    {
+        if sel.width() > 10.0 && sel.height() > 10.0 {
+            // 重新选择区域时，清除已有图形
+            if !state.edit.shapes.is_empty() {
                 state.push_history_snapshot();
-                state.sync_toolbar_to_selection();
-            } else {
-                state.set_selection(None);
+                state.edit.shapes.clear();
+                canvas_state.selected_shape = None;
             }
+            state.push_history_snapshot();
+            state.sync_toolbar_to_selection();
+        } else {
+            state.set_selection(None);
         }
     }
 }

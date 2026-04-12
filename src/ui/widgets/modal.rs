@@ -84,10 +84,10 @@ impl ModalFrame {
             });
 
         // 3. 安全地提取返回值
-        if let Some(inner_r) = window_response {
-            if let Some(action_content) = inner_r.inner {
-                action_from_content = action_content;
-            }
+        if let Some(inner_r) = window_response
+            && let Some(action_content) = inner_r.inner
+        {
+            action_from_content = action_content;
         }
 
         // 4. 统一同步状态

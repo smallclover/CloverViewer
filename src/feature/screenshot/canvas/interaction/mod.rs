@@ -42,7 +42,7 @@ pub fn handle_interaction(
     update_cursor(
         ui,
         state,
-        &canvas_state,
+        canvas_state,
         global_offset_phys,
         ppp,
         is_hovering_ui,
@@ -60,27 +60,27 @@ pub fn handle_interaction(
         );
     }
 
-    if let Some(press_pos) = response.interact_pointer_pos() {
-        if !is_hovering_ui {
-            let global_phys = global_offset_phys + (press_pos.to_vec2() * ppp);
+    if let Some(press_pos) = response.interact_pointer_pos()
+        && !is_hovering_ui
+    {
+        let global_phys = global_offset_phys + (press_pos.to_vec2() * ppp);
 
-            if response.drag_started() {
-                on_drag_start(
-                    ui,
-                    state,
-                    canvas_state,
-                    global_phys,
-                    global_offset_phys,
-                    ppp,
-                    press_pos,
-                );
-            }
-            if response.dragged() {
-                on_dragged(ui, state, canvas_state, global_offset_phys, ppp, press_pos);
-            }
-            if response.drag_stopped() {
-                on_drag_stop(state, canvas_state);
-            }
+        if response.drag_started() {
+            on_drag_start(
+                ui,
+                state,
+                canvas_state,
+                global_phys,
+                global_offset_phys,
+                ppp,
+                press_pos,
+            );
+        }
+        if response.dragged() {
+            on_dragged(ui, state, canvas_state, global_offset_phys, ppp, press_pos);
+        }
+        if response.drag_stopped() {
+            on_drag_stop(state, canvas_state);
         }
     }
 }
@@ -100,18 +100,13 @@ fn handle_click(
     }
 
     // 检查是否点击在选中图形的控制点上
-    if let Some(pos) = response.interact_pointer_pos() {
-        if let Some(selected_idx) = canvas_state.selected_shape {
-            if let Some(shape) = state.edit.shapes.get(selected_idx) {
-                if shape.supports_resize() {
-                    if let Some(_handle) =
-                        hover::get_hovered_handle(pos, shape, global_offset_phys, ppp)
-                    {
-                        return;
-                    }
-                }
-            }
-        }
+    if let Some(pos) = response.interact_pointer_pos()
+        && let Some(selected_idx) = canvas_state.selected_shape
+        && let Some(shape) = state.edit.shapes.get(selected_idx)
+        && shape.supports_resize()
+        && let Some(_handle) = hover::get_hovered_handle(pos, shape, global_offset_phys, ppp)
+    {
+        return;
     }
 
     let is_moving_state =
@@ -150,25 +145,25 @@ fn handle_click(
     }
 
     // 文本工具点击
-    if state.drawing.current_tool == Some(ScreenshotTool::Text) && can_draw {
-        if let Some(pos) = response.interact_pointer_pos() {
-            let global_phys = global_offset_phys + (pos.to_vec2() * ppp);
+    if state.drawing.current_tool == Some(ScreenshotTool::Text)
+        && can_draw
+        && let Some(pos) = response.interact_pointer_pos()
+    {
+        let global_phys = global_offset_phys + (pos.to_vec2() * ppp);
 
-            // 点击必须在选区内才允许创建文本框
-            if let Some(sel) = state.select.selection {
-                if !sel.contains(global_phys) {
-                    return;
-                }
-            }
+        // 点击必须在选区内才允许创建文本框
+        if let Some(sel) = state.select.selection
+            && !sel.contains(global_phys)
+        {
+            return;
+        }
 
-            if let Some((pos_old, text)) = state.input.active_text_input.take() {
-                if !text.trim().is_empty() {
-                    commit_text_shape(ui, state, pos_old, text, global_offset_phys, ppp);
-                }
-            } else {
-                state.input.active_text_input = Some((global_phys, String::new()));
+        if let Some((pos_old, text)) = state.input.active_text_input.take() {
+            if !text.trim().is_empty() {
+                commit_text_shape(ui, state, pos_old, text, global_offset_phys, ppp);
             }
+        } else {
+            state.input.active_text_input = Some((global_phys, String::new()));
         }
     }
 }
-

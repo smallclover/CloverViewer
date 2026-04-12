@@ -25,6 +25,18 @@ struct GridInteraction {
     double_clicked_index: Option<usize>,
 }
 
+struct GridRenderContext<'a> {
+    ctx: &'a Context,
+    loading_text: &'a str,
+    current_index: usize,
+    preload_rect: Rect,
+    thumb_cache: &'a mut lru::LruCache<std::path::PathBuf, egui::TextureHandle>,
+    failed_thumbs: &'a std::collections::HashSet<std::path::PathBuf>,
+    loading_thumbs: &'a mut std::collections::HashSet<std::path::PathBuf>,
+    loader: &'a mut crate::core::image_loader::ImageLoader,
+    interaction: &'a mut GridInteraction,
+}
+
 pub fn draw_grid_view(ctx: &Context, ui: &mut Ui, viewer: &mut ViewerState) {
     let text = get_i18n_text(ctx);
 
@@ -47,32 +59,29 @@ pub fn draw_grid_view(ctx: &Context, ui: &mut Ui, viewer: &mut ViewerState) {
 
     let visible_rect = ui.clip_rect();
     let preload_rect = visible_rect.expand(GRID_PRELOAD_MARGIN);
+    let mut render_context = GridRenderContext {
+        ctx,
+        loading_text: text.grid_loading,
+        current_index,
+        preload_rect,
+        thumb_cache,
+        failed_thumbs,
+        loading_thumbs,
+        loader,
+        interaction: &mut interaction,
+    };
 
     ScrollArea::vertical()
         .auto_shrink([false; 2])
         .show(ui, |ui| {
-            render_grid_rows(
-                ui,
-                ctx,
-                text.grid_loading,
-                list,
-                &layout,
-                current_index,
-                preload_rect,
-                thumb_cache,
-                failed_thumbs,
-                loading_thumbs,
-                loader,
-                &mut interaction,
-            );
+            render_grid_rows(ui, list, &layout, &mut render_context);
         });
 
     apply_grid_interaction(ctx, viewer, interaction);
 }
 
 fn calculate_grid_layout(available_width: f32) -> GridLayout {
-    let cell_total_width =
-        GRID_ITEM_SIZE.x + (GRID_FRAME_MARGIN * 2.0) + (GRID_BORDER_WIDTH * 2.0);
+    let cell_total_width = GRID_ITEM_SIZE.x + (GRID_FRAME_MARGIN * 2.0) + (GRID_BORDER_WIDTH * 2.0);
     let mut columns =
         ((available_width + GRID_SPACING) / (cell_total_width + GRID_SPACING)).floor() as usize;
     columns = columns.max(1);
@@ -89,17 +98,9 @@ fn calculate_grid_layout(available_width: f32) -> GridLayout {
 
 fn render_grid_rows(
     ui: &mut Ui,
-    ctx: &Context,
-    loading_text: &str,
     list: &[std::path::PathBuf],
     layout: &GridLayout,
-    current_index: usize,
-    preload_rect: Rect,
-    thumb_cache: &mut lru::LruCache<std::path::PathBuf, egui::TextureHandle>,
-    failed_thumbs: &std::collections::HashSet<std::path::PathBuf>,
-    loading_thumbs: &mut std::collections::HashSet<std::path::PathBuf>,
-    loader: &mut crate::core::image_loader::ImageLoader,
-    interaction: &mut GridInteraction,
+    render: &mut GridRenderContext<'_>,
 ) {
     ui.add_space(GRID_SPACING);
 
@@ -110,22 +111,66 @@ fn render_grid_rows(
 
             for (col_idx, path) in row_items.iter().enumerate() {
                 let global_index = row_idx * layout.columns + col_idx;
-                let is_selected = global_index == current_index;
-                render_grid_item(
-                    ui,
-                    ctx,
-                    loading_text,
-                    path,
-                    is_selected,
-                    preload_rect,
-                    thumb_cache,
-                    failed_thumbs,
-                    loading_thumbs,
-                    loader,
-                    global_index,
-                    &mut interaction.clicked_index,
-                    &mut interaction.double_clicked_index,
-                );
+                let is_selected = global_index == render.current_index;
+                let (stroke_color, bg_color) = if is_selected {
+                    (Color32::from_rgb(0, 120, 215), Color32::from_gray(45))
+                } else {
+                    (Color32::from_gray(60), Color32::from_gray(30))
+                };
+
+                let frame = Frame::default()
+                    .fill(bg_color)
+                    .stroke(Stroke::new(GRID_BORDER_WIDTH, stroke_color))
+                    .inner_margin(GRID_FRAME_MARGIN)
+                    .corner_radius(6.0);
+
+                frame.show(ui, |ui| {
+                    let (rect, response) = ui.allocate_exact_size(GRID_ITEM_SIZE, Sense::click());
+
+                    if render.preload_rect.intersects(rect)
+                        && !render.thumb_cache.contains(path)
+                        && !render.failed_thumbs.contains(path)
+                        && !render.loading_thumbs.contains(path)
+                    {
+                        render.loading_thumbs.insert(path.clone());
+                        render.loader.load_async(
+                            render.ctx.clone(),
+                            path.clone(),
+                            false,
+                            Some(GRID_THUMB_SIZE),
+                        );
+                    }
+
+                    if ui.is_rect_visible(rect) {
+                        if let Some(texture) = render.thumb_cache.get(path) {
+                            let tex_size = texture.size_vec2();
+                            let scale = (rect.width() / tex_size.x).min(rect.height() / tex_size.y);
+                            let target_size = tex_size * scale;
+                            let target_rect = Rect::from_center_size(rect.center(), target_size);
+
+                            ui.painter().image(
+                                texture.id(),
+                                target_rect,
+                                Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)),
+                                Color32::WHITE,
+                            );
+                        } else {
+                            ui.painter().text(
+                                rect.center(),
+                                Align2::CENTER_CENTER,
+                                render.loading_text,
+                                FontId::proportional(14.0),
+                                Color32::GRAY,
+                            );
+                        }
+                    }
+
+                    if response.double_clicked() {
+                        render.interaction.double_clicked_index = Some(global_index);
+                    } else if response.clicked() {
+                        render.interaction.clicked_index = Some(global_index);
+                    }
+                });
             }
         });
 
@@ -141,75 +186,4 @@ fn apply_grid_interaction(ctx: &Context, viewer: &mut ViewerState, interaction: 
     } else if let Some(index) = interaction.clicked_index {
         viewer.set_index(index);
     }
-}
-
-fn render_grid_item(
-    ui: &mut Ui,
-    ctx: &Context,
-    loading_text: &str,
-    path: &std::path::PathBuf,
-    is_selected: bool,
-    preload_rect: Rect,
-    thumb_cache: &mut lru::LruCache<std::path::PathBuf, egui::TextureHandle>,
-    failed_thumbs: &std::collections::HashSet<std::path::PathBuf>,
-    loading_thumbs: &mut std::collections::HashSet<std::path::PathBuf>,
-    loader: &mut crate::core::image_loader::ImageLoader,
-    global_index: usize,
-    clicked_index: &mut Option<usize>,
-    double_clicked_index: &mut Option<usize>,
-) {
-    let (stroke_color, bg_color) = if is_selected {
-        (Color32::from_rgb(0, 120, 215), Color32::from_gray(45))
-    } else {
-        (Color32::from_gray(60), Color32::from_gray(30))
-    };
-
-    let frame = Frame::default()
-        .fill(bg_color)
-        .stroke(Stroke::new(GRID_BORDER_WIDTH, stroke_color))
-        .inner_margin(GRID_FRAME_MARGIN)
-        .corner_radius(6.0);
-
-    frame.show(ui, |ui| {
-        let (rect, response) = ui.allocate_exact_size(GRID_ITEM_SIZE, Sense::click());
-
-        if preload_rect.intersects(rect)
-            && !thumb_cache.contains(path)
-            && !failed_thumbs.contains(path)
-            && !loading_thumbs.contains(path)
-        {
-            loading_thumbs.insert(path.clone());
-            loader.load_async(ctx.clone(), path.clone(), false, Some(GRID_THUMB_SIZE));
-        }
-
-        if ui.is_rect_visible(rect) {
-            if let Some(t) = thumb_cache.get(path) {
-                let tex_size = t.size_vec2();
-                let scale = (rect.width() / tex_size.x).min(rect.height() / tex_size.y);
-                let target_size = tex_size * scale;
-                let target_rect = Rect::from_center_size(rect.center(), target_size);
-
-                ui.painter().image(
-                    t.id(),
-                    target_rect,
-                    Rect::from_min_max(Pos2::new(0.0, 0.0), Pos2::new(1.0, 1.0)),
-                    Color32::WHITE,
-                );
-            } else {
-                ui.painter().text(
-                    rect.center(),
-                    Align2::CENTER_CENTER,
-                    loading_text,
-                    FontId::proportional(14.0),
-                    Color32::GRAY,
-                );
-            }
-        }
-
-        if response.double_clicked() {
-            *double_clicked_index = Some(global_index);
-        } else if response.clicked() {
-            *clicked_index = Some(global_index);
-        }
-    });
 }

@@ -13,25 +13,26 @@ pub fn render_current_preview(
     viewport_rect: Rect,
 ) {
     // 预览当前 shape
-    if let (Some(start_phys), Some(end_phys)) =
-        (state.input.current_shape_start, state.input.current_shape_end)
-    {
+    if let (Some(start_phys), Some(end_phys)) = (
+        state.input.current_shape_start,
+        state.input.current_shape_end,
+    ) {
         let start_local = phys_to_local(start_phys, global_offset_phys, ppp);
         let end_local = phys_to_local(end_phys, global_offset_phys, ppp);
         let rect = Rect::from_two_pos(start_local, end_local);
 
-        if viewport_rect.intersects(rect) {
-            if let Some(tool) = state.drawing.current_tool {
-                draw_egui_shape(
-                    painter,
-                    tool,
-                    rect,
-                    start_local,
-                    end_local,
-                    state.drawing.stroke_width,
-                    state.drawing.active_color,
-                );
-            }
+        if viewport_rect.intersects(rect)
+            && let Some(tool) = state.drawing.current_tool
+        {
+            draw_egui_shape(
+                painter,
+                tool,
+                rect,
+                start_local,
+                end_local,
+                state.drawing.stroke_width,
+                state.drawing.active_color,
+            );
         }
     }
 

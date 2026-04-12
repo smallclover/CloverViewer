@@ -14,6 +14,16 @@ const MAGNIFIER_BORDER_COLOR: Color32 = Color32::from_gray(200);
 const MAGNIFIER_GRID_LINE_ALPHA: u8 = 80;
 const MAGNIFIER_MESH_RESERVE_CELLS: usize = 961;
 
+struct MagnifierPixelContext<'a> {
+    image: &'a ColorImage,
+    card_pos: Pos2,
+    center_phys_x: isize,
+    center_phys_y: isize,
+    img_width: isize,
+    img_height: isize,
+    half_grid: i32,
+}
+
 /// 处理放大镜和取色器的核心入口
 pub fn handle_magnifier(
     ui: &mut Ui,
@@ -130,8 +140,7 @@ fn draw_magnifier_ui(
     mesh.reserve_triangles(MAGNIFIER_MESH_RESERVE_CELLS * 2);
     mesh.reserve_vertices(MAGNIFIER_MESH_RESERVE_CELLS * 4);
 
-    paint_magnifier_pixels(
-        painter,
+    let pixel_context = MagnifierPixelContext {
         image,
         card_pos,
         center_phys_x,
@@ -139,8 +148,8 @@ fn draw_magnifier_ui(
         img_width,
         img_height,
         half_grid,
-        &mut mesh,
-    );
+    };
+    paint_magnifier_pixels(painter, &pixel_context, &mut mesh);
     painter.add(eframe::egui::Shape::mesh(mesh));
 
     // --- 4.5 绘制像素格子 ---
@@ -299,34 +308,33 @@ fn draw_magnifier_ui(
 
 fn paint_magnifier_pixels(
     painter: &Painter,
-    image: &ColorImage,
-    card_pos: Pos2,
-    center_phys_x: isize,
-    center_phys_y: isize,
-    img_width: isize,
-    img_height: isize,
-    half_grid: i32,
+    context: &MagnifierPixelContext<'_>,
     mesh: &mut eframe::egui::Mesh,
 ) {
-    for dy in -half_grid..=half_grid {
-        for dx in -half_grid..=half_grid {
-            let src_x = center_phys_x + dx as isize;
-            let src_y = center_phys_y + dy as isize;
-            let color = if src_x >= 0 && src_x < img_width && src_y >= 0 && src_y < img_height {
-                let idx = src_y as usize * image.width() + src_x as usize;
-                image.pixels[idx]
+    for dy in -context.half_grid..=context.half_grid {
+        for dx in -context.half_grid..=context.half_grid {
+            let src_x = context.center_phys_x + dx as isize;
+            let src_y = context.center_phys_y + dy as isize;
+            let color = if src_x >= 0
+                && src_x < context.img_width
+                && src_y >= 0
+                && src_y < context.img_height
+            {
+                let idx = src_y as usize * context.image.width() + src_x as usize;
+                context.image.pixels[idx]
             } else {
                 Color32::BLACK
             };
 
-            let grid_x = (dx + half_grid) as f32;
-            let grid_y = (dy + half_grid) as f32;
+            let grid_x = (dx + context.half_grid) as f32;
+            let grid_y = (dy + context.half_grid) as f32;
             let pixel_rect = Rect::from_min_size(
-                card_pos + Vec2::new(grid_x * MAGNIFIER_PIXEL_SIZE, grid_y * MAGNIFIER_PIXEL_SIZE),
+                context.card_pos
+                    + Vec2::new(grid_x * MAGNIFIER_PIXEL_SIZE, grid_y * MAGNIFIER_PIXEL_SIZE),
                 Vec2::new(MAGNIFIER_PIXEL_SIZE, MAGNIFIER_PIXEL_SIZE),
             );
 
-            if dy == -half_grid && dx == -half_grid {
+            if dy == -context.half_grid && dx == -context.half_grid {
                 painter.rect_filled(
                     pixel_rect,
                     egui::CornerRadius {
@@ -337,7 +345,7 @@ fn paint_magnifier_pixels(
                     },
                     color,
                 );
-            } else if dy == -half_grid && dx == half_grid {
+            } else if dy == -context.half_grid && dx == context.half_grid {
                 painter.rect_filled(
                     pixel_rect,
                     egui::CornerRadius {

@@ -1,6 +1,7 @@
 use crate::i18n::lang::Language;
 use image::imageops::FilterType;
 use image::{DynamicImage, GrayImage, ImageBuffer, Luma};
+use pollster::block_on;
 use std::future::IntoFuture;
 use windows::{
     Globalization::Language as WinLanguage,
@@ -48,16 +49,16 @@ fn recognize_text_internal(img: DynamicImage, language: Language) -> Result<Stri
         }
     };
 
-    if let Ok(engine) = create_engine_for_ui_language(language) {
-        if let Ok(text) = recognize_with_engine(&engine, &bitmap) {
-            consider(text, Some(language));
-        }
+    if let Ok(engine) = create_engine_for_ui_language(language)
+        && let Ok(text) = recognize_with_engine(&engine, &bitmap)
+    {
+        consider(text, Some(language));
     }
 
-    if let Ok(engine) = OcrEngine::TryCreateFromUserProfileLanguages() {
-        if let Ok(text) = recognize_with_engine(&engine, &bitmap) {
-            consider(text, None);
-        }
+    if let Ok(engine) = OcrEngine::TryCreateFromUserProfileLanguages()
+        && let Ok(text) = recognize_with_engine(&engine, &bitmap)
+    {
+        consider(text, None);
     }
 
     let others = match language {
@@ -66,10 +67,10 @@ fn recognize_text_internal(img: DynamicImage, language: Language) -> Result<Stri
         Language::Ja => [Language::Zh, Language::En],
     };
     for lang in others {
-        if let Ok(engine) = create_engine_for_ui_language(lang) {
-            if let Ok(text) = recognize_with_engine(&engine, &bitmap) {
-                consider(text, Some(lang));
-            }
+        if let Ok(engine) = create_engine_for_ui_language(lang)
+            && let Ok(text) = recognize_with_engine(&engine, &bitmap)
+        {
+            consider(text, Some(lang));
         }
     }
 
@@ -93,7 +94,7 @@ fn create_engine_for_ui_language(language: Language) -> Result<OcrEngine> {
 
 fn recognize_with_engine(engine: &OcrEngine, bitmap: &SoftwareBitmap) -> Result<String> {
     let async_op = engine.RecognizeAsync(bitmap)?;
-    let result = futures::executor::block_on(async_op.into_future())?;
+    let result = block_on(async_op.into_future())?;
     Ok(result.Text()?.to_string())
 }
 
@@ -235,7 +236,11 @@ fn preprocess_for_ocr(img: DynamicImage) -> DynamicImage {
         invert_in_place(&mut gray);
     }
 
-    gray = auto_contrast(gray, OCR_CONTRAST_LOW_PERCENTILE, OCR_CONTRAST_HIGH_PERCENTILE);
+    gray = auto_contrast(
+        gray,
+        OCR_CONTRAST_LOW_PERCENTILE,
+        OCR_CONTRAST_HIGH_PERCENTILE,
+    );
 
     let scale = choose_scale(gray.width(), gray.height());
     if scale > 1 {
@@ -383,8 +388,9 @@ fn otsu_threshold(gray: &GrayImage) -> u8 {
     let mut max_var = -1.0f64;
     let mut threshold = 127u8;
 
-    for t in 0..256usize {
-        w_b += hist[t] as u64;
+    for (t, count) in hist.iter().enumerate() {
+        let count = *count as u64;
+        w_b += count;
         if w_b == 0 {
             continue;
         }
@@ -393,7 +399,7 @@ fn otsu_threshold(gray: &GrayImage) -> u8 {
             break;
         }
 
-        sum_b += (t as u64) * (hist[t] as u64);
+        sum_b += (t as u64) * count;
         let m_b = sum_b as f64 / w_b as f64;
         let m_f = (sum_all - sum_b) as f64 / w_f as f64;
 
@@ -412,4 +418,29 @@ fn binarize(mut gray: GrayImage, threshold: u8) -> GrayImage {
         p[0] = if p[0] >= threshold { 255 } else { 0 };
     }
     gray
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_text_quality_bad, score_text};
+    use crate::i18n::lang::Language;
+
+    #[test]
+    fn score_text_prefers_requested_language_profile() {
+        let english = "Hello CloverViewer 123";
+        let japanese = "こんにちはクローバー";
+
+        assert!(score_text(english, Some(Language::En)) > score_text(english, Some(Language::Ja)));
+        assert!(
+            score_text(japanese, Some(Language::Ja)) > score_text(japanese, Some(Language::En))
+        );
+    }
+
+    #[test]
+    fn text_quality_rejects_short_or_corrupted_text() {
+        assert!(is_text_quality_bad("   "));
+        assert!(is_text_quality_bad("abc"));
+        assert!(is_text_quality_bad("valid\u{FFFD}text"));
+        assert!(!is_text_quality_bad("Valid OCR text"));
+    }
 }

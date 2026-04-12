@@ -49,3 +49,51 @@ pub fn load_tray_icon() -> Icon {
 
     Icon::from_rgba(img.into_raw(), w, h).expect("Failed to create tray icon")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{collect_images, is_image};
+    use std::{
+        env, fs,
+        path::Path,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    fn unique_temp_dir() -> std::path::PathBuf {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("System time should be after UNIX_EPOCH")
+            .as_nanos();
+        env::temp_dir().join(format!("cloverviewer-images-{timestamp}"))
+    }
+
+    #[test]
+    fn is_image_matches_supported_extensions_case_insensitively() {
+        assert!(is_image(Path::new("sample.PNG")));
+        assert!(is_image(Path::new("photo.JpEg")));
+        assert!(!is_image(Path::new("notes.txt")));
+        assert!(!is_image(Path::new("no_extension")));
+    }
+
+    #[test]
+    fn collect_images_filters_and_sorts_image_files() {
+        let dir = unique_temp_dir();
+        fs::create_dir_all(&dir).expect("Test directory should be created");
+        fs::write(dir.join("b.jpg"), []).expect("Image placeholder should be written");
+        fs::write(dir.join("a.png"), []).expect("Image placeholder should be written");
+        fs::write(dir.join("notes.txt"), []).expect("Non-image placeholder should be written");
+
+        let files = collect_images(&dir);
+
+        let names: Vec<String> = files
+            .iter()
+            .filter_map(|path| {
+                path.file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+            })
+            .collect();
+        assert_eq!(names, vec!["a.png", "b.jpg"]);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+}

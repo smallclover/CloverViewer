@@ -224,26 +224,25 @@ pub fn draw_screenshot_ui(
             if is_hovered
                 && state.select.selection.is_none()
                 && state.select.drag_start.is_none()
+                && let Some(pointer_pos) = ui.ctx().pointer_latest_pos()
             {
-                if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-                    let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
+                let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
 
-                    for rect in &state.capture.window_rects {
-                        if rect.contains(global_pointer_phys) {
-                            let mut is_fullscreen = false;
-                            for cap in &state.capture.captures {
-                                if (rect.width() - cap.screen_info.width as f32).abs() < 5.0
-                                    && (rect.height() - cap.screen_info.height as f32).abs() < 5.0
-                                {
-                                    is_fullscreen = true;
-                                    break;
-                                }
+                for rect in &state.capture.window_rects {
+                    if rect.contains(global_pointer_phys) {
+                        let mut is_fullscreen = false;
+                        for cap in &state.capture.captures {
+                            if (rect.width() - cap.screen_info.width as f32).abs() < 5.0
+                                && (rect.height() - cap.screen_info.height as f32).abs() < 5.0
+                            {
+                                is_fullscreen = true;
+                                break;
                             }
-                            if !is_fullscreen {
-                                state.select.hovered_window = Some(*rect);
-                            }
-                            break;
                         }
+                        if !is_fullscreen {
+                            state.select.hovered_window = Some(*rect);
+                        }
+                        break;
                     }
                 }
             }
@@ -272,34 +271,33 @@ pub fn draw_screenshot_ui(
             // [新增] 绘制左下角快捷键与工具栏帮助说明框
             help_box::render_help_box(ui, state, global_offset_phys, ppp);
 
-            if let Some(rect) = local_toolbar_rect {
-                if ui.clip_rect().intersects(rect) {
-                    let toolbar_act = render_toolbar_and_overlays(ui, state, rect);
-                    if toolbar_act != ScreenshotAction::None {
-                        action = toolbar_act;
-                    }
+            if let Some(rect) = local_toolbar_rect
+                && ui.clip_rect().intersects(rect)
+            {
+                let toolbar_act = render_toolbar_and_overlays(ui, state, rect);
+                if toolbar_act != ScreenshotAction::None {
+                    action = toolbar_act;
                 }
             }
 
             let config = get_context_config(ctx);
-            if config.magnifier_enabled {
-                if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
-                    let is_over_toolbar =
-                        local_toolbar_rect.map_or(false, |r| r.contains(pointer_pos));
-                    let is_interacting_popup =
-                        state.drawing.color_picker.is_open && ui.ctx().is_pointer_over_area();
+            if config.magnifier_enabled
+                && let Some(pointer_pos) = ui.ctx().pointer_latest_pos()
+            {
+                let is_over_toolbar = local_toolbar_rect.is_some_and(|r| r.contains(pointer_pos));
+                let is_interacting_popup =
+                    state.drawing.color_picker.is_open && ui.ctx().is_pointer_over_area();
 
-                    if !is_over_toolbar && !is_interacting_popup {
-                        handle_magnifier(ui, state, global_offset_phys, ppp, pointer_pos);
-                    }
+                if !is_over_toolbar && !is_interacting_popup {
+                    handle_magnifier(ui, state, global_offset_phys, ppp, pointer_pos);
                 }
             }
 
             // Ctrl+Z 撤销
-            if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z)) {
-                if let Some(entry) = state.edit.history.pop() {
-                    state.restore_history_entry(entry);
-                }
+            if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z))
+                && let Some(entry) = state.edit.history.pop()
+            {
+                state.restore_history_entry(entry);
             }
 
             if ui.input(|i| i.key_pressed(egui::Key::Enter)) {

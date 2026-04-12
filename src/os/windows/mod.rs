@@ -94,12 +94,12 @@ impl Platform for WindowsPlatform {
             let current_thread = GetCurrentThreadId();
 
             if fg_thread != current_thread && fg_thread != 0 {
-                let _ = AttachThreadInput(current_thread, fg_thread, true.into());
+                let _ = AttachThreadInput(current_thread, fg_thread, true);
                 if let Err(e) = BringWindowToTop(window_handle) {
                     tracing::error!("BringWindowToTop failed: {:?}", e);
                 }
                 let _ = SetForegroundWindow(window_handle);
-                let _ = AttachThreadInput(current_thread, fg_thread, false.into());
+                let _ = AttachThreadInput(current_thread, fg_thread, false);
             } else {
                 if let Err(e) = BringWindowToTop(window_handle) {
                     tracing::error!("BringWindowToTop failed: {:?}", e);
@@ -161,10 +161,10 @@ impl Platform for WindowsPlatform {
                 }
             };
 
-            if let Ok(hwnd_main) = FindWindowA(s!("Shell_TrayWnd"), PCSTR::null()) {
-                if !hwnd_main.0.is_null() {
-                    push_rect_from_hwnd(hwnd_main);
-                }
+            if let Ok(hwnd_main) = FindWindowA(s!("Shell_TrayWnd"), PCSTR::null())
+                && !hwnd_main.0.is_null()
+            {
+                push_rect_from_hwnd(hwnd_main);
             }
 
             let mut current_hwnd = HWND::default();
@@ -220,9 +220,12 @@ impl Platform for WindowsPlatform {
                 return Err("Failed to get bitmap object".to_string());
             }
 
-            let width = bitmap.bmWidth as usize;
-            let height = bitmap.bmHeight as usize;
-            let stride = bitmap.bmWidthBytes as usize;
+            let width = usize::try_from(bitmap.bmWidth)
+                .map_err(|_| "Bitmap width must be non-negative".to_string())?;
+            let height = usize::try_from(bitmap.bmHeight)
+                .map_err(|_| "Bitmap height must be non-negative".to_string())?;
+            let stride = usize::try_from(bitmap.bmWidthBytes)
+                .map_err(|_| "Bitmap stride must be non-negative".to_string())?;
             let bits_ptr = bitmap.bmBits as *const u8;
 
             if bits_ptr.is_null() {
@@ -230,18 +233,27 @@ impl Platform for WindowsPlatform {
                 return Err("Bitmap bits are null".to_string());
             }
 
-            let mut pixels = Vec::with_capacity(width * height);
-            let bits = slice::from_raw_parts(bits_ptr, stride * height);
+            let pixel_count = width
+                .checked_mul(height)
+                .ok_or_else(|| "Bitmap dimensions overflowed".to_string())?;
+            let bits_len = stride
+                .checked_mul(height)
+                .ok_or_else(|| "Bitmap buffer length overflowed".to_string())?;
+            let row_bytes = width
+                .checked_mul(4)
+                .ok_or_else(|| "Bitmap row width overflowed".to_string())?;
 
-            if stride == width * 4 {
+            let mut pixels = Vec::with_capacity(pixel_count);
+            let bits = slice::from_raw_parts(bits_ptr, bits_len);
+
+            if stride == row_bytes {
                 pixels.extend(bits.chunks_exact(4).map(|chunk| {
                     egui::Color32::from_rgba_premultiplied(chunk[2], chunk[1], chunk[0], chunk[3])
                 }));
             } else {
-                for y in 0..height {
-                    let row_start = y * stride;
-                    let row_end = (row_start + width * 4).min(bits.len());
-                    let row = &bits[row_start..row_end];
+                for row in bits.chunks(stride).take(height) {
+                    let row_end = row_bytes.min(row.len());
+                    let row = &row[..row_end];
                     pixels.extend(row.chunks_exact(4).map(|chunk| {
                         egui::Color32::from_rgba_premultiplied(
                             chunk[2], chunk[1], chunk[0], chunk[3],

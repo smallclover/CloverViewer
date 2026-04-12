@@ -94,7 +94,8 @@ pub(super) fn handle_capture_process(
             Ok((captures, window_rects)) => {
                 for cap in &captures {
                     let monitor_name = &cap.screen_info.name;
-                    if let Some(texture) = screenshot_state.capture.texture_pool.get_mut(monitor_name)
+                    if let Some(texture) =
+                        screenshot_state.capture.texture_pool.get_mut(monitor_name)
                     {
                         texture.set(cap.image.clone(), Default::default());
                     } else {

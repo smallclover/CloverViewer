@@ -25,26 +25,24 @@ pub fn draw_single_view(
 
     render_image_viewer(ui, rect, current_texture.as_ref(), viewer);
 
-    if !is_transitioning {
-        if ui.input(|i| i.pointer.secondary_clicked()) {
-            if let Some(pos) = ui.input(|i| i.pointer.hover_pos()) {
-                if rect.contains(pos) {
-                    let mut allow_context_menu = true;
-                    if viewer.current().is_some() {
-                        let hover_zone_width = 100.0;
-                        let center_zone = Rect::from_min_max(
-                            rect.min + egui::vec2(hover_zone_width, 0.0),
-                            rect.max - egui::vec2(hover_zone_width, 0.0),
-                        );
-                        if !center_zone.contains(pos) {
-                            allow_context_menu = false;
-                        }
-                    }
-                    if allow_context_menu {
-                        *overlay = OverlayMode::ContextMenu(pos);
-                    }
-                }
+    if !is_transitioning
+        && ui.input(|i| i.pointer.secondary_clicked())
+        && let Some(pos) = ui.input(|i| i.pointer.hover_pos())
+        && rect.contains(pos)
+    {
+        let mut allow_context_menu = true;
+        if viewer.current().is_some() {
+            let hover_zone_width = 100.0;
+            let center_zone = Rect::from_min_max(
+                rect.min + egui::vec2(hover_zone_width, 0.0),
+                rect.max - egui::vec2(hover_zone_width, 0.0),
+            );
+            if !center_zone.contains(pos) {
+                allow_context_menu = false;
             }
+        }
+        if allow_context_menu {
+            *overlay = OverlayMode::ContextMenu(pos);
         }
     }
 
@@ -79,12 +77,12 @@ pub fn draw_single_view(
         }
     }
 
-    if viewer.current().is_some() {
-        if let Some(action) = draw_arrows(ui, rect) {
-            match action {
-                Nav::Prev => viewer.prev_image(ctx.clone()),
-                Nav::Next => viewer.next_image(ctx.clone()),
-            }
+    if viewer.current().is_some()
+        && let Some(action) = draw_arrows(ui, rect)
+    {
+        match action {
+            Nav::Prev => viewer.prev_image(ctx.clone()),
+            Nav::Next => viewer.next_image(ctx.clone()),
         }
     }
 
@@ -172,12 +170,11 @@ fn render_image_viewer(
 
 fn render_normal_image(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerState) {
     let available_size = ui.available_size();
-    if let Some(last_size) = viewer.last_view_size {
-        if (last_size.x - available_size.x).abs() > 1.0
-            || (last_size.y - available_size.y).abs() > 1.0
-        {
-            viewer.zoom = viewer.calc_fit_zoom(ui.ctx(), tex.size_vec2());
-        }
+    if let Some(last_size) = viewer.last_view_size
+        && ((last_size.x - available_size.x).abs() > 1.0
+            || (last_size.y - available_size.y).abs() > 1.0)
+    {
+        viewer.zoom = viewer.calc_fit_zoom(ui.ctx(), tex.size_vec2());
     }
     viewer.last_view_size = Some(available_size);
 

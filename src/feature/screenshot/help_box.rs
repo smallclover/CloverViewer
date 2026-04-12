@@ -11,8 +11,8 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
         let sel_center_phys = global_sel_phys.center();
 
         // 1. 获取目标屏幕
-        let screen_phys =
-            find_target_screen_rect(&state.capture.captures, sel_center_phys).unwrap_or_else(|| {
+        let screen_phys = find_target_screen_rect(&state.capture.captures, sel_center_phys)
+            .unwrap_or_else(|| {
                 state
                     .capture
                     .captures

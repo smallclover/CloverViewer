@@ -62,21 +62,14 @@ pub struct ScreenshotState {
     pub input: ScreenshotInputState,
 }
 
+#[derive(Default)]
 pub struct ScreenshotEditState {
     pub shapes: Vec<DrawnShape>,
     // 撤销功能：历史栈
     pub history: Vec<HistoryEntry>,
 }
 
-impl Default for ScreenshotEditState {
-    fn default() -> Self {
-        Self {
-            shapes: Vec::new(),
-            history: Vec::new(),
-        }
-    }
-}
-
+#[derive(Default)]
 pub struct ScreenshotCaptureState {
     pub captures: Vec<CapturedScreen>,
     pub window_rects: Vec<Rect>,
@@ -85,34 +78,12 @@ pub struct ScreenshotCaptureState {
     pub texture_pool: HashMap<String, TextureHandle>,
 }
 
-impl Default for ScreenshotCaptureState {
-    fn default() -> Self {
-        Self {
-            captures: Vec::new(),
-            window_rects: Vec::new(),
-            is_capturing: false,
-            capture_receiver: None,
-            texture_pool: HashMap::new(),
-        }
-    }
-}
-
+#[derive(Default)]
 pub struct ScreenshotSelectionState {
     pub selection: Option<Rect>,
     pub drag_start: Option<Pos2>,
     pub toolbar_pos: Option<Pos2>,
     pub hovered_window: Option<Rect>,
-}
-
-impl Default for ScreenshotSelectionState {
-    fn default() -> Self {
-        Self {
-            selection: None,
-            drag_start: None,
-            toolbar_pos: None,
-            hovered_window: None,
-        }
-    }
 }
 
 pub struct ScreenshotDrawingState {
@@ -151,6 +122,7 @@ impl ScreenshotRuntimeState {
     }
 }
 
+#[derive(Default)]
 pub struct ScreenshotInputState {
     pub copy_requested: bool,
     pub current_shape_start: Option<Pos2>,
@@ -159,18 +131,6 @@ pub struct ScreenshotInputState {
     pub active_text_input: Option<(Pos2, String)>,
     // 当前正在绘制的画笔轨迹
     pub current_pen_points: Vec<Pos2>,
-}
-
-impl Default for ScreenshotInputState {
-    fn default() -> Self {
-        Self {
-            copy_requested: false,
-            current_shape_start: None,
-            current_shape_end: None,
-            active_text_input: None,
-            current_pen_points: Vec::new(),
-        }
-    }
 }
 
 #[derive(Clone)]
@@ -214,11 +174,17 @@ impl ScreenshotState {
     }
 
     pub fn sync_toolbar_to_selection(&mut self) {
-        self.select.toolbar_pos = self.select.selection.map(|selection| selection.right_bottom());
+        self.select.toolbar_pos = self
+            .select
+            .selection
+            .map(|selection| selection.right_bottom());
     }
 
     pub fn has_positive_selection(&self) -> bool {
-        self.select.selection.map(|rect| rect.is_positive()).unwrap_or(false)
+        self.select
+            .selection
+            .map(|rect| rect.is_positive())
+            .unwrap_or(false)
     }
 
     pub fn clear_toolbar(&mut self) {

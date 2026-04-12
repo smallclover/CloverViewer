@@ -139,7 +139,10 @@ fn paint_mosaic_icon(painter: &egui::Painter, icon_rect: Rect, stroke: Stroke) {
         egui::vec2(width, height),
     );
     let bottom_right = Rect::from_min_size(
-        Pos2::new(icon_rect.left() + width + gap, icon_rect.top() + height + gap),
+        Pos2::new(
+            icon_rect.left() + width + gap,
+            icon_rect.top() + height + gap,
+        ),
         egui::vec2(width, height),
     );
 
@@ -231,7 +234,7 @@ pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, size: 
     let text = get_i18n_text(ui.ctx());
     let button_size = vec2(size, size);
     let (rect, response) = ui.allocate_exact_size(button_size, Sense::click_and_drag());
-    response.clone().on_hover_text(icon_type.tooltip(&text));
+    response.clone().on_hover_text(icon_type.tooltip(text));
 
     let painter = ui.painter();
     let rounded_rect = rect.shrink(1.0);

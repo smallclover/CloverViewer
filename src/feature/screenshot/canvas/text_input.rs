@@ -84,13 +84,7 @@ pub fn render_text_input(
                                 key: egui::Key::Enter,
                                 pressed: true,
                                 ..
-                            } => {
-                                if shift_pressed {
-                                    true
-                                } else {
-                                    false
-                                }
-                            }
+                            } => shift_pressed,
                             egui::Event::Text(t) if t == "\n" || t == "\r\n" => shift_pressed,
                             _ => true,
                         });

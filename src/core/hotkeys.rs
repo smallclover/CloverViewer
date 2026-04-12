@@ -140,10 +140,11 @@ impl HotkeyManager {
             if self.hotkeys_manager.register(self.copy_hotkey).is_ok() {
                 self.is_copy_registered = true;
             }
-        } else if *mode != AppMode::Screenshot && self.is_copy_registered {
-            if self.hotkeys_manager.unregister(self.copy_hotkey).is_ok() {
-                self.is_copy_registered = false;
-            }
+        } else if *mode != AppMode::Screenshot
+            && self.is_copy_registered
+            && self.hotkeys_manager.unregister(self.copy_hotkey).is_ok()
+        {
+            self.is_copy_registered = false;
         }
 
         // --- 新增：用于防止一帧内处理多次重复按键 ---
@@ -159,10 +160,8 @@ impl HotkeyManager {
                     actions.push(HotkeyAction::SetScreenshotMode { prev_state });
                     screenshot_triggered_this_frame = true;
                 }
-            } else if id == self.copy_hotkey.id() {
-                if *mode == AppMode::Screenshot {
-                    actions.push(HotkeyAction::RequestScreenshotCopy);
-                }
+            } else if id == self.copy_hotkey.id() && *mode == AppMode::Screenshot {
+                actions.push(HotkeyAction::RequestScreenshotCopy);
             }
         }
 
@@ -262,5 +261,30 @@ fn str_to_code(s: &str) -> Option<Code> {
             tracing::debug!("Unknown key code: {}", s);
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_hotkey_str, str_to_code};
+    use global_hotkey::hotkey::Code;
+
+    #[test]
+    fn parse_hotkey_str_accepts_modifier_combinations() {
+        assert!(parse_hotkey_str("Ctrl+Alt+S").is_some());
+        assert!(parse_hotkey_str("Cmd+Shift+F12").is_some());
+    }
+
+    #[test]
+    fn parse_hotkey_str_rejects_unknown_key_names() {
+        assert!(parse_hotkey_str("Ctrl+NoSuchKey").is_none());
+        assert!(parse_hotkey_str("").is_none());
+    }
+
+    #[test]
+    fn str_to_code_maps_known_keys() {
+        assert_eq!(str_to_code("A"), Some(Code::KeyA));
+        assert_eq!(str_to_code("F12"), Some(Code::F12));
+        assert_eq!(str_to_code("Space"), Some(Code::Space));
     }
 }

@@ -67,15 +67,13 @@ impl ScreenshotFeature {
                 }
 
                 // 检查文件修改时间
-                if let Ok(metadata) = entry.metadata() {
-                    if let Ok(modified) = metadata.modified() {
-                        if let Ok(age) = now.duration_since(modified) {
-                            if age > max_age {
-                                let _ = std::fs::remove_file(&path);
-                                tracing::debug!("清理过期OCR临时文件: {:?}", path);
-                            }
-                        }
-                    }
+                if let Ok(metadata) = entry.metadata()
+                    && let Ok(modified) = metadata.modified()
+                    && let Ok(age) = now.duration_since(modified)
+                    && age > max_age
+                {
+                    let _ = std::fs::remove_file(&path);
+                    tracing::debug!("清理过期OCR临时文件: {:?}", path);
                 }
             }
         }

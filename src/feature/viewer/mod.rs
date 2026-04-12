@@ -76,18 +76,18 @@ impl Feature for ViewerFeature {
         // ==========================================
         // 监听后台 OCR 识别结果
         // ==========================================
-        if let Some(rx) = &common.ocr_state.receiver {
-            if let Ok(result) = rx.try_recv() {
-                common.ocr_state.is_processing = false;
-                match result {
-                    Ok(text) => common.ocr_state.text = Some(text),
-                    Err(err) => {
-                        let text = get_i18n_text(ctx);
-                        common.ocr_state.text = Some(format!("{}{}", text.ocr_engine_failed, err));
-                    }
+        if let Some(rx) = &common.ocr_state.receiver
+            && let Ok(result) = rx.try_recv()
+        {
+            common.ocr_state.is_processing = false;
+            match result {
+                Ok(text) => common.ocr_state.text = Some(text),
+                Err(err) => {
+                    let text = get_i18n_text(ctx);
+                    common.ocr_state.text = Some(format!("{}{}", text.ocr_engine_failed, err));
                 }
-                common.ocr_state.receiver = None; // 接收完毕，清理通道
             }
+            common.ocr_state.receiver = None; // 接收完毕，清理通道
         }
 
         //处理看图模式下的输入事件
@@ -300,7 +300,7 @@ impl ViewerFeature {
                 }
 
                 let mut open = true;
-                let mut action = render_settings_window(ctx, &mut open, &text, config);
+                let mut action = render_settings_window(ctx, &mut open, text, config);
 
                 if action == ModalAction::Apply {
                     // 保存配置到 pending
