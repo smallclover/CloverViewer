@@ -26,6 +26,18 @@ pub fn recognize_text_windows(
     recognize_text_internal(img, language).map_err(|e| e.to_string())
 }
 
+#[derive(Clone, Copy)]
+enum OcrEngineSource {
+    UserProfile,
+    UiLanguage(Language),
+}
+
+#[derive(Clone, Copy)]
+struct OcrCandidateSpec {
+    source: OcrEngineSource,
+    preferred: Option<Language>,
+}
+
 fn recognize_text_internal(img: DynamicImage, language: Language) -> Result<String> {
     let preprocessed_img = preprocess_for_ocr(img);
     let rgba_img = preprocessed_img.into_rgba8();
@@ -40,6 +52,7 @@ fn recognize_text_internal(img: DynamicImage, language: Language) -> Result<Stri
 
     let mut best_score = f64::MIN;
     let mut best_text: Option<String> = None;
+    let mut last_error = None;
 
     let mut consider = |text: String, preferred: Option<Language>| {
         let score = score_text(&text, preferred);
@@ -49,28 +62,24 @@ fn recognize_text_internal(img: DynamicImage, language: Language) -> Result<Stri
         }
     };
 
-    if let Ok(engine) = create_engine_for_ui_language(language)
-        && let Ok(text) = recognize_with_engine(&engine, &bitmap)
-    {
-        consider(text, Some(language));
-    }
+    let operations = build_candidate_specs(language)
+        .into_iter()
+        .filter_map(|spec| match create_candidate_operation(spec, &bitmap) {
+            Ok(operation) => Some(operation),
+            Err(err) => {
+                last_error = Some(err);
+                None
+            }
+        })
+        .collect::<Vec<_>>();
 
-    if let Ok(engine) = OcrEngine::TryCreateFromUserProfileLanguages()
-        && let Ok(text) = recognize_with_engine(&engine, &bitmap)
-    {
-        consider(text, None);
-    }
-
-    let others = match language {
-        Language::Zh => [Language::En, Language::Ja],
-        Language::En => [Language::Zh, Language::Ja],
-        Language::Ja => [Language::Zh, Language::En],
-    };
-    for lang in others {
-        if let Ok(engine) = create_engine_for_ui_language(lang)
-            && let Ok(text) = recognize_with_engine(&engine, &bitmap)
-        {
-            consider(text, Some(lang));
+    for (preferred, operation) in operations {
+        match block_on(operation.into_future()) {
+            Ok(result) => match result.Text() {
+                Ok(text) => consider(text.to_string(), preferred),
+                Err(err) => last_error = Some(err),
+            },
+            Err(err) => last_error = Some(err),
         }
     }
 
@@ -78,8 +87,47 @@ fn recognize_text_internal(img: DynamicImage, language: Language) -> Result<Stri
         return Ok(text);
     }
 
-    let engine = OcrEngine::TryCreateFromUserProfileLanguages()?;
-    recognize_with_engine(&engine, &bitmap)
+    if let Some(err) = last_error {
+        Err(err)
+    } else {
+        let engine = OcrEngine::TryCreateFromUserProfileLanguages()?;
+        recognize_with_engine(&engine, &bitmap)
+    }
+}
+
+fn build_candidate_specs(language: Language) -> Vec<OcrCandidateSpec> {
+    let others = match language {
+        Language::Zh => [Language::En, Language::Ja],
+        Language::En => [Language::Zh, Language::Ja],
+        Language::Ja => [Language::Zh, Language::En],
+    };
+
+    let mut specs = Vec::with_capacity(4);
+    specs.push(OcrCandidateSpec {
+        source: OcrEngineSource::UiLanguage(language),
+        preferred: Some(language),
+    });
+    specs.push(OcrCandidateSpec {
+        source: OcrEngineSource::UserProfile,
+        preferred: None,
+    });
+    specs.extend(others.into_iter().map(|lang| OcrCandidateSpec {
+        source: OcrEngineSource::UiLanguage(lang),
+        preferred: Some(lang),
+    }));
+    specs
+}
+
+fn create_candidate_operation(
+    spec: OcrCandidateSpec,
+    bitmap: &SoftwareBitmap,
+) -> Result<(Option<Language>, impl IntoFuture<Output = Result<windows::Media::Ocr::OcrResult>>)> {
+    let engine = match spec.source {
+        OcrEngineSource::UserProfile => OcrEngine::TryCreateFromUserProfileLanguages()?,
+        OcrEngineSource::UiLanguage(language) => create_engine_for_ui_language(language)?,
+    };
+
+    Ok((spec.preferred, engine.RecognizeAsync(bitmap)?))
 }
 
 fn create_engine_for_ui_language(language: Language) -> Result<OcrEngine> {
@@ -422,7 +470,9 @@ fn binarize(mut gray: GrayImage, threshold: u8) -> GrayImage {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_text_quality_bad, score_text};
+    use super::{
+        OcrCandidateSpec, OcrEngineSource, build_candidate_specs, is_text_quality_bad, score_text,
+    };
     use crate::i18n::lang::Language;
 
     #[test]
@@ -442,5 +492,40 @@ mod tests {
         assert!(is_text_quality_bad("abc"));
         assert!(is_text_quality_bad("valid\u{FFFD}text"));
         assert!(!is_text_quality_bad("Valid OCR text"));
+    }
+
+    #[test]
+    fn candidate_specs_cover_profile_and_alternative_languages() {
+        let specs = build_candidate_specs(Language::Zh);
+
+        assert_eq!(specs.len(), 4);
+        assert!(matches!(
+            specs[0],
+            OcrCandidateSpec {
+                source: OcrEngineSource::UiLanguage(Language::Zh),
+                preferred: Some(Language::Zh),
+            }
+        ));
+        assert!(matches!(
+            specs[1],
+            OcrCandidateSpec {
+                source: OcrEngineSource::UserProfile,
+                preferred: None,
+            }
+        ));
+        assert!(matches!(
+            specs[2],
+            OcrCandidateSpec {
+                source: OcrEngineSource::UiLanguage(Language::En),
+                preferred: Some(Language::En),
+            }
+        ));
+        assert!(matches!(
+            specs[3],
+            OcrCandidateSpec {
+                source: OcrEngineSource::UiLanguage(Language::Ja),
+                preferred: Some(Language::Ja),
+            }
+        ));
     }
 }
