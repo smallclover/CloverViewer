@@ -50,6 +50,7 @@ impl Default for HotkeysConfig {
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct Config {
+    #[serde(default)]
     pub language: Language,
     #[serde(default = "default_zoom_sensitivity")]
     pub zoom_sensitivity: f32,

@@ -1,10 +1,10 @@
 use crate::model::config::get_context_config;
 use egui::Context;
 use serde::{Deserialize, Serialize};
+use sys_locale::get_locale;
 
-#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Language {
-    #[default]
     Zh,
     En,
     Ja,
@@ -17,6 +17,38 @@ impl Language {
             Language::En => "English",
             Language::Ja => "日本語",
         }
+    }
+
+    pub fn detect_system() -> Self {
+        get_locale()
+            .as_deref()
+            .and_then(Self::from_locale_tag)
+            .unwrap_or(Self::Zh)
+    }
+
+    fn from_locale_tag(locale: &str) -> Option<Self> {
+        let normalized = locale.replace('_', "-").to_ascii_lowercase();
+        let primary = normalized.split('-').next()?;
+
+        if primary == "zh" {
+            return Some(Self::Zh);
+        }
+
+        if primary == "ja" {
+            return Some(Self::Ja);
+        }
+
+        if primary == "en" {
+            return Some(Self::En);
+        }
+
+        None
+    }
+}
+
+impl Default for Language {
+    fn default() -> Self {
+        Self::detect_system()
     }
 }
 
@@ -374,4 +406,22 @@ pub fn get_text(lang: Language) -> &'static TextBundle {
 pub fn get_i18n_text(ctx: &Context) -> &'static TextBundle {
     let config = get_context_config(ctx);
     get_text(config.language)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Language;
+
+    #[test]
+    fn locale_tag_maps_to_supported_language() {
+        assert_eq!(Language::from_locale_tag("zh-CN"), Some(Language::Zh));
+        assert_eq!(Language::from_locale_tag("zh_Hant_TW"), Some(Language::Zh));
+        assert_eq!(Language::from_locale_tag("en-US"), Some(Language::En));
+        assert_eq!(Language::from_locale_tag("ja-JP"), Some(Language::Ja));
+    }
+
+    #[test]
+    fn unsupported_locale_returns_none() {
+        assert_eq!(Language::from_locale_tag("fr-FR"), None);
+    }
 }
