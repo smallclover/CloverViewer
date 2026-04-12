@@ -9,6 +9,7 @@ pub mod text_input;
 
 use crate::feature::screenshot::capture::{DrawnShape, ScreenshotState, ScreenshotTool};
 use eframe::egui::{Color32, Id, Pos2, Ui, Vec2};
+use std::sync::Arc;
 
 /// 物理坐标转换为本地逻辑坐标
 pub fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {
@@ -165,7 +166,7 @@ pub fn commit_text_shape(
         end: end_pos,
         color: state.drawing.active_color,
         stroke_width: state.drawing.stroke_width,
-        text: Some(baked_text),
+        text: Some(Arc::<str>::from(baked_text)),
         points: None,
         cached_galley: None,
         cached_mosaic: None,

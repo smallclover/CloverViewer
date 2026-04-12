@@ -51,7 +51,7 @@ impl DrawnShape {
         let text = self.text.as_ref()?;
         let font_size = 20.0 + (self.stroke_width * 2.0);
         let galley = painter.layout_no_wrap(
-            text.clone(),
+            text.to_string(),
             egui::FontId::proportional(font_size),
             self.color,
         );
@@ -69,7 +69,7 @@ impl DrawnShape {
         let text = self.text.as_ref()?;
         let font_size = 20.0 + (self.stroke_width * 2.0);
         Some(painter.layout_no_wrap(
-            text.clone(),
+            text.to_string(),
             egui::FontId::proportional(font_size),
             self.color,
         ))
@@ -194,7 +194,7 @@ impl ShapeRender for DrawnShape {
             ScreenshotTool::Pen => {
                 if let Some(points) = &self.points {
                     let mut local_points = Vec::with_capacity(points.len());
-                    for p in points {
+                    for p in points.iter() {
                         local_points.push(phys_to_local(*p, global_offset_phys, ppp));
                     }
                     painter.add(eframe::egui::Shape::line(
@@ -235,7 +235,7 @@ impl ShapeRender for DrawnShape {
         self.end += delta;
         self.invalidate_galley();
         if let Some(points) = &mut self.points {
-            for p in points.iter_mut() {
+            for p in Arc::make_mut(points).iter_mut() {
                 *p += delta;
             }
         }

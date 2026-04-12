@@ -6,6 +6,7 @@ use crate::feature::screenshot::{
     capture::{DrawnShape, ScreenshotState, ScreenshotTool},
 };
 use eframe::egui::{Pos2, Rect, Ui};
+use std::sync::Arc;
 
 use super::hover::get_hovered_handle;
 
@@ -209,6 +210,7 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
             } else {
                 state.drawing.stroke_width
             };
+            let points = Arc::new(std::mem::take(&mut state.input.current_pen_points));
 
             state.edit.shapes.push(DrawnShape {
                 tool,
@@ -217,12 +219,11 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
                 color: state.drawing.active_color,
                 stroke_width: used_width,
                 text: None,
-                points: Some(state.input.current_pen_points.clone()),
+                points: Some(points),
                 cached_galley: None,
                 cached_mosaic: None,
             });
         }
-        state.input.current_pen_points.clear();
     } else if let Some(start_pos) = state.input.current_shape_start {
         let end_pos = state.input.current_shape_end.unwrap_or(start_pos);
         if start_pos.distance(end_pos) > 5.0

@@ -36,12 +36,28 @@ pub struct DrawnShape {
     pub end: Pos2,
     pub color: Color32,
     pub stroke_width: f32,
-    pub text: Option<String>,
-    pub points: Option<Vec<Pos2>>,
+    pub text: Option<Arc<str>>,
+    pub points: Option<Arc<Vec<Pos2>>>,
     /// 运行时缓存：文本的 egui Galley，避免每帧重排版
     pub cached_galley: Option<Arc<egui::Galley>>,
     /// 运行时缓存：马赛克的纹理，避免每帧采样原图
     pub cached_mosaic: Option<Arc<MosaicCache>>,
+}
+
+impl DrawnShape {
+    fn clone_for_history(&self) -> Self {
+        Self {
+            tool: self.tool,
+            start: self.start,
+            end: self.end,
+            color: self.color,
+            stroke_width: self.stroke_width,
+            text: self.text.clone(),
+            points: self.points.clone(),
+            cached_galley: None,
+            cached_mosaic: None,
+        }
+    }
 }
 
 /// 马赛克纹理缓存
@@ -159,7 +175,12 @@ impl ScreenshotState {
 
     pub fn push_history_snapshot(&mut self) {
         self.edit.history.push(HistoryEntry {
-            shapes: self.edit.shapes.clone(),
+            shapes: self
+                .edit
+                .shapes
+                .iter()
+                .map(DrawnShape::clone_for_history)
+                .collect(),
             selection: self.select.selection,
         });
     }
@@ -209,4 +230,43 @@ pub enum WindowPrevState {
     Normal,
     Minimized,
     Tray,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{DrawnShape, ScreenshotState, ScreenshotTool};
+    use eframe::egui::{Color32, Pos2};
+    use std::sync::Arc;
+
+    #[test]
+    fn history_snapshot_shares_shape_payloads() {
+        let shared_text: Arc<str> = Arc::from("hello");
+        let shared_points = Arc::new(vec![Pos2::new(1.0, 2.0), Pos2::new(3.0, 4.0)]);
+        let mut state = ScreenshotState::default();
+        state.edit.shapes.push(DrawnShape {
+            tool: ScreenshotTool::Pen,
+            start: Pos2::new(0.0, 0.0),
+            end: Pos2::new(10.0, 10.0),
+            color: Color32::WHITE,
+            stroke_width: 2.0,
+            text: Some(shared_text.clone()),
+            points: Some(shared_points.clone()),
+            cached_galley: None,
+            cached_mosaic: None,
+        });
+
+        state.push_history_snapshot();
+
+        let snapshot = &state.edit.history[0].shapes[0];
+        assert!(Arc::ptr_eq(
+            snapshot.text.as_ref().expect("text missing"),
+            &shared_text,
+        ));
+        assert!(Arc::ptr_eq(
+            snapshot.points.as_ref().expect("points missing"),
+            &shared_points,
+        ));
+        assert!(snapshot.cached_galley.is_none());
+        assert!(snapshot.cached_mosaic.is_none());
+    }
 }
