@@ -6,12 +6,6 @@ use std::path::Path;
 
 pub struct MacosPlatform;
 
-impl MacosPlatform {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
 impl Platform for MacosPlatform {
     fn get_window_handle(&self, _cc: &eframe::CreationContext<'_>) -> usize {
         0 // Placeholder

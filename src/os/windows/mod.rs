@@ -30,10 +30,6 @@ pub mod ocr;
 pub struct WindowsPlatform;
 
 impl WindowsPlatform {
-    pub fn new() -> Self {
-        Self
-    }
-
     fn get_window_handle(&self, hwnd_usize: usize) -> HWND {
         HWND(hwnd_usize as *mut std::ffi::c_void)
     }

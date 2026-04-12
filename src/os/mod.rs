@@ -32,18 +32,21 @@ pub trait Platform {
 }
 
 // 获取当前平台的 Handler
-pub fn current_platform() -> Box<dyn Platform> {
+pub fn current_platform() -> &'static dyn Platform {
     #[cfg(target_os = "windows")]
     {
-        Box::new(windows::WindowsPlatform::new())
+        static PLATFORM: windows::WindowsPlatform = windows::WindowsPlatform;
+        &PLATFORM
     }
     #[cfg(target_os = "macos")]
     {
-        Box::new(macos::MacosPlatform::new())
+        static PLATFORM: macos::MacosPlatform = macos::MacosPlatform;
+        &PLATFORM
     }
     #[cfg(target_os = "linux")]
     {
-        Box::new(linux::LinuxPlatform::new())
+        static PLATFORM: linux::LinuxPlatform = linux::LinuxPlatform;
+        &PLATFORM
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
     {
