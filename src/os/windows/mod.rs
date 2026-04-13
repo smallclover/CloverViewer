@@ -23,7 +23,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{Interface, PCSTR, PCWSTR, s};
 
-use super::Platform;
+use super::{OcrEngine, ScreenshotPlatform, ThumbnailProvider, WindowManager};
 
 pub mod ocr;
 
@@ -35,7 +35,7 @@ impl WindowsPlatform {
     }
 }
 
-impl Platform for WindowsPlatform {
+impl WindowManager for WindowsPlatform {
     fn get_window_handle(&self, cc: &eframe::CreationContext<'_>) -> usize {
         let Ok(window_handle) = cc.window_handle() else {
             panic!("Failed to get window handle");
@@ -104,7 +104,9 @@ impl Platform for WindowsPlatform {
             }
         }
     }
+}
 
+impl ScreenshotPlatform for WindowsPlatform {
     fn lock_cursor_for_screenshot(&self) {
         unsafe {
             let vx = GetSystemMetrics(SM_XVIRTUALSCREEN);
@@ -181,7 +183,9 @@ impl Platform for WindowsPlatform {
         }
         rects
     }
+}
 
+impl ThumbnailProvider for WindowsPlatform {
     fn load_thumbnail(&self, path: &Path, size: (u32, u32)) -> Result<ColorImage, String> {
         unsafe {
             let wide_path: Vec<u16> = path
@@ -267,7 +271,9 @@ impl Platform for WindowsPlatform {
             })
         }
     }
+}
 
+impl OcrEngine for WindowsPlatform {
     fn recognize_text(&self, img: DynamicImage, language: Language) -> Result<String, String> {
         ocr::recognize_text_windows(img, language)
     }
