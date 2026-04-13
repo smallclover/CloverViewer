@@ -34,6 +34,11 @@ struct PickerLayout {
     view_height: f32,
 }
 
+struct PickerFrameState {
+    state: PickerState,
+    next_index: Option<usize>,
+}
+
 pub fn show_preview_window(ctx: &Context, viewer: &mut ViewerState) -> bool {
     if !viewer.list.is_empty()
         && let Some(new_idx) = draw_picker(ctx, viewer)
@@ -66,35 +71,72 @@ fn draw_picker(ctx: &Context, viewer: &mut ViewerState) -> Option<usize> {
                     }
 
                     let id = ui.id().with("picker_state");
-                    let mut state = load_picker_state(ui, id, viewer.index);
-                    update_picker_scroll_state(&mut state, &response, rect, viewer.index);
-                    clamp_picker_scroll(&mut state, viewer.list.len());
-
-                    let selected_idx = (state.scroll_offset / PICKER_ITEM_WIDTH).round() as usize;
-                    if selected_idx != viewer.index {
-                        new_index = Some(selected_idx);
-                        state.last_index = selected_idx;
-                    }
+                    let frame_state = prepare_picker_frame_state(
+                        ui,
+                        id,
+                        &response,
+                        rect,
+                        viewer.index,
+                        viewer.list.len(),
+                    );
+                    new_index = frame_state.next_index;
 
                     draw_center_indicator(ui, rect);
 
-                    let mut items_ui =
-                        ui.new_child(UiBuilder::new().max_rect(rect).layout(*ui.layout()));
-                    items_ui.set_clip_rect(rect);
+                    let to_load = draw_picker_items_layer(ui, rect, &frame_state.state, viewer);
 
-                    let to_load = render_visible_items(&mut items_ui, rect, &state, viewer);
-
-                    ui.data_mut(|d| d.insert_temp(id, state));
-
-                    if state.scroll_offset != state.target_offset || response.dragged() {
-                        ui.request_repaint();
-                    }
+                    ui.data_mut(|d| d.insert_temp(id, frame_state.state));
+                    request_picker_repaint(ui, &frame_state.state, &response);
 
                     queue_thumbnail_loads(ctx, viewer, to_load);
                 });
         });
 
     new_index
+}
+
+fn prepare_picker_frame_state(
+    ui: &mut Ui,
+    id: Id,
+    response: &egui::Response,
+    rect: Rect,
+    current_index: usize,
+    item_count: usize,
+) -> PickerFrameState {
+    let mut state = load_picker_state(ui, id, current_index);
+    update_picker_scroll_state(&mut state, response, rect, current_index);
+    clamp_picker_scroll(&mut state, item_count);
+
+    let next_index = resolve_picker_index(&mut state, current_index);
+
+    PickerFrameState { state, next_index }
+}
+
+fn resolve_picker_index(state: &mut PickerState, current_index: usize) -> Option<usize> {
+    let selected_idx = (state.scroll_offset / PICKER_ITEM_WIDTH).round() as usize;
+    if selected_idx != current_index {
+        state.last_index = selected_idx;
+        return Some(selected_idx);
+    }
+
+    None
+}
+
+fn draw_picker_items_layer(
+    ui: &mut Ui,
+    rect: Rect,
+    state: &PickerState,
+    viewer: &mut ViewerState,
+) -> Vec<std::path::PathBuf> {
+    let mut items_ui = ui.new_child(UiBuilder::new().max_rect(rect).layout(*ui.layout()));
+    items_ui.set_clip_rect(rect);
+    render_visible_items(&mut items_ui, rect, state, viewer)
+}
+
+fn request_picker_repaint(ui: &mut Ui, state: &PickerState, response: &egui::Response) {
+    if state.scroll_offset != state.target_offset || response.dragged() {
+        ui.request_repaint();
+    }
 }
 
 fn calculate_picker_layout(ctx: &Context) -> PickerLayout {

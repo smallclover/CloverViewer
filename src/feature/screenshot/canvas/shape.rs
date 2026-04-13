@@ -323,53 +323,46 @@ fn resized_endpoints(
     clamped: Pos2,
     start_state: &ResizeStartState,
 ) -> (Pos2, Pos2) {
-    let mut new_start = start_state.start;
-    let mut new_end = start_state.end;
-
     match tool {
-        ScreenshotTool::Arrow => match handle {
-            0 => new_start = clamped,
-            1 => new_end = clamped,
-            _ => {}
-        },
-        _ => match handle {
-            0 => {
-                new_start = clamped;
-                new_end = start_state.end;
-            }
-            1 => {
-                new_start = Pos2::new(start_state.start.x, clamped.y);
-                new_end = Pos2::new(clamped.x, start_state.end.y);
-            }
-            2 => {
-                new_start = start_state.start;
-                new_end = clamped;
-            }
-            3 => {
-                new_start = Pos2::new(clamped.x, start_state.start.y);
-                new_end = Pos2::new(start_state.end.x, clamped.y);
-            }
-            4 => {
-                new_start = Pos2::new(start_state.start.x, clamped.y);
-                new_end = start_state.end;
-            }
-            5 => {
-                new_start = start_state.start;
-                new_end = Pos2::new(clamped.x, start_state.end.y);
-            }
-            6 => {
-                new_start = start_state.start;
-                new_end = Pos2::new(start_state.end.x, clamped.y);
-            }
-            7 => {
-                new_start = Pos2::new(clamped.x, start_state.start.y);
-                new_end = start_state.end;
-            }
-            _ => {}
-        },
+        ScreenshotTool::Arrow => resize_arrow(handle, clamped, start_state),
+        _ => resize_box_handle(handle, clamped, start_state),
     }
+}
 
-    (new_start, new_end)
+fn resize_arrow(
+    handle: usize,
+    clamped: Pos2,
+    start_state: &ResizeStartState,
+) -> (Pos2, Pos2) {
+    match handle {
+        0 => (clamped, start_state.end),
+        1 => (start_state.start, clamped),
+        _ => (start_state.start, start_state.end),
+    }
+}
+
+fn resize_box_handle(
+    handle: usize,
+    clamped: Pos2,
+    start_state: &ResizeStartState,
+) -> (Pos2, Pos2) {
+    match handle {
+        0 => (clamped, start_state.end),
+        1 => (
+            Pos2::new(start_state.start.x, clamped.y),
+            Pos2::new(clamped.x, start_state.end.y),
+        ),
+        2 => (start_state.start, clamped),
+        3 => (
+            Pos2::new(clamped.x, start_state.start.y),
+            Pos2::new(start_state.end.x, clamped.y),
+        ),
+        4 => (Pos2::new(start_state.start.x, clamped.y), start_state.end),
+        5 => (start_state.start, Pos2::new(clamped.x, start_state.end.y)),
+        6 => (start_state.start, Pos2::new(start_state.end.x, clamped.y)),
+        7 => (Pos2::new(clamped.x, start_state.start.y), start_state.end),
+        _ => (start_state.start, start_state.end),
+    }
 }
 
 fn is_valid_resize(tool: ScreenshotTool, new_start: Pos2, new_end: Pos2) -> bool {

@@ -24,6 +24,20 @@ struct MagnifierPixelContext<'a> {
     half_grid: i32,
 }
 
+struct MagnifierLayout {
+    card_pos: Pos2,
+    card_rect: Rect,
+    magnifier_rect: Rect,
+    info_rect: Rect,
+}
+
+struct MagnifierSample {
+    center_phys_x: isize,
+    center_phys_y: isize,
+    img_width: isize,
+    img_height: isize,
+}
+
 /// 处理放大镜和取色器的核心入口
 pub fn handle_magnifier(
     ui: &mut Ui,
@@ -107,13 +121,27 @@ fn draw_magnifier_ui(
     ppp: f32,
 ) {
     let text = get_i18n_text(ui);
-    // --- 1. 参数调整 ---
     let half_grid = MAGNIFIER_GRID_SIZE / 2;
     let magnifier_size = MAGNIFIER_GRID_SIZE as f32 * MAGNIFIER_PIXEL_SIZE;
     let info_bar_height = MAGNIFIER_INFO_BAR_HEIGHT;
     let card_size = Vec2::new(magnifier_size, magnifier_size + info_bar_height);
+    let layout = resolve_magnifier_layout(ui, draw_pos, card_size, magnifier_size, info_bar_height);
+    let sample = sample_image(image, sample_pos, ppp);
 
-    // --- 2. 计算卡片位置 ---
+    painter.rect_filled(layout.card_rect, MAGNIFIER_CARD_CORNER_RADIUS, Color32::WHITE);
+    paint_pixel_grid(painter, image, &layout, &sample, half_grid);
+    paint_crosshair(painter, &layout.magnifier_rect, layout.card_pos, half_grid);
+    paint_info_panel(painter, &layout.info_rect, text, image, &sample, info_bar_height);
+    paint_card_border(painter, layout.card_rect);
+}
+
+fn resolve_magnifier_layout(
+    ui: &Ui,
+    draw_pos: Pos2,
+    card_size: Vec2,
+    magnifier_size: f32,
+    info_bar_height: f32,
+) -> MagnifierLayout {
     let offset = Vec2::new(MAGNIFIER_CARD_OFFSET, MAGNIFIER_CARD_OFFSET);
     let mut card_pos = draw_pos + offset;
 
@@ -126,40 +154,63 @@ fn draw_magnifier_ui(
     }
 
     let card_rect = Rect::from_min_size(card_pos, card_size);
-
-    // --- 3. 绘制卡片背景和边框 ---
-    painter.rect_filled(card_rect, MAGNIFIER_CARD_CORNER_RADIUS, Color32::WHITE);
-    // --- 4. 绘制上半部分：像素放大镜 ---
     let magnifier_rect = Rect::from_min_size(card_pos, Vec2::new(magnifier_size, magnifier_size));
-    let center_phys_x = (sample_pos.x * ppp).round() as isize;
-    let center_phys_y = (sample_pos.y * ppp).round() as isize;
-    let img_width = image.width() as isize;
-    let img_height = image.height() as isize;
+    let info_rect = Rect::from_min_max(
+        Pos2::new(card_rect.min.x, card_rect.max.y - info_bar_height),
+        card_rect.max,
+    );
 
+    MagnifierLayout {
+        card_pos,
+        card_rect,
+        magnifier_rect,
+        info_rect,
+    }
+}
+
+fn sample_image(image: &ColorImage, sample_pos: Pos2, ppp: f32) -> MagnifierSample {
+    MagnifierSample {
+        center_phys_x: (sample_pos.x * ppp).round() as isize,
+        center_phys_y: (sample_pos.y * ppp).round() as isize,
+        img_width: image.width() as isize,
+        img_height: image.height() as isize,
+    }
+}
+
+fn paint_pixel_grid(
+    painter: &Painter,
+    image: &ColorImage,
+    layout: &MagnifierLayout,
+    sample: &MagnifierSample,
+    half_grid: i32,
+) {
     let mut mesh = eframe::egui::Mesh::default();
     mesh.reserve_triangles(MAGNIFIER_MESH_RESERVE_CELLS * 2);
     mesh.reserve_vertices(MAGNIFIER_MESH_RESERVE_CELLS * 4);
 
     let pixel_context = MagnifierPixelContext {
         image,
-        card_pos,
-        center_phys_x,
-        center_phys_y,
-        img_width,
-        img_height,
+        card_pos: layout.card_pos,
+        center_phys_x: sample.center_phys_x,
+        center_phys_y: sample.center_phys_y,
+        img_width: sample.img_width,
+        img_height: sample.img_height,
         half_grid,
     };
     paint_magnifier_pixels(painter, &pixel_context, &mut mesh);
     painter.add(eframe::egui::Shape::mesh(mesh));
+    paint_grid_lines(painter, layout.card_pos);
+}
 
-    // --- 4.5 绘制像素格子 ---
+fn paint_grid_lines(painter: &Painter, card_pos: Pos2) {
     let grid_line_color = Color32::from_rgba_unmultiplied(0, 0, 0, MAGNIFIER_GRID_LINE_ALPHA);
     let grid_line_width = 1.0;
+
     for dy in 0..MAGNIFIER_GRID_SIZE {
         for dx in 0..MAGNIFIER_GRID_SIZE {
             let x = card_pos.x + dx as f32 * MAGNIFIER_PIXEL_SIZE;
             let y = card_pos.y + dy as f32 * MAGNIFIER_PIXEL_SIZE;
-            // 竖线（向右延伸一格），最后一列不画避免与边框重合
+
             if dx < MAGNIFIER_GRID_SIZE - 1 {
                 painter.line_segment(
                     [
@@ -169,7 +220,7 @@ fn draw_magnifier_ui(
                     Stroke::new(grid_line_width, grid_line_color),
                 );
             }
-            // 横线（向下一格），最后一行不画避免与边框重合
+
             if dy < MAGNIFIER_GRID_SIZE - 1 {
                 painter.line_segment(
                     [
@@ -181,15 +232,9 @@ fn draw_magnifier_ui(
             }
         }
     }
+}
 
-    // --- 4.6 绘制卡片边框 (在画完网格之后画，让边框压在最上面，确保完美闭合) ---
-    painter.rect_stroke(
-        card_rect,
-        MAGNIFIER_CARD_CORNER_RADIUS,
-        Stroke::new(1.0, MAGNIFIER_BORDER_COLOR),
-        StrokeKind::Inside, // Inside 向内绘制
-    );
-    // --- 5. 绘制十字准星 ---
+fn paint_crosshair(painter: &Painter, magnifier_rect: &Rect, card_pos: Pos2, half_grid: i32) {
     let center_grid_idx = half_grid as f32;
     let center_pixel_rect = Rect::from_min_size(
         card_pos
@@ -205,6 +250,7 @@ fn draw_magnifier_ui(
         Stroke::new(1.5, Color32::from_rgb(0, 255, 255)),
         StrokeKind::Outside,
     );
+
     let center_line_color = Color32::from_rgba_unmultiplied(0, 255, 255, 100);
     painter.line_segment(
         [magnifier_rect.center_top(), magnifier_rect.center_bottom()],
@@ -214,34 +260,18 @@ fn draw_magnifier_ui(
         [magnifier_rect.left_center(), magnifier_rect.right_center()],
         Stroke::new(1.0, center_line_color),
     );
+}
 
-    // --- 6. 绘制下半部分：信息文本 ---
-    let center_idx = if center_phys_x >= 0
-        && center_phys_x < img_width
-        && center_phys_y >= 0
-        && center_phys_y < img_height
-    {
-        center_phys_y as usize * image.width() + center_phys_x as usize
-    } else {
-        0
-    };
-    let center_color = if center_phys_x >= 0 && center_phys_x < img_width {
-        image.pixels[center_idx]
-    } else {
-        Color32::BLACK
-    };
-
-    let info_rect = Rect::from_min_max(
-        Pos2::new(card_rect.min.x, card_rect.max.y - info_bar_height),
-        card_rect.max,
-    );
-
-    painter.line_segment(
-        [info_rect.left_top(), info_rect.right_top()],
-        Stroke::new(1.0, Color32::from_gray(230)),
-    );
-
-    let coord_text = format!("({}, {})", center_phys_x, center_phys_y);
+fn paint_info_panel(
+    painter: &Painter,
+    info_rect: &Rect,
+    text: &crate::i18n::lang::TextBundle,
+    image: &ColorImage,
+    sample: &MagnifierSample,
+    info_bar_height: f32,
+) {
+    let center_color = sampled_center_color(image, sample);
+    let coord_text = format!("({}, {})", sample.center_phys_x, sample.center_phys_y);
     let hex_text = format!(
         "#{:02X}{:02X}{:02X}",
         center_color.r(),
@@ -249,11 +279,15 @@ fn draw_magnifier_ui(
         center_color.b()
     );
 
+    painter.line_segment(
+        [info_rect.left_top(), info_rect.right_top()],
+        Stroke::new(1.0, Color32::from_gray(230)),
+    );
+
     let text_color = Color32::from_rgb(40, 40, 40);
     let hint_color = Color32::from_gray(150);
     let font_id = FontId::proportional(12.0);
     let hint_font_id = FontId::proportional(10.0);
-
     let line_height = info_bar_height / 3.0;
 
     painter.text(
@@ -303,6 +337,28 @@ fn draw_magnifier_ui(
         text.tooltip_mouse_copy_color,
         hint_font_id,
         hint_color,
+    );
+}
+
+fn sampled_center_color(image: &ColorImage, sample: &MagnifierSample) -> Color32 {
+    if sample.center_phys_x < 0
+        || sample.center_phys_x >= sample.img_width
+        || sample.center_phys_y < 0
+        || sample.center_phys_y >= sample.img_height
+    {
+        return Color32::BLACK;
+    }
+
+    let center_idx = sample.center_phys_y as usize * image.width() + sample.center_phys_x as usize;
+    image.pixels[center_idx]
+}
+
+fn paint_card_border(painter: &Painter, card_rect: Rect) {
+    painter.rect_stroke(
+        card_rect,
+        MAGNIFIER_CARD_CORNER_RADIUS,
+        Stroke::new(1.0, MAGNIFIER_BORDER_COLOR),
+        StrokeKind::Inside,
     );
 }
 
