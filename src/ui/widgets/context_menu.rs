@@ -26,7 +26,7 @@ pub fn render_context_menu(ctx: &Context, pos: &mut Option<Pos2>) -> Option<Cont
             .order(Order::Middle)
             .fixed_pos(Pos2::ZERO)
             .show(ctx, |ui| {
-                let screen_rect = ctx.input(|i| i.content_rect());
+                let screen_rect = ui.content_rect();
                 let response = ui.allocate_rect(screen_rect, Sense::click());
                 if response.clicked() {
                     close_menu = true;

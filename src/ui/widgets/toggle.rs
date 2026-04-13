@@ -45,7 +45,7 @@ pub fn toggle_ui(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
         // Let's ask for a simple animation from egui.
         // egui keeps track of changes in the boolean associated with the id and
         // returns an animated value in the 0-1 range for how much "on" we are.
-        let how_on = ui.ctx().animate_bool_responsive(response.id, *on);
+        let how_on = ui.animate_bool_responsive(response.id, *on);
         // We will follow the current style by asking
         // "how should something that is being interacted with be painted?".
         // This will, for instance, give us different colors when the widget is hovered or clicked.

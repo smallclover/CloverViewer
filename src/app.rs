@@ -18,8 +18,8 @@ use crate::{
 };
 use eframe::egui;
 use egui::{
-    Context, FontData, FontDefinitions, FontFamily, Pos2, Vec2, ViewportBuilder, ViewportCommand,
-    WindowLevel,
+    Context, FontData, FontDefinitions, FontFamily, Pos2, Ui, Vec2, ViewportBuilder,
+    ViewportCommand, WindowLevel,
 };
 use std::{
     env,
@@ -279,7 +279,7 @@ impl CloverApp {
 }
 
 impl eframe::App for CloverApp {
-    fn update(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
+    fn logic(&mut self, ctx: &Context, frame: &mut eframe::Frame) {
         // 处理窗口缓存的位置
         self.handle_cache_win_pos(ctx, frame);
         // 全局输入处理
@@ -307,23 +307,37 @@ impl eframe::App for CloverApp {
             self.state.mode = AppMode::Screenshot;
         }
 
-        // 调用当前模式的 Feature 更新
         let common = &mut self.state.common;
         match self.state.mode {
             AppMode::Viewer => {
                 self.viewer_feature
-                    .update(ctx, common, &mut self.state.mode);
-                // 处理配置应用（从 overlay 状态）
-                self.handle_update_config(ctx);
+                    .logic(ctx, common, &mut self.state.mode);
             }
             AppMode::Screenshot => {
                 self.screenshot_feature
-                    .update(ctx, common, &mut self.state.mode);
+                    .logic(ctx, common, &mut self.state.mode);
             }
         }
     }
 
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        let common = &mut self.state.common;
+
+        match self.state.mode {
+            AppMode::Viewer => {
+                self.viewer_feature.ui(ui, common);
+                // 处理配置应用（从 overlay 状态）
+                self.handle_update_config(&ctx);
+            }
+            AppMode::Screenshot => {
+                self.screenshot_feature
+                    .ui(ui, common, &mut self.state.mode);
+            }
+        }
+    }
+
+    fn on_exit(&mut self) {
         // 应用退出时强制保存配置
         self.config_manager.save_now();
     }

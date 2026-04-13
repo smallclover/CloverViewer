@@ -25,7 +25,7 @@ use crate::{
     },
 };
 use eframe::egui;
-use egui::{CentralPanel, Color32, Context, Frame, TopBottomPanel, Vec2, ViewportCommand};
+use egui::{CentralPanel, Color32, Context, Frame, Panel, Ui, Vec2, ViewportCommand};
 use grid_view::draw_grid_view;
 use rfd::FileDialog;
 use single_view::draw_single_view;
@@ -67,7 +67,16 @@ impl Default for ViewerFeature {
 }
 
 impl Feature for ViewerFeature {
-    fn update(&mut self, ctx: &Context, common: &mut CommonState, mode: &mut AppMode) {
+    fn handle_hotkey(&mut self, action: HotkeyAction) -> Option<AppMode> {
+        match action {
+            HotkeyAction::SetScreenshotMode { .. } => Some(AppMode::Screenshot),
+            HotkeyAction::RequestScreenshotCopy => None,
+        }
+    }
+}
+
+impl ViewerFeature {
+    pub fn logic(&mut self, ctx: &Context, common: &mut CommonState, mode: &mut AppMode) {
         // 只在 Viewer 模式下处理
         if *mode != AppMode::Viewer {
             return;
@@ -103,24 +112,12 @@ impl Feature for ViewerFeature {
             self.state.open_new_context(ctx.clone(), path);
         }
 
-        // 绘制 UI
-        self.draw(ctx, common);
-
         // 处理待处理的模式切换（从菜单请求）
         if let Some(switch_to) = self.take_pending_mode_switch() {
             *mode = switch_to;
         }
     }
 
-    fn handle_hotkey(&mut self, action: HotkeyAction) -> Option<AppMode> {
-        match action {
-            HotkeyAction::SetScreenshotMode { .. } => Some(AppMode::Screenshot),
-            HotkeyAction::RequestScreenshotCopy => None,
-        }
-    }
-}
-
-impl ViewerFeature {
     /// 处理 Viewer 特有的输入事件
     pub fn handle_input(&mut self, ctx: &Context) {
         use egui::Key;
@@ -145,9 +142,11 @@ impl ViewerFeature {
     }
 
     /// 完整的 UI 绘制
-    pub fn draw(&mut self, ctx: &Context, common: &mut CommonState) {
+    pub fn ui(&mut self, ui: &mut Ui, common: &mut CommonState) {
+        let ctx = ui.ctx().clone();
+
         // 1. 顶部面板
-        let (open_file, open_folder, menu_action) = draw_menu(ctx, &mut self.overlay);
+        let (open_file, open_folder, menu_action) = draw_menu(ui, &mut self.overlay);
 
         if open_file {
             let sender = common.path_sender.clone();
@@ -182,37 +181,35 @@ impl ViewerFeature {
             MenuAction::None => {}
         }
 
-        // 2. 底部面板 (内联实现，避免依赖 AppState)
-        self.draw_bottom_panel(ctx);
-        ocr_panel::show(ctx, &mut common.ocr_state);
-        // 3. 中央面板
+        // 2. 底部面板 / 右侧面板 / 中央面板
+        self.draw_bottom_panel(ui);
+        ocr_panel::show_inside(ui, &mut common.ocr_state);
+        if matches!(self.overlay, OverlayMode::Properties) {
+            properties_panel::draw_properties_panel_inside(ui, &mut self.overlay, &self.state);
+        }
+
         let background_frame = Frame::NONE.fill(Color32::from_rgb(25, 25, 25));
         CentralPanel::default()
             .frame(background_frame)
-            .show(ctx, |ui| match self.state.view_mode {
+            .show_inside(ui, |ui| match self.state.view_mode {
                 ViewMode::Single => {
-                    draw_single_view(ctx, ui, &mut self.state, &mut self.overlay);
+                    draw_single_view(&ctx, ui, &mut self.state, &mut self.overlay);
                 }
                 ViewMode::Grid => {
-                    draw_grid_view(ctx, ui, &mut self.state);
+                    draw_grid_view(&ctx, ui, &mut self.state);
                 }
             });
 
-        // 4. 属性面板
-        if matches!(self.overlay, OverlayMode::Properties) {
-            properties_panel::draw_properties_panel(ctx, &mut self.overlay, &self.state);
-        }
+        // 3. Toast 系统
+        common.toast_system.update(&ctx);
 
-        // 5. Toast 系统
-        common.toast_system.update(ctx);
-
-        // 6. 处理 overlays (about, settings, context_menu)
-        let context_menu_action = self.draw_overlays(ctx);
+        // 4. 处理 overlays (about, settings, context_menu)
+        let context_menu_action = self.draw_overlays(&ctx);
 
         // 处理右键菜单操作
         if let Some(action) = context_menu_action {
             handle_context_menu_action(
-                ctx,
+                &ctx,
                 action,
                 &self.state,
                 &mut self.overlay,
@@ -222,10 +219,10 @@ impl ViewerFeature {
     }
 
     /// 底部面板（内联实现）
-    fn draw_bottom_panel(&mut self, ctx: &Context) {
-        TopBottomPanel::bottom("bottom_panel")
-            .exact_height(40.0) // 1. 强制设定底部面板的精确高度，避免被动态内容撑开时的闪动
-            .show(ctx, |ui| {
+    fn draw_bottom_panel(&mut self, ui: &mut Ui) {
+        Panel::bottom("bottom_panel")
+            .exact_size(40.0) // 1. 强制设定底部面板的精确高度，避免被动态内容撑开时的闪动
+            .show_inside(ui, |ui| {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add_space(10.0);
 

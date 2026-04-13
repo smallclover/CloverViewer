@@ -3,23 +3,23 @@ use crate::i18n::lang::get_i18n_text;
 use crate::model::image_meta::ImageProperties;
 use crate::model::mode::OverlayMode;
 use crate::ui::widgets::icons::{IconType, draw_icon_button};
-use egui::{Align, Color32, Context, CursorIcon, Grid, Layout, RichText, Sense, SidePanel, Ui};
+use egui::{Align, Color32, CursorIcon, Grid, Layout, Panel, RichText, Sense, Ui};
 
-pub fn draw_properties_panel(ctx: &Context, overlay: &mut OverlayMode, viewer: &ViewerState) {
+pub fn draw_properties_panel_inside(ui: &mut Ui, overlay: &mut OverlayMode, viewer: &ViewerState) {
     let mut is_open = matches!(overlay, OverlayMode::Properties);
     if !is_open {
         return;
     }
 
-    let text = get_i18n_text(ctx);
+    let text = get_i18n_text(ui);
 
-    SidePanel::right("properties_panel")
+    Panel::right("properties_panel")
         .resizable(true)
-        .default_width(250.0)
-        .min_width(250.0)
-        .show(ctx, |ui| {
+        .default_size(250.0)
+        .min_size(250.0)
+        .show_inside(ui, |ui| {
             if ui.rect_contains_pointer(ui.max_rect()) {
-                ui.ctx().set_cursor_icon(CursorIcon::Default);
+                ui.set_cursor_icon(CursorIcon::Default);
             }
 
             ui.horizontal(|ui| {
@@ -45,7 +45,7 @@ pub fn draw_properties_panel(ctx: &Context, overlay: &mut OverlayMode, viewer: &
 }
 
 fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
-    let text = get_i18n_text(ui.ctx());
+    let text = get_i18n_text(ui);
 
     // 侧边栏基础属性
     Grid::new("basic_properties_grid")
@@ -93,7 +93,7 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
                 let response = ui.add(label).on_hover_text(&path_str);
 
                 if response.hovered() {
-                    ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+                    ui.set_cursor_icon(CursorIcon::PointingHand);
                 }
 
                 if response.clicked() {
@@ -108,7 +108,7 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
         // 复制按钮 - 使用 egui Button 内置点击状态
         let btn_response = ui.button("📋");
         if btn_response.clicked() {
-            ui.ctx().copy_text(path_str);
+            ui.copy_text(path_str);
         }
     });
 }

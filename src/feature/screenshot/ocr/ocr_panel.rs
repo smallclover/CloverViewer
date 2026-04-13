@@ -1,19 +1,19 @@
 use crate::feature::screenshot::ocr::state::OcrState;
 use crate::i18n::lang::get_i18n_text;
 use crate::ui::widgets::icons::{IconType, draw_icon_button};
-use egui::{Context, ScrollArea, SidePanel, TextEdit};
+use egui::{Panel, ScrollArea, TextEdit, Ui};
 
-pub fn show(ctx: &Context, ocr_state: &mut OcrState) {
+pub fn show_inside(ui: &mut Ui, ocr_state: &mut OcrState) {
     if !ocr_state.is_panel_open {
         return;
     }
 
-    let i18n = get_i18n_text(ctx);
+    let i18n = get_i18n_text(ui);
 
-    SidePanel::right("ocr_result_panel")
-        .default_width(300.0)
+    Panel::right("ocr_result_panel")
+        .default_size(300.0)
         .resizable(true)
-        .show(ctx, |ui| {
+        .show_inside(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.heading(i18n.ocr_title);
                 // 靠右放置一个关闭按钮

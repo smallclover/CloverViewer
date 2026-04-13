@@ -56,7 +56,7 @@ pub fn render_text_input(
         egui::Area::new(area_id)
             .fixed_pos(pos_local)
             .order(egui::Order::Foreground)
-            .show(ui.ctx(), |ui| {
+            .show(ui, |ui| {
                 if let Some(rect) = clip_rect {
                     ui.set_clip_rect(rect);
                 }
@@ -95,7 +95,7 @@ pub fn render_text_input(
                             .id(text_edit_id)
                             .font(font_id)
                             .text_color(state.drawing.active_color)
-                            .frame(false)
+                            .frame(egui::Frame::NONE)
                             .desired_rows(1)
                             .desired_width(dynamic_width),
                     );

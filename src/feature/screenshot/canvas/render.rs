@@ -23,7 +23,7 @@ pub fn render_canvas_elements(
     );
 
     let painter = ui.painter();
-    let viewport_rect = ui.ctx().viewport_rect();
+    let viewport_rect = ui.viewport_rect();
 
     render_overlay(
         ui,
@@ -216,7 +216,7 @@ fn render_overlay(
                     viewport_rect,
                     overlay_color,
                 );
-            } else if let Some(pointer_pos) = ui.ctx().pointer_latest_pos() {
+            } else if let Some(pointer_pos) = ui.pointer_latest_pos() {
                 let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
                 if let Some(cap_phys_rect) = crate::model::device::find_target_screen_rect(
                     &state.capture.captures,

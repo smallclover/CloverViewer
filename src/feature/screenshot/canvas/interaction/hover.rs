@@ -10,10 +10,10 @@ pub(super) fn check_hovering_ui(
     state: &ScreenshotState,
     toolbar_rect: Option<Rect>,
 ) -> bool {
-    if let Some(pos) = ui.ctx().pointer_latest_pos() {
+    if let Some(pos) = ui.pointer_latest_pos() {
         let is_clicking_toolbar = toolbar_rect.is_some_and(|r| r.contains(pos));
         let is_interacting_with_picker =
-            state.drawing.color_picker.is_open && ui.ctx().is_pointer_over_area();
+            state.drawing.color_picker.is_open && ui.is_pointer_over_egui();
         is_clicking_toolbar || is_interacting_with_picker
     } else {
         false
@@ -46,7 +46,7 @@ pub(super) fn update_hover_state(
     is_pointer_down: bool,
 ) {
     if !is_pointer_down {
-        if let Some(pos) = ui.ctx().pointer_latest_pos() {
+        if let Some(pos) = ui.pointer_latest_pos() {
             if !is_hovering_ui {
                 // 先检查是否悬停在选中图形的控制点上
                 if let Some(selected_idx) = canvas_state.selected_shape
@@ -84,12 +84,12 @@ pub(super) fn update_cursor(
     is_hovering_ui: bool,
 ) {
     if is_hovering_ui {
-        ui.ctx().set_cursor_icon(CursorIcon::Default);
+        ui.set_cursor_icon(CursorIcon::Default);
         return;
     }
 
     // 检查是否悬停在选中图形的控制点上
-    if let Some(pos) = ui.ctx().pointer_latest_pos()
+    if let Some(pos) = ui.pointer_latest_pos()
         && let Some(selected_idx) = canvas_state.selected_shape
         && let Some(shape) = state.edit.shapes.get(selected_idx)
         && shape.supports_resize()
@@ -126,7 +126,7 @@ pub(super) fn update_cursor(
                 }
             }
         };
-        ui.ctx().set_cursor_icon(cursor);
+        ui.set_cursor_icon(cursor);
         return;
     }
 
@@ -134,7 +134,7 @@ pub(super) fn update_cursor(
         canvas_state.hovered_shape.is_some() || canvas_state.dragging_shape.is_some();
 
     let mut is_hovering_selection_bg = false;
-    if let Some(pos) = ui.ctx().pointer_latest_pos() {
+    if let Some(pos) = ui.pointer_latest_pos() {
         let global_phys = global_offset_phys + (pos.to_vec2() * ppp);
         if let Some(sel) = state.select.selection {
             is_hovering_selection_bg = sel.contains(global_phys)
@@ -144,7 +144,7 @@ pub(super) fn update_cursor(
     }
 
     // 检测 Alt 键状态
-    let is_alt_down = ui.ctx().input(|i| i.modifiers.alt);
+    let is_alt_down = ui.input(|i| i.modifiers.alt);
 
     // 更新指针判断逻辑
     let cursor = if canvas_state.hovered_shape.is_some() && is_alt_down {
@@ -160,5 +160,5 @@ pub(super) fn update_cursor(
         CursorIcon::Crosshair
     };
 
-    ui.ctx().set_cursor_icon(cursor);
+    ui.set_cursor_icon(cursor);
 }

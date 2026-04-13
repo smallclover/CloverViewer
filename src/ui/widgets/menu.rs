@@ -1,7 +1,7 @@
 use crate::i18n::lang::get_i18n_text;
 use crate::model::config::get_context_config;
 use crate::model::mode::OverlayMode;
-use egui::{Button, Context, MenuBar, TopBottomPanel};
+use egui::{Button, MenuBar, Panel, Ui};
 
 /// 菜单动作
 #[derive(Default)]
@@ -19,15 +19,15 @@ pub enum MenuAction {
 /// 1. 是否点击了"打开文件"
 /// 2. 是否点击了"打开文件夹"
 /// 3. 菜单动作
-pub fn draw_menu(ctx: &Context, overlay: &mut OverlayMode) -> (bool, bool, MenuAction) {
+pub fn draw_menu(ui: &mut Ui, overlay: &mut OverlayMode) -> (bool, bool, MenuAction) {
     let mut open_file_dialog = false;
     let mut open_folder_dialog = false;
     let mut action = MenuAction::None;
 
-    let text = get_i18n_text(ctx);
-    let config = get_context_config(ctx);
+    let text = get_i18n_text(ui);
+    let config = get_context_config(ui);
 
-    TopBottomPanel::top("top_panel").show(ctx, |ui| {
+    Panel::top("top_panel").show_inside(ui, |ui| {
         MenuBar::new().ui(ui, |ui| {
             ui.menu_button(text.menu_file, |ui| {
                 if ui.button(text.menu_open_file).clicked() {
@@ -42,7 +42,7 @@ pub fn draw_menu(ctx: &Context, overlay: &mut OverlayMode) -> (bool, bool, MenuA
                 ui.separator();
 
                 if ui.button(text.menu_settings).clicked() {
-                    let config = get_context_config(ctx);
+                    let config = get_context_config(ui);
                     *overlay = OverlayMode::Settings {
                         config: (*config).clone(),
                     };
@@ -52,7 +52,7 @@ pub fn draw_menu(ctx: &Context, overlay: &mut OverlayMode) -> (bool, bool, MenuA
                 ui.separator();
 
                 if ui.button(text.menu_exit).clicked() {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    ui.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             });
 

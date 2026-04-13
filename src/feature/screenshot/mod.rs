@@ -11,11 +11,13 @@ pub mod toolbar;
 use self::state::{ScreenshotState, WindowPrevState};
 use crate::core::hotkeys::HotkeyAction;
 use crate::feature::Feature;
-use crate::feature::screenshot::capture::handle_screenshot_system;
+use crate::feature::screenshot::capture::{
+    draw_screenshot_ui_inside, finalize_screenshot_action, prepare_screenshot_frame,
+};
 use crate::model::config::get_context_config;
 use crate::model::mode::AppMode;
 use crate::model::state::CommonState;
-use eframe::egui::Context;
+use eframe::egui::{Context, Frame, Ui};
 
 /// ScreenshotFeature - 截图功能模块
 pub struct ScreenshotFeature {
@@ -81,74 +83,6 @@ impl ScreenshotFeature {
 }
 
 impl Feature for ScreenshotFeature {
-    fn update(&mut self, ctx: &Context, common: &mut CommonState, mode: &mut AppMode) {
-        // 检测是否刚进入截图模式
-        if *mode == AppMode::Screenshot && !self.is_active {
-            self.enter_screenshot_mode(crate::feature::screenshot::state::WindowPrevState::Normal);
-        }
-
-        // 只在 Screenshot 模式下处理
-        if *mode != AppMode::Screenshot {
-            return;
-        }
-
-        // 同步 copy_requested 标志
-        // 注意：这个标志由热键设置，需要外部传入
-        // 这里假设 copy_requested 已经在 app.rs 中同步到 self.state
-
-        // 调用截图系统处理逻辑
-        let ocr_image_opt =
-            handle_screenshot_system(ctx, &mut self.is_active, &mut self.state, common);
-
-        if let Some(image) = ocr_image_opt {
-            // 1. 开启右侧面板状态
-            common.ocr_state.is_panel_open = true;
-            common.ocr_state.is_processing = true;
-            common.ocr_state.text = None;
-
-            // ==========================================
-            // 将图片存入临时目录，伪装成打开本地文件
-            // ==========================================
-            // 获取系统临时目录 (如 AppData/Local/Temp)
-            let temp_dir = std::env::temp_dir().join("CloverViewer");
-            let _ = std::fs::create_dir_all(&temp_dir); // 确保干净的专属目录存在
-
-            // 清理超过24小时的临时文件
-            Self::clean_temp_files(&temp_dir);
-
-            // 加上时间戳，否则每次都从LRU里面的缓存读取
-            let timestamp = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis();
-            let temp_path = temp_dir.join(format!("ocr_temp_{}.png", timestamp));
-
-            // 保存图片并发送给 Viewer
-            if let Err(e) = image.save(&temp_path) {
-                tracing::error!("无法保存 OCR 临时图片: {}", e);
-            } else {
-                // 利用现有的消息通道，通知 Viewer 加载这张图！
-                let _ = common.path_sender.send(temp_path);
-            }
-
-            // 2. 建立多线程通道，启动系统 OCR 引擎
-            let (tx, rx) = std::sync::mpsc::channel();
-            common.ocr_state.receiver = Some(rx);
-
-            let language = get_context_config(ctx).language;
-            std::thread::spawn(move || {
-                let platform = crate::os::current_platform();
-                let result = platform.recognize_text(image, language);
-                let _ = tx.send(result);
-            });
-        }
-
-        // 检测是否退出截图模式
-        if !self.is_active {
-            *mode = AppMode::Viewer;
-        }
-    }
-
     fn handle_hotkey(&mut self, action: HotkeyAction) -> Option<AppMode> {
         match action {
             // 截图模式
@@ -163,6 +97,87 @@ impl Feature for ScreenshotFeature {
                 // 告诉主应用：你需要把全局模式切换为截图
                 Some(AppMode::Screenshot)
             }
+        }
+    }
+}
+
+impl ScreenshotFeature {
+    pub fn logic(&mut self, _ctx: &Context, _common: &mut CommonState, mode: &mut AppMode) {
+        // 检测是否刚进入截图模式
+        if *mode == AppMode::Screenshot && !self.is_active {
+            self.enter_screenshot_mode(crate::feature::screenshot::state::WindowPrevState::Normal);
+        }
+
+        // 只在 Screenshot 模式下处理
+        if *mode != AppMode::Screenshot {
+            return;
+        }
+
+        // 检测是否退出截图模式
+        if !self.is_active {
+            *mode = AppMode::Viewer;
+        }
+    }
+
+    pub fn ui(&mut self, ui: &mut Ui, common: &mut CommonState, mode: &mut AppMode) {
+        if *mode != AppMode::Screenshot || !self.is_active {
+            return;
+        }
+
+        let ctx = ui.ctx().clone();
+
+        if !prepare_screenshot_frame(&ctx, &mut self.is_active, &mut self.state, common) {
+            if !self.is_active {
+                *mode = AppMode::Viewer;
+            }
+            return;
+        }
+
+        let action = egui::CentralPanel::default()
+            .frame(Frame::NONE.fill(egui::Color32::TRANSPARENT))
+            .show_inside(ui, |ui| draw_screenshot_ui_inside(ui, &mut self.state, &common.device_info))
+            .inner;
+
+        if action != crate::feature::screenshot::state::ScreenshotAction::None {
+            self.is_active = false;
+            let ocr_image_opt = finalize_screenshot_action(&ctx, &mut self.state, common, action);
+
+            if let Some(image) = ocr_image_opt {
+                common.ocr_state.is_panel_open = true;
+                common.ocr_state.is_processing = true;
+                common.ocr_state.text = None;
+
+                let temp_dir = std::env::temp_dir().join("CloverViewer");
+                let _ = std::fs::create_dir_all(&temp_dir);
+
+                Self::clean_temp_files(&temp_dir);
+
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis();
+                let temp_path = temp_dir.join(format!("ocr_temp_{}.png", timestamp));
+
+                if let Err(e) = image.save(&temp_path) {
+                    tracing::error!("无法保存 OCR 临时图片: {}", e);
+                } else {
+                    let _ = common.path_sender.send(temp_path);
+                }
+
+                let (tx, rx) = std::sync::mpsc::channel();
+                common.ocr_state.receiver = Some(rx);
+
+                let language = get_context_config(&ctx).language;
+                std::thread::spawn(move || {
+                    let platform = crate::os::current_platform();
+                    let result = platform.recognize_text(image, language);
+                    let _ = tx.send(result);
+                });
+            }
+        }
+
+        if !self.is_active {
+            *mode = AppMode::Viewer;
         }
     }
 }

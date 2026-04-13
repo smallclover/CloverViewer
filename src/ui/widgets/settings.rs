@@ -199,7 +199,7 @@ fn render_hotkey_row(
 ) {
     ui.label(format!("{}:", label));
 
-    let text = get_i18n_text(ui.ctx());
+    let text = get_i18n_text(ui);
     let is_recording = *recording_state == this_recorder;
     let button_text = if is_recording {
         text.shortcut_key_modified

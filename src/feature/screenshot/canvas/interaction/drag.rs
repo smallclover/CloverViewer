@@ -53,7 +53,7 @@ pub(super) fn on_drag_start(
         state.push_history_snapshot();
 
         // 检查是否按下了 Alt 键
-        if ui.ctx().input(|i| i.modifiers.alt) {
+        if ui.input(|i| i.modifiers.alt) {
             // 克隆当前图形
             let cloned_shape = state.edit.shapes[index].clone();
             state.edit.shapes.push(cloned_shape);

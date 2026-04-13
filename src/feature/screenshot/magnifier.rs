@@ -106,7 +106,7 @@ fn draw_magnifier_ui(
     sample_pos: Pos2, // 决定从图片哪里取色
     ppp: f32,
 ) {
-    let text = get_i18n_text(ui.ctx());
+    let text = get_i18n_text(ui);
     // --- 1. 参数调整 ---
     let half_grid = MAGNIFIER_GRID_SIZE / 2;
     let magnifier_size = MAGNIFIER_GRID_SIZE as f32 * MAGNIFIER_PIXEL_SIZE;
@@ -117,7 +117,7 @@ fn draw_magnifier_ui(
     let offset = Vec2::new(MAGNIFIER_CARD_OFFSET, MAGNIFIER_CARD_OFFSET);
     let mut card_pos = draw_pos + offset;
 
-    let screen_rect = ui.ctx().viewport_rect();
+    let screen_rect = ui.viewport_rect();
     if card_pos.x + card_size.x > screen_rect.max.x {
         card_pos.x = draw_pos.x - offset.x - card_size.x;
     }

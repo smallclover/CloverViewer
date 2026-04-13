@@ -231,7 +231,7 @@ fn paint_ocr_icon(painter: &egui::Painter, icon_rect: Rect, stroke: Stroke) {
 
 /// 供工具栏使用：带交互背景、正方形边框的大尺寸（32x32）按钮
 pub fn draw_icon_button(ui: &mut Ui, selected: bool, icon_type: IconType, size: f32) -> Response {
-    let text = get_i18n_text(ui.ctx());
+    let text = get_i18n_text(ui);
     let button_size = vec2(size, size);
     let (rect, response) = ui.allocate_exact_size(button_size, Sense::click_and_drag());
     response.clone().on_hover_text(icon_type.tooltip(text));

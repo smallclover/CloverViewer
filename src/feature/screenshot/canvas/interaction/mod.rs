@@ -26,7 +26,7 @@ pub fn handle_interaction(
         eframe::egui::Sense::click_and_drag(),
     );
 
-    let is_pointer_down = ui.ctx().input(|i| i.pointer.primary_down());
+    let is_pointer_down = ui.input(|i| i.pointer.primary_down());
     let is_hovering_ui = check_hovering_ui(ui, state, toolbar_rect);
 
     update_hover_state(

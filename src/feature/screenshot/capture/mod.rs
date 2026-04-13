@@ -7,7 +7,7 @@ use crate::feature::screenshot::magnifier::handle_magnifier;
 use crate::feature::screenshot::toolbar::{calculate_toolbar_rect, render_toolbar_and_overlays};
 use crate::model::{config::get_context_config, device::DeviceInfo, state::CommonState};
 use crate::os::current_platform;
-use eframe::egui::{Color32, Context, Pos2, Rect, ViewportCommand};
+use eframe::egui::{Color32, Context, Pos2, Rect, Ui, ViewportCommand};
 use eframe::emath::Vec2;
 use egui::WindowLevel;
 
@@ -162,156 +162,153 @@ fn handle_completion_action(
     ocr_result_image
 }
 
-/// 处理截图系统的更新
-/// `is_active` - 是否处于截图模式，函数内部可将其设为 false 以退出截图模式
-pub fn handle_screenshot_system(
+pub fn prepare_screenshot_frame(
     ctx: &Context,
     is_active: &mut bool,
     screenshot_state: &mut ScreenshotState,
-    common: &CommonState,
-) -> Option<image::DynamicImage> {
+    _common: &CommonState,
+) -> bool {
     if !*is_active {
-        return None;
+        return false;
     }
 
     if handle_capture_stage(ctx, is_active, screenshot_state) {
-        return None;
+        return false;
     }
 
     configure_screenshot_viewport(ctx, screenshot_state);
 
-    let action = draw_screenshot_ui(ctx, screenshot_state, &common.device_info);
-    if action != ScreenshotAction::None {
-        *is_active = false;
-        return handle_completion_action(ctx, screenshot_state, common, action);
-    }
-
-    None
+    true
 }
 
-pub fn draw_screenshot_ui(
+pub fn finalize_screenshot_action(
     ctx: &Context,
+    screenshot_state: &mut ScreenshotState,
+    common: &CommonState,
+    action: ScreenshotAction,
+) -> Option<image::DynamicImage> {
+    handle_completion_action(ctx, screenshot_state, common, action)
+}
+
+pub fn draw_screenshot_ui_inside(
+    ui: &mut Ui,
     state: &mut ScreenshotState,
     device_info: &DeviceInfo,
 ) -> ScreenshotAction {
     let mut action = ScreenshotAction::None;
+    let ctx = ui.ctx().clone();
 
     let global_offset_phys =
         Pos2::new(device_info.phys_min_x as f32, device_info.phys_min_y as f32);
     let ppp = ctx.pixels_per_point();
 
-    egui::CentralPanel::default()
-        .frame(egui::Frame::NONE.fill(Color32::TRANSPARENT))
-        .show(ctx, |ui| {
-            let painter = ui.painter();
+    let painter = ui.painter();
 
-            for cap in &state.capture.captures {
-                if let Some(texture) = state.capture.texture_pool.get(&cap.screen_info.name) {
-                    let rect = device_info.screen_logical_rect(&cap.screen_info, ppp);
+    for cap in &state.capture.captures {
+        if let Some(texture) = state.capture.texture_pool.get(&cap.screen_info.name) {
+            let rect = device_info.screen_logical_rect(&cap.screen_info, ppp);
 
-                    painter.image(
-                        texture.id(),
-                        rect,
-                        Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-                        Color32::WHITE,
-                    );
-                }
-            }
+            painter.image(
+                texture.id(),
+                rect,
+                Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                Color32::WHITE,
+            );
+        }
+    }
 
-            state.select.hovered_window = None;
-            let is_hovered = ui.rect_contains_pointer(ui.max_rect());
+    state.select.hovered_window = None;
+    let is_hovered = ui.rect_contains_pointer(ui.max_rect());
 
-            if is_hovered
-                && state.select.selection.is_none()
-                && state.select.drag_start.is_none()
-                && let Some(pointer_pos) = ui.ctx().pointer_latest_pos()
-            {
-                let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
+    if is_hovered
+        && state.select.selection.is_none()
+        && state.select.drag_start.is_none()
+        && let Some(pointer_pos) = ui.pointer_latest_pos()
+    {
+        let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
 
-                for rect in &state.capture.window_rects {
-                    if rect.contains(global_pointer_phys) {
-                        let mut is_fullscreen = false;
-                        for cap in &state.capture.captures {
-                            if (rect.width() - cap.screen_info.width as f32).abs() < 5.0
-                                && (rect.height() - cap.screen_info.height as f32).abs() < 5.0
-                            {
-                                is_fullscreen = true;
-                                break;
-                            }
-                        }
-                        if !is_fullscreen {
-                            state.select.hovered_window = Some(*rect);
-                        }
+        for rect in &state.capture.window_rects {
+            if rect.contains(global_pointer_phys) {
+                let mut is_fullscreen = false;
+                for cap in &state.capture.captures {
+                    if (rect.width() - cap.screen_info.width as f32).abs() < 5.0
+                        && (rect.height() - cap.screen_info.height as f32).abs() < 5.0
+                    {
+                        is_fullscreen = true;
                         break;
                     }
                 }
-            }
-
-            let local_toolbar_rect = calculate_toolbar_rect(state, global_offset_phys, ppp);
-
-            let mut canvas_state = CanvasState::load_from_ui(ui);
-            canvas::interaction::handle_interaction(
-                ui,
-                state,
-                &mut canvas_state,
-                global_offset_phys,
-                ppp,
-                local_toolbar_rect,
-            );
-            canvas::render::render_canvas_elements(
-                ui,
-                state,
-                &canvas_state,
-                global_offset_phys,
-                ppp,
-                is_hovered,
-            );
-            canvas_state.save_to_ui(ui);
-
-            // [新增] 绘制左下角快捷键与工具栏帮助说明框
-            help_box::render_help_box(ui, state, global_offset_phys, ppp);
-
-            if let Some(rect) = local_toolbar_rect
-                && ui.clip_rect().intersects(rect)
-            {
-                let toolbar_act = render_toolbar_and_overlays(ui, state, rect);
-                if toolbar_act != ScreenshotAction::None {
-                    action = toolbar_act;
+                if !is_fullscreen {
+                    state.select.hovered_window = Some(*rect);
                 }
+                break;
             }
+        }
+    }
 
-            let config = get_context_config(ctx);
-            if config.magnifier_enabled
-                && let Some(pointer_pos) = ui.ctx().pointer_latest_pos()
-            {
-                let is_over_toolbar = local_toolbar_rect.is_some_and(|r| r.contains(pointer_pos));
-                let is_interacting_popup =
-                    state.drawing.color_picker.is_open && ui.ctx().is_pointer_over_area();
+    let local_toolbar_rect = calculate_toolbar_rect(state, global_offset_phys, ppp);
 
-                if !is_over_toolbar && !is_interacting_popup {
-                    handle_magnifier(ui, state, global_offset_phys, ppp, pointer_pos);
-                }
-            }
+    let mut canvas_state = CanvasState::load_from_ui(ui);
+    canvas::interaction::handle_interaction(
+        ui,
+        state,
+        &mut canvas_state,
+        global_offset_phys,
+        ppp,
+        local_toolbar_rect,
+    );
+    canvas::render::render_canvas_elements(
+        ui,
+        state,
+        &canvas_state,
+        global_offset_phys,
+        ppp,
+        is_hovered,
+    );
+    canvas_state.save_to_ui(ui);
 
-            // Ctrl+Z 撤销
-            if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z))
-                && let Some(entry) = state.edit.history.pop()
-            {
-                state.restore_history_entry(entry);
-            }
+    // [新增] 绘制左下角快捷键与工具栏帮助说明框
+    help_box::render_help_box(ui, state, global_offset_phys, ppp);
 
-            if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                let can_save_to_clipboard = state.has_positive_selection();
+    if let Some(rect) = local_toolbar_rect
+        && ui.clip_rect().intersects(rect)
+    {
+        let toolbar_act = render_toolbar_and_overlays(ui, state, rect);
+        if toolbar_act != ScreenshotAction::None {
+            action = toolbar_act;
+        }
+    }
 
-                if can_save_to_clipboard && state.input.active_text_input.is_none() {
-                    action = ScreenshotAction::SaveToClipboard;
-                }
-            }
+    let config = get_context_config(&ctx);
+    if config.magnifier_enabled
+        && let Some(pointer_pos) = ui.pointer_latest_pos()
+    {
+        let is_over_toolbar = local_toolbar_rect.is_some_and(|r| r.contains(pointer_pos));
+        let is_interacting_popup = state.drawing.color_picker.is_open && ui.is_pointer_over_egui();
 
-            if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-                action = ScreenshotAction::Close;
-            }
-        });
+        if !is_over_toolbar && !is_interacting_popup {
+            handle_magnifier(ui, state, global_offset_phys, ppp, pointer_pos);
+        }
+    }
+
+    // Ctrl+Z 撤销
+    if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z))
+        && let Some(entry) = state.edit.history.pop()
+    {
+        state.restore_history_entry(entry);
+    }
+
+    if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+        let can_save_to_clipboard = state.has_positive_selection();
+
+        if can_save_to_clipboard && state.input.active_text_input.is_none() {
+            action = ScreenshotAction::SaveToClipboard;
+        }
+    }
+
+    if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+        action = ScreenshotAction::Close;
+    }
 
     ctx.request_repaint();
 

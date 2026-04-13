@@ -62,7 +62,7 @@ fn draw_picker(ctx: &Context, viewer: &mut ViewerState) -> Option<usize> {
                     );
 
                     if ui.rect_contains_pointer(rect) {
-                        ui.ctx().set_cursor_icon(CursorIcon::Default);
+                        ui.set_cursor_icon(CursorIcon::Default);
                     }
 
                     let id = ui.id().with("picker_state");
@@ -87,7 +87,7 @@ fn draw_picker(ctx: &Context, viewer: &mut ViewerState) -> Option<usize> {
                     ui.data_mut(|d| d.insert_temp(id, state));
 
                     if state.scroll_offset != state.target_offset || response.dragged() {
-                        ui.ctx().request_repaint();
+                        ui.request_repaint();
                     }
 
                     queue_thumbnail_loads(ctx, viewer, to_load);

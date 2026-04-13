@@ -130,7 +130,7 @@ fn render_image_viewer(
                 viewer.transition_phase_start_time = None;
                 viewer.transition_target_path = None;
             } else if viewer.loader.is_loading {
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             }
         }
         TransitionPhase::FadeIn => {
@@ -156,7 +156,7 @@ fn render_image_viewer(
             }
 
             if progress < 1.0 {
-                ui.ctx().request_repaint();
+                ui.request_repaint();
             } else {
                 viewer.transition_phase = TransitionPhase::None;
                 viewer.transition_phase_start_time = None;
@@ -174,7 +174,7 @@ fn render_normal_image(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerStat
         && ((last_size.x - available_size.x).abs() > 1.0
             || (last_size.y - available_size.y).abs() > 1.0)
     {
-        viewer.zoom = viewer.calc_fit_zoom(ui.ctx(), tex.size_vec2());
+        viewer.zoom = viewer.calc_fit_zoom(ui, tex.size_vec2());
     }
     viewer.last_view_size = Some(available_size);
 
@@ -184,10 +184,10 @@ fn render_normal_image(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerStat
     let is_draggable = size.x > available_size.x || size.y > available_size.y;
 
     if is_draggable && ui.rect_contains_pointer(ui.max_rect()) {
-        ui.ctx().set_cursor_icon(CursorIcon::Move);
+        ui.set_cursor_icon(CursorIcon::Move);
     }
 
-    let fade_alpha = ui.ctx().animate_bool_with_time(
+    let fade_alpha = ui.animate_bool_with_time(
         egui::Id::new(tex.id()).with("loading_fade"),
         is_loading_high_res,
         0.25,

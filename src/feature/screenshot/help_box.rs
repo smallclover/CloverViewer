@@ -40,14 +40,14 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
         .expand(10.0);
 
         if !sel_logical.intersects(estimated_rect) {
-            let text_bundle = get_i18n_text(ui.ctx());
-            let config = get_context_config(ui.ctx());
+            let text_bundle = get_i18n_text(ui);
+            let config = get_context_config(ui);
 
             egui::Area::new(Id::new("help_box_area"))
                 .fixed_pos(target_pos)
                 .pivot(egui::Align2::LEFT_BOTTOM)
                 .order(egui::Order::Tooltip)
-                .show(ui.ctx(), |ui| {
+                .show(ui, |ui| {
                     egui::Frame::NONE
                         .fill(Color32::from_black_alpha(200))
                         .corner_radius(6.0)

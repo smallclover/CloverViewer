@@ -112,7 +112,7 @@ pub fn render_toolbar_and_overlays(
             state.drawing.stroke_width = width_value;
         }
         state.drawing.active_color = state.drawing.color_picker.selected_color;
-        ui.ctx().request_repaint();
+        ui.request_repaint();
     }
 
     action
@@ -226,7 +226,7 @@ fn handle_tool_interaction(
 
     // --- 2. 处理长按逻辑 ---
     if response.is_pointer_button_down_on() {
-        ui.ctx().request_repaint();
+        ui.request_repaint();
 
         if !long_press_triggered
             && let Some(press_origin) = ui.input(|i| i.pointer.press_origin())

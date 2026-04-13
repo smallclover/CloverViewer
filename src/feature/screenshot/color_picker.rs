@@ -76,8 +76,7 @@ impl ColorPicker {
         let mut color_changed = false;
 
         if let Some(anchor_rect) = anchor.filter(|_| self.is_open) {
-            let ctx = ui.ctx();
-            let layout = calculate_popup_layout(anchor_rect, ctx.content_rect(), show_colors);
+            let layout = calculate_popup_layout(anchor_rect, ui.content_rect(), show_colors);
 
             egui::Window::new("ColorPicker")
                 .fixed_pos(layout.window_pos)
@@ -86,7 +85,7 @@ impl ColorPicker {
                 .title_bar(false)
                 .collapsible(false)
                 .resizable(false)
-                .show(ctx, |ui| {
+                .show(ui.ctx(), |ui| {
                     draw_popup_background(ui, &layout);
 
                     ui.scope_builder(

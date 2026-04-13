@@ -315,7 +315,7 @@ impl ViewerState {
     }
 
     pub(crate) fn calc_fit_zoom(&self, ctx: &Context, tex_size: egui::Vec2) -> f32 {
-        let available = ctx.available_rect().size();
+        let available = self.last_view_size.unwrap_or_else(|| ctx.content_rect().size());
         let scale_v = available.y / tex_size.y;
         let scale_h = (available.x - 120.0) / tex_size.x;
 
