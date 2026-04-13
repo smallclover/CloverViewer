@@ -29,19 +29,19 @@ pub fn draw_menu(ui: &mut Ui, overlay: &mut OverlayMode) -> (bool, bool, MenuAct
 
     Panel::top("top_panel").show_inside(ui, |ui| {
         MenuBar::new().ui(ui, |ui| {
-            ui.menu_button(text.menu_file, |ui| {
-                if ui.button(text.menu_open_file).clicked() {
+            ui.menu_button(text.menu.file, |ui| {
+                if ui.button(text.menu.open_file).clicked() {
                     open_file_dialog = true;
                     ui.close();
                 }
-                if ui.button(text.menu_open_folder).clicked() {
+                if ui.button(text.menu.open_folder).clicked() {
                     open_folder_dialog = true;
                     ui.close();
                 }
 
                 ui.separator();
 
-                if ui.button(text.menu_settings).clicked() {
+                if ui.button(text.menu.settings).clicked() {
                     let config = get_context_config(ui);
                     *overlay = OverlayMode::Settings {
                         config: (*config).clone(),
@@ -51,15 +51,15 @@ pub fn draw_menu(ui: &mut Ui, overlay: &mut OverlayMode) -> (bool, bool, MenuAct
 
                 ui.separator();
 
-                if ui.button(text.menu_exit).clicked() {
+                if ui.button(text.menu.exit).clicked() {
                     ui.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             });
 
-            ui.menu_button(text.menu_edit, |ui| {
+            ui.menu_button(text.menu.edit, |ui| {
                 if ui
                     .add(
-                        Button::new(text.menu_screenshot)
+                        Button::new(text.menu.screenshot)
                             .shortcut_text(&config.hotkeys.show_screenshot),
                     )
                     .clicked()
@@ -69,8 +69,8 @@ pub fn draw_menu(ui: &mut Ui, overlay: &mut OverlayMode) -> (bool, bool, MenuAct
                 }
             });
 
-            ui.menu_button(text.menu_help, |ui| {
-                if ui.button(text.menu_about).clicked() {
+            ui.menu_button(text.menu.help, |ui| {
+                if ui.button(text.menu.about).clicked() {
                     *overlay = OverlayMode::About;
                     ui.close();
                 }

@@ -296,14 +296,14 @@ fn paint_info_panel(
             info_rect.min.y + line_height * 0.5 + 2.0,
         ),
         Align2::LEFT_CENTER,
-        format!("{}{}", text.magnifier_pos, coord_text),
+        format!("{}{}", text.magnifier.pos, coord_text),
         font_id.clone(),
         text_color,
     );
 
     let row2_y = info_rect.min.y + line_height * 1.5 + 2.0;
     let hex_galley = painter.layout_no_wrap(
-        format!("{}{}", text.magnifier_hex, hex_text),
+        format!("{}{}", text.magnifier.hex, hex_text),
         font_id.clone(),
         text_color,
     );
@@ -334,7 +334,7 @@ fn paint_info_panel(
     painter.text(
         Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 2.5),
         Align2::LEFT_CENTER,
-        text.tooltip_mouse_copy_color,
+        text.tooltip.mouse_copy_color,
         hint_font_id,
         hint_color,
     );

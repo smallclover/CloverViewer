@@ -39,7 +39,7 @@ pub fn render_settings_window(
 
     let mut action = ModalAction::None;
 
-    ModalFrame::show(ctx, open, text.settings_title, |ui| {
+    ModalFrame::show(ctx, open, text.settings.title, |ui| {
         ui.set_min_width(700.0);
         ui.set_min_height(500.0);
 
@@ -88,7 +88,7 @@ fn render_sidebar(ui: &mut Ui, current_tab: &mut SettingsTab, text: &TextBundle)
         if ui
             .selectable_label(
                 *current_tab == SettingsTab::General,
-                format!("  {}", text.settings_general),
+                format!("  {}", text.settings.general),
             )
             .clicked()
         {
@@ -97,7 +97,7 @@ fn render_sidebar(ui: &mut Ui, current_tab: &mut SettingsTab, text: &TextBundle)
         if ui
             .selectable_label(
                 *current_tab == SettingsTab::Hotkeys,
-                format!("  {}", text.settings_shortcut_key),
+                format!("  {}", text.settings.shortcut_key),
             )
             .clicked()
         {
@@ -111,10 +111,10 @@ fn render_content_header(ui: &mut Ui, current_tab: SettingsTab, text: &TextBundl
     ui.horizontal(|ui| {
         ui.add_space(5.0);
         let title = match current_tab {
-            SettingsTab::General => &text.settings_general,
-            SettingsTab::Hotkeys => &text.settings_shortcut_key,
+            SettingsTab::General => &text.settings.general,
+            SettingsTab::Hotkeys => &text.settings.shortcut_key,
         };
-        ui.label(egui::RichText::new(format!("{} > {}", text.settings_title, title)).weak());
+        ui.label(egui::RichText::new(format!("{} > {}", text.settings.title, title)).weak());
     });
 }
 
@@ -129,10 +129,10 @@ fn render_content_body(
         ui.set_min_width(ui.available_width());
         match current_tab {
             SettingsTab::General => {
-                ui.heading(text.settings_general);
+                ui.heading(text.settings.general);
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.label(format!("{}:", text.settings_language));
+                    ui.label(format!("{}:", text.settings.language));
                     let mut selected = config.language;
                     ComboBox::from_id_salt("lang_selector")
                         .selected_text(selected.as_str())
@@ -147,22 +147,22 @@ fn render_content_body(
                 });
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.label(format!("{}:", text.settings_minimize_on_close));
+                    ui.label(format!("{}:", text.settings.minimize_on_close));
                     ui.add(toggle(&mut config.minimize_on_close));
                 });
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.label(format!("{}:", text.settings_magnifier_enabled));
+                    ui.label(format!("{}:", text.settings.magnifier_enabled));
                     ui.add(toggle(&mut config.magnifier_enabled));
                 });
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.label(format!("{}:", text.settings_screenshot_hides_main_window));
+                    ui.label(format!("{}:", text.settings.screenshot_hides_main_window));
                     ui.add(toggle(&mut config.screenshot_hides_main_window));
                 });
             }
             SettingsTab::Hotkeys => {
-                ui.heading(text.settings_shortcut_key);
+                ui.heading(text.settings.shortcut_key);
                 ui.add_space(10.0);
 
                 egui::Grid::new("hotkeys_grid")
@@ -172,14 +172,14 @@ fn render_content_body(
                     .show(ui, |ui| {
                         render_hotkey_row(
                             ui,
-                            text.shortcut_key_screenshot,
+                            text.shortcuts.screenshot,
                             &mut config.hotkeys.show_screenshot,
                             recording_state,
                             RecordingState::ShowScreenshot,
                         );
                         render_hotkey_row(
                             ui,
-                            text.shortcut_key_copy_color,
+                            text.shortcuts.copy_color,
                             &mut config.hotkeys.copy_screenshot,
                             recording_state,
                             RecordingState::CopyScreenshot,
@@ -202,7 +202,7 @@ fn render_hotkey_row(
     let text = get_i18n_text(ui);
     let is_recording = *recording_state == this_recorder;
     let button_text = if is_recording {
-        text.shortcut_key_modified
+        text.shortcuts.modified
     } else {
         hotkey_str.as_str()
     };
@@ -277,10 +277,10 @@ fn format_hotkey(modifiers: Modifiers, key: Key) -> String {
 fn render_footer(ui: &mut Ui, action: &mut ModalAction, text: &TextBundle) {
     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
         ui.add_space(10.0);
-        if ui.button(text.settings_close).clicked() {
+        if ui.button(text.settings.close).clicked() {
             *action = ModalAction::Close;
         }
-        if ui.button(text.settings_apply).clicked() {
+        if ui.button(text.settings.apply).clicked() {
             *action = ModalAction::Apply;
         }
         ui.add_space(10.0);

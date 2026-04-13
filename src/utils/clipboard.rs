@@ -11,11 +11,11 @@ pub fn copy_image_to_clipboard_async(
 ) {
     let text = get_i18n_text(ctx);
 
-    toast_manager.loading(text.copying_message);
+    toast_manager.loading(text.toast.copying);
 
     let toast_clone = toast_manager.clone();
-    let copied_message = text.copied_message;
-    let copy_failed_message = text.copy_failed_message;
+    let copied_message = text.toast.copied;
+    let copy_failed_message = text.toast.copy_failed;
     // 将 Color32 直传底层 [u8] 数组，极大提升高分辨率图片的剪贴板复制性能
     let raw_bytes: Vec<u8> = bytemuck::cast_slice(&pixels_arc).to_vec();
     thread::spawn(move || {
@@ -40,10 +40,10 @@ pub fn copy_image_to_clipboard_async(
 pub fn copy_image_path_to_clipboard(ctx: &Context, path: PathBuf, toast_manager: &ToastManager) {
     let text = get_i18n_text(ctx);
     let Ok(mut clipboard) = arboard::Clipboard::new() else {
-        tracing::error!("{}", text.copy_failed_message);
-        toast_manager.error(text.copy_failed_message.to_string());
+        tracing::error!("{}", text.toast.copy_failed);
+        toast_manager.error(text.toast.copy_failed.to_string());
         return;
     };
     let _ = clipboard.set_text(path.to_string_lossy().to_string());
-    toast_manager.success(text.copied_message);
+    toast_manager.success(text.toast.copied);
 }

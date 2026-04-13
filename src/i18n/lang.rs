@@ -52,347 +52,448 @@ impl Default for Language {
     }
 }
 
+pub struct MenuText {
+    pub file: &'static str,
+    pub open_file: &'static str,
+    pub open_folder: &'static str,
+    pub edit: &'static str,
+    pub help: &'static str,
+    pub screenshot: &'static str,
+    pub settings: &'static str,
+    pub about: &'static str,
+    pub exit: &'static str,
+}
+
+pub struct ContextMenuText {
+    pub copy: &'static str,
+    pub copy_path: &'static str,
+    pub properties: &'static str,
+}
+
+pub struct SettingsText {
+    pub title: &'static str,
+    pub general: &'static str,
+    pub language: &'static str,
+    pub minimize_on_close: &'static str,
+    pub magnifier_enabled: &'static str,
+    pub screenshot_hides_main_window: &'static str,
+    pub close: &'static str,
+    pub apply: &'static str,
+    pub shortcut_key: &'static str,
+}
+
+pub struct ShortcutText {
+    pub screenshot: &'static str,
+    pub copy_color: &'static str,
+    pub modified: &'static str,
+}
+
+pub struct AboutText {
+    pub title: &'static str,
+    pub description: &'static str,
+    pub github: &'static str,
+    pub close: &'static str,
+    pub thankful_head: &'static str,
+    pub thankful_main: &'static str,
+}
+
+pub struct ViewerText {
+    pub error: &'static str,
+    pub drag_hint: &'static str,
+    pub no_images: &'static str,
+}
+
+pub struct LoadingText {
+    pub parsing: &'static str,
+}
+
+pub struct ToastText {
+    pub copied: &'static str,
+    pub copy_failed: &'static str,
+    pub copying: &'static str,
+}
+
+pub struct ImageText {
+    pub properties: &'static str,
+    pub name: &'static str,
+    pub date: &'static str,
+    pub path: &'static str,
+    pub dimensions: &'static str,
+}
+
+pub struct StatusText {
+    pub grid: &'static str,
+    pub single: &'static str,
+}
+
+pub struct TooltipText {
+    pub draw_text: &'static str,
+    pub draw_rect: &'static str,
+    pub draw_circle: &'static str,
+    pub draw_arrow: &'static str,
+    pub draw_pencil: &'static str,
+    pub draw_mosaic: &'static str,
+    pub ocr: &'static str,
+    pub cancel: &'static str,
+    pub save: &'static str,
+    pub save_to_clipboard: &'static str,
+    pub mouse_copy_color: &'static str,
+}
+
+pub struct HelpText {
+    pub shortcuts: &'static str,
+    pub esc: &'static str,
+    pub undo: &'static str,
+    pub copy: &'static str,
+    pub tools: &'static str,
+}
+
+pub struct OcrText {
+    pub title: &'static str,
+    pub processing: &'static str,
+    pub copy_all: &'static str,
+    pub engine_failed: &'static str,
+}
+
+pub struct PropertiesText {
+    pub no_image: &'static str,
+}
+
+pub struct GridText {
+    pub loading: &'static str,
+}
+
+pub struct MagnifierText {
+    pub pos: &'static str,
+    pub hex: &'static str,
+}
+
 pub struct TextBundle {
-    // Menu
-    pub menu_file: &'static str,
-    pub menu_open_file: &'static str,
-    pub menu_open_folder: &'static str,
-    pub menu_edit: &'static str,
-    pub menu_help: &'static str,
-    pub menu_screenshot: &'static str,
-    pub menu_settings: &'static str,
-    pub menu_about: &'static str,
-    pub menu_exit: &'static str,
-
-    // Context Menu
-    pub context_menu_copy: &'static str,
-    pub context_menu_copy_path: &'static str,
-    pub context_menu_properties: &'static str,
-
-    // Settings
-    pub settings_title: &'static str,
-    pub settings_general: &'static str,
-    pub settings_language: &'static str,
-    pub settings_minimize_on_close: &'static str,
-    pub settings_magnifier_enabled: &'static str,
-    pub settings_screenshot_hides_main_window: &'static str,
-    pub settings_close: &'static str,
-    pub settings_apply: &'static str,
-    pub settings_shortcut_key: &'static str,
-
-    pub shortcut_key_screenshot: &'static str,
-    pub shortcut_key_copy_color: &'static str,
-    pub shortcut_key_modified: &'static str,
-    // About
-    pub about_title: &'static str,
-    pub about_desc: &'static str,
-    pub about_github: &'static str,
-    pub about_close: &'static str,
-    pub about_thankful_head: &'static str,
-    pub about_thankful_main: &'static str,
-
-    // Viewer
-    pub viewer_error: &'static str,
-    pub viewer_drag_hint: &'static str,
-    pub viewer_no_images: &'static str,
-
-    // Loading
-    pub loading_parsing: &'static str,
-
-    // Toast
-    pub copied_message: &'static str,
-    pub copy_failed_message: &'static str,
-    pub copying_message: &'static str,
-
-    // 属性
-    pub img_prop: &'static str,
-    pub img_name: &'static str,
-    pub img_date: &'static str,
-    pub img_path: &'static str,
-    pub img_dim: &'static str,
-
-    // 状态栏
-    pub status_grid: &'static str,
-    pub status_single: &'static str,
-
-    // Tooltips
-    pub tooltip_draw_text: &'static str,
-    pub tooltip_draw_rect: &'static str,
-    pub tooltip_draw_circle: &'static str,
-    pub tooltip_draw_arrow: &'static str,
-    pub tooltip_draw_pencil: &'static str,
-    pub tooltip_draw_mosaic: &'static str,
-    pub tooltip_ocr: &'static str,
-    pub tooltip_cancel: &'static str,
-    pub tooltip_save: &'static str,
-    pub tooltip_save_to_clipboard: &'static str,
-    pub tooltip_mouse_copy_color: &'static str,
-
-    // help box
-    pub help_shortcuts: &'static str,
-    pub help_esc: &'static str,
-    pub help_undo: &'static str,
-    pub help_copy: &'static str,
-    pub help_tools: &'static str,
-
-    // OCR
-    pub ocr_title: &'static str,
-    pub ocr_processing: &'static str,
-    pub ocr_copy_all: &'static str,
-    pub ocr_engine_failed: &'static str,
-
-    // Properties
-    pub prop_no_image: &'static str,
-
-    // Grid
-    pub grid_loading: &'static str,
-
-    // Magnifier
-    pub magnifier_pos: &'static str,
-    pub magnifier_hex: &'static str,
+    pub menu: MenuText,
+    pub context_menu: ContextMenuText,
+    pub settings: SettingsText,
+    pub shortcuts: ShortcutText,
+    pub about: AboutText,
+    pub viewer: ViewerText,
+    pub loading: LoadingText,
+    pub toast: ToastText,
+    pub image: ImageText,
+    pub status: StatusText,
+    pub tooltip: TooltipText,
+    pub help: HelpText,
+    pub ocr: OcrText,
+    pub properties: PropertiesText,
+    pub grid: GridText,
+    pub magnifier: MagnifierText,
 }
 
 pub const ZH_TEXT: TextBundle = TextBundle {
-    menu_file: "文件",
-    menu_open_file: "打开文件…",
-    menu_open_folder: "打开文件夹…",
-    menu_edit: "编辑",
-    menu_help: "帮助",
-    menu_screenshot: "截图",
-    menu_settings: "设置",
-    menu_about: "关于",
-    menu_exit: "退出",
-
-    context_menu_copy: "复制",
-    context_menu_copy_path: "复制路径",
-    context_menu_properties: "属性",
-
-    settings_title: "设置",
-    settings_general: "常规",
-    settings_language: "语言",
-    settings_minimize_on_close: "关闭窗口时最小化到托盘",
-    settings_magnifier_enabled: "启用放大镜",
-    settings_screenshot_hides_main_window: "截图后隐藏主窗口",
-    settings_close: "关闭",
-    settings_apply: "应用",
-
-    settings_shortcut_key: "快捷键",
-    shortcut_key_screenshot: "截图",
-    shortcut_key_copy_color: "复制颜色",
-    shortcut_key_modified: "请按下按键...",
-
-    about_title: "关于项目",
-    about_desc: "Rust实现的图片查看器和截图工具",
-    about_github: "GitHub 源码地址",
-    about_close: "我知道了",
-    about_thankful_head: "献给我的妻子",
-    about_thankful_main: "谢谢她不嫌弃我把无数个周末都花在对着电脑屏幕发呆上",
-
-    viewer_error: "文件损坏或格式不支持",
-    viewer_drag_hint: "拖拽或打开文件夹",
-    viewer_no_images: "该文件夹下没有图片",
-    loading_parsing: "正在解析像素...",
-    copied_message: "已复制",
-    copy_failed_message: "复制失败",
-    copying_message: "正在复制中...",
-    img_prop: "属性",
-
-    img_name: "名称",
-    img_date: "日期",
-    img_path: "图片路径",
-    img_dim: "图片尺寸",
-    status_grid: "网格视图",
-    status_single: "单图视图",
-
-    tooltip_draw_text: "文字",
-    tooltip_draw_rect: "矩形",
-    tooltip_draw_circle: "圆形",
-    tooltip_draw_arrow: "箭头",
-    tooltip_draw_pencil: "铅笔",
-    tooltip_draw_mosaic: "马赛克",
-    tooltip_ocr: "提取文字 (OCR)",
-    tooltip_cancel: "取消",
-    tooltip_save: "保存到桌面",
-    tooltip_save_to_clipboard: "复制到剪贴板",
-    tooltip_mouse_copy_color: "按 Ctrl + C 复制颜色",
-
-    help_shortcuts: "【快捷键】",
-    help_esc: "Esc : 退出截图",
-    help_undo: "Ctrl+Z : 撤销上一步绘制",
-    help_copy: "复制截图",
-    help_tools: "【工具说明】",
-
-    ocr_title: "📝 文字识别 (OCR)",
-    ocr_processing: "正在提取文字，请稍候...",
-    ocr_copy_all: "📋 复制全部到剪贴板",
-    ocr_engine_failed: "OCR 引擎调用失败: ",
-
-    prop_no_image: "未加载图片。",
-    grid_loading: "加载中...",
-    magnifier_pos: "坐标: ",
-    magnifier_hex: "色值: ",
+    menu: MenuText {
+        file: "文件",
+        open_file: "打开文件…",
+        open_folder: "打开文件夹…",
+        edit: "编辑",
+        help: "帮助",
+        screenshot: "截图",
+        settings: "设置",
+        about: "关于",
+        exit: "退出",
+    },
+    context_menu: ContextMenuText {
+        copy: "复制",
+        copy_path: "复制路径",
+        properties: "属性",
+    },
+    settings: SettingsText {
+        title: "设置",
+        general: "常规",
+        language: "语言",
+        minimize_on_close: "关闭窗口时最小化到托盘",
+        magnifier_enabled: "启用放大镜",
+        screenshot_hides_main_window: "截图后隐藏主窗口",
+        close: "关闭",
+        apply: "应用",
+        shortcut_key: "快捷键",
+    },
+    shortcuts: ShortcutText {
+        screenshot: "截图",
+        copy_color: "复制颜色",
+        modified: "请按下按键...",
+    },
+    about: AboutText {
+        title: "关于项目",
+        description: "Rust实现的图片查看器和截图工具",
+        github: "GitHub 源码地址",
+        close: "我知道了",
+        thankful_head: "献给我的妻子",
+        thankful_main: "谢谢她不嫌弃我把无数个周末都花在对着电脑屏幕发呆上",
+    },
+    viewer: ViewerText {
+        error: "文件损坏或格式不支持",
+        drag_hint: "拖拽或打开文件夹",
+        no_images: "该文件夹下没有图片",
+    },
+    loading: LoadingText {
+        parsing: "正在解析像素...",
+    },
+    toast: ToastText {
+        copied: "已复制",
+        copy_failed: "复制失败",
+        copying: "正在复制中...",
+    },
+    image: ImageText {
+        properties: "属性",
+        name: "名称",
+        date: "日期",
+        path: "图片路径",
+        dimensions: "图片尺寸",
+    },
+    status: StatusText {
+        grid: "网格视图",
+        single: "单图视图",
+    },
+    tooltip: TooltipText {
+        draw_text: "文字",
+        draw_rect: "矩形",
+        draw_circle: "圆形",
+        draw_arrow: "箭头",
+        draw_pencil: "铅笔",
+        draw_mosaic: "马赛克",
+        ocr: "提取文字 (OCR)",
+        cancel: "取消",
+        save: "保存到桌面",
+        save_to_clipboard: "复制到剪贴板",
+        mouse_copy_color: "按 Ctrl + C 复制颜色",
+    },
+    help: HelpText {
+        shortcuts: "【快捷键】",
+        esc: "Esc : 退出截图",
+        undo: "Ctrl+Z : 撤销上一步绘制",
+        copy: "复制截图",
+        tools: "【工具说明】",
+    },
+    ocr: OcrText {
+        title: "📝 文字识别 (OCR)",
+        processing: "正在提取文字，请稍候...",
+        copy_all: "📋 复制全部到剪贴板",
+        engine_failed: "OCR 引擎调用失败: ",
+    },
+    properties: PropertiesText {
+        no_image: "未加载图片。",
+    },
+    grid: GridText {
+        loading: "加载中...",
+    },
+    magnifier: MagnifierText {
+        pos: "坐标: ",
+        hex: "色值: ",
+    },
 };
 
 pub const EN_TEXT: TextBundle = TextBundle {
-    menu_file: "File",
-    menu_open_file: "Open File...",
-    menu_open_folder: "Open Folder...",
-    menu_edit: "Edit",
-    menu_help: "Help",
-    menu_screenshot: "Screenshot",
-    menu_settings: "Settings",
-    menu_about: "About",
-    menu_exit: "Exit",
-
-    context_menu_copy: "Copy",
-    context_menu_copy_path: "Copy Path",
-    context_menu_properties: "Properties",
-
-    settings_title: "Settings",
-    settings_general: "General",
-    settings_language: "Language",
-    settings_minimize_on_close: "Minimize to tray on close",
-    settings_magnifier_enabled: "Enable Magnifier",
-    settings_screenshot_hides_main_window: "Hide main window after screenshot",
-    settings_close: "Close",
-    settings_apply: "Apply",
-
-    settings_shortcut_key: "Keyboard Shortcut",
-    shortcut_key_screenshot: "Screenshot",
-    shortcut_key_copy_color: "Copy Color",
-    shortcut_key_modified: "Please Press The Key…",
-
-    about_title: "About",
-    about_desc: "Image viewer and screenshot tool implemented in Rust",
-    about_github: "GitHub Repository",
-    about_close: "Close",
-    about_thankful_head: "Dedicated to my wife",
-    about_thankful_main: "who didn't mind me spending countless weekends staring at a monitor",
-
-    viewer_error: "File damaged or format not supported",
-    viewer_drag_hint: "Drag and drop or open a folder",
-    viewer_no_images: "No images in this folder",
-    loading_parsing: "Parsing pixels...",
-    copied_message: "Copied",
-    copy_failed_message: "Copy failed",
-    copying_message: "Copying...",
-
-    img_prop: "Properties",
-    img_name: "Name",
-    img_date: "Datetime",
-    img_path: "File Path",
-    img_dim: "Dimension",
-    status_grid: "Grid View",
-    status_single: "Single View",
-
-    tooltip_draw_text: "Font",
-    tooltip_draw_rect: "Rectangle",
-    tooltip_draw_circle: "Circle",
-    tooltip_draw_arrow: "Arrow",
-    tooltip_draw_pencil: "Pencil",
-    tooltip_draw_mosaic: "Mosaic",
-    tooltip_ocr: "Extract Text (OCR)",
-    tooltip_cancel: "Cancel",
-    tooltip_save: "Save to Desktop",
-    tooltip_save_to_clipboard: "Copy to Clipboard",
-    tooltip_mouse_copy_color: "Press Ctrl + C Copy Color",
-
-    help_shortcuts: "[ Shortcuts ]",
-    help_esc: "Esc : Exit Screenshot",
-    help_undo: "Ctrl + Z : Undo Drawing",
-    help_copy: "Copy Screenshot",
-    help_tools: "[ Tools ]",
-
-    ocr_title: "📝 Text Recognition (OCR)",
-    ocr_processing: "Extracting text, please wait...",
-    ocr_copy_all: "📋 Copy All to Clipboard",
-    ocr_engine_failed: "OCR engine error: ",
-
-    prop_no_image: "No image loaded.",
-    grid_loading: "Loading...",
-    magnifier_pos: "POS: ",
-    magnifier_hex: "HEX: ",
+    menu: MenuText {
+        file: "File",
+        open_file: "Open File...",
+        open_folder: "Open Folder...",
+        edit: "Edit",
+        help: "Help",
+        screenshot: "Screenshot",
+        settings: "Settings",
+        about: "About",
+        exit: "Exit",
+    },
+    context_menu: ContextMenuText {
+        copy: "Copy",
+        copy_path: "Copy Path",
+        properties: "Properties",
+    },
+    settings: SettingsText {
+        title: "Settings",
+        general: "General",
+        language: "Language",
+        minimize_on_close: "Minimize to tray on close",
+        magnifier_enabled: "Enable Magnifier",
+        screenshot_hides_main_window: "Hide main window after screenshot",
+        close: "Close",
+        apply: "Apply",
+        shortcut_key: "Keyboard Shortcut",
+    },
+    shortcuts: ShortcutText {
+        screenshot: "Screenshot",
+        copy_color: "Copy Color",
+        modified: "Please Press The Key…",
+    },
+    about: AboutText {
+        title: "About",
+        description: "Image viewer and screenshot tool implemented in Rust",
+        github: "GitHub Repository",
+        close: "Close",
+        thankful_head: "Dedicated to my wife",
+        thankful_main: "who didn't mind me spending countless weekends staring at a monitor",
+    },
+    viewer: ViewerText {
+        error: "File damaged or format not supported",
+        drag_hint: "Drag and drop or open a folder",
+        no_images: "No images in this folder",
+    },
+    loading: LoadingText {
+        parsing: "Parsing pixels...",
+    },
+    toast: ToastText {
+        copied: "Copied",
+        copy_failed: "Copy failed",
+        copying: "Copying...",
+    },
+    image: ImageText {
+        properties: "Properties",
+        name: "Name",
+        date: "Datetime",
+        path: "File Path",
+        dimensions: "Dimension",
+    },
+    status: StatusText {
+        grid: "Grid View",
+        single: "Single View",
+    },
+    tooltip: TooltipText {
+        draw_text: "Font",
+        draw_rect: "Rectangle",
+        draw_circle: "Circle",
+        draw_arrow: "Arrow",
+        draw_pencil: "Pencil",
+        draw_mosaic: "Mosaic",
+        ocr: "Extract Text (OCR)",
+        cancel: "Cancel",
+        save: "Save to Desktop",
+        save_to_clipboard: "Copy to Clipboard",
+        mouse_copy_color: "Press Ctrl + C Copy Color",
+    },
+    help: HelpText {
+        shortcuts: "[ Shortcuts ]",
+        esc: "Esc : Exit Screenshot",
+        undo: "Ctrl + Z : Undo Drawing",
+        copy: "Copy Screenshot",
+        tools: "[ Tools ]",
+    },
+    ocr: OcrText {
+        title: "📝 Text Recognition (OCR)",
+        processing: "Extracting text, please wait...",
+        copy_all: "📋 Copy All to Clipboard",
+        engine_failed: "OCR engine error: ",
+    },
+    properties: PropertiesText {
+        no_image: "No image loaded.",
+    },
+    grid: GridText {
+        loading: "Loading...",
+    },
+    magnifier: MagnifierText {
+        pos: "POS: ",
+        hex: "HEX: ",
+    },
 };
 
 pub const JA_TEXT: TextBundle = TextBundle {
-    menu_file: "ファイル",
-    menu_open_file: "ファイルを開く...",
-    menu_open_folder: "フォルダを開く...",
-    menu_edit: "編集",
-    menu_help: "ヘルプ",
-    menu_screenshot: "スクリーンショット",
-    menu_settings: "設定",
-    menu_about: "について",
-    menu_exit: "終了",
-
-    context_menu_copy: "コピー",
-    context_menu_copy_path: "パスコピー",
-    context_menu_properties: "プロパティ",
-
-    settings_title: "設定",
-    settings_general: "一般",
-    settings_language: "言語",
-    settings_minimize_on_close: "閉じるときにトレイに最小化",
-    settings_magnifier_enabled: "虫眼鏡を有効にする",
-    settings_screenshot_hides_main_window: "スクリーンショット後にメインウィンドウを隠す",
-    settings_close: "閉じる",
-    settings_apply: "設定",
-
-    settings_shortcut_key: "ショートカットキー",
-    shortcut_key_screenshot: "スクリーンショット",
-    shortcut_key_copy_color: "カラーコピー",
-    shortcut_key_modified: "キーを押してください…",
-
-    about_title: "プロジェクトについて",
-    about_desc: "Rust製の画像ビューアおよびスクリーンショットツール",
-    about_github: "GitHub ソースコード",
-    about_close: "閉じる",
-    about_thankful_head: "私の妻に捧げます",
-    about_thankful_main: "数え切れないほどの週末をモニターの前で過ごす私を、文句も言わずに見守ってくれたことに感謝して",
-
-    viewer_error: "ファイルが破損しているか、形式がサポートされていません",
-    viewer_drag_hint: "ドラッグ＆ドロップまたはフォルダを開く",
-    viewer_no_images: "このフォルダに画像はありません",
-    loading_parsing: "ピクセルを解析中...",
-    copied_message: "コピーしました",
-    copy_failed_message: "コピーに失敗しました",
-    copying_message: "コピー中...",
-
-    img_prop: "プロパティーズ",
-    img_name: "ネーム",
-    img_date: "日付",
-    img_path: "ファイルパス",
-    img_dim: "ディメンション",
-    status_grid: "グリッド表示",
-    status_single: "単一表示",
-
-    tooltip_draw_text: "文字",
-    tooltip_draw_rect: "矩形",
-    tooltip_draw_circle: "円形",
-    tooltip_draw_arrow: "矢印",
-    tooltip_draw_pencil: "鉛筆",
-    tooltip_draw_mosaic: "モザイク",
-    tooltip_ocr: "テキスト抽出 (OCR)",
-    tooltip_cancel: "キャンセル",
-    tooltip_save: "デスクトップに保存",
-    tooltip_save_to_clipboard: "クリップボードにコピー",
-    tooltip_mouse_copy_color: "Ctrl + C を押して色をコピー",
-
-    help_shortcuts: "【ショートカット】",
-    help_esc: "Esc : スクリーンショットを終了",
-    help_undo: "Ctrl + Z : 元に戻す",
-    help_copy: "スクリーンショットをコピー",
-    help_tools: "【ツール】",
-
-    ocr_title: "📝 文字認識 (OCR)",
-    ocr_processing: "テキストを抽出中です、お待ちください...",
-    ocr_copy_all: "📋 クリップボードにすべてコピー",
-    ocr_engine_failed: "OCR エンジンエラー: ",
-
-    prop_no_image: "画像が読み込まれていません。",
-    grid_loading: "読み込み中...",
-    magnifier_pos: "座標: ",
-    magnifier_hex: "カラー: ",
+    menu: MenuText {
+        file: "ファイル",
+        open_file: "ファイルを開く...",
+        open_folder: "フォルダを開く...",
+        edit: "編集",
+        help: "ヘルプ",
+        screenshot: "スクリーンショット",
+        settings: "設定",
+        about: "について",
+        exit: "終了",
+    },
+    context_menu: ContextMenuText {
+        copy: "コピー",
+        copy_path: "パスコピー",
+        properties: "プロパティ",
+    },
+    settings: SettingsText {
+        title: "設定",
+        general: "一般",
+        language: "言語",
+        minimize_on_close: "閉じるときにトレイに最小化",
+        magnifier_enabled: "虫眼鏡を有効にする",
+        screenshot_hides_main_window: "スクリーンショット後にメインウィンドウを隠す",
+        close: "閉じる",
+        apply: "設定",
+        shortcut_key: "ショートカットキー",
+    },
+    shortcuts: ShortcutText {
+        screenshot: "スクリーンショット",
+        copy_color: "カラーコピー",
+        modified: "キーを押してください…",
+    },
+    about: AboutText {
+        title: "プロジェクトについて",
+        description: "Rust製の画像ビューアおよびスクリーンショットツール",
+        github: "GitHub ソースコード",
+        close: "閉じる",
+        thankful_head: "私の妻に捧げます",
+        thankful_main: "数え切れないほどの週末をモニターの前で過ごす私を、文句も言わずに見守ってくれたことに感謝して",
+    },
+    viewer: ViewerText {
+        error: "ファイルが破損しているか、形式がサポートされていません",
+        drag_hint: "ドラッグ＆ドロップまたはフォルダを開く",
+        no_images: "このフォルダに画像はありません",
+    },
+    loading: LoadingText {
+        parsing: "ピクセルを解析中...",
+    },
+    toast: ToastText {
+        copied: "コピーしました",
+        copy_failed: "コピーに失敗しました",
+        copying: "コピー中...",
+    },
+    image: ImageText {
+        properties: "プロパティーズ",
+        name: "ネーム",
+        date: "日付",
+        path: "ファイルパス",
+        dimensions: "ディメンション",
+    },
+    status: StatusText {
+        grid: "グリッド表示",
+        single: "単一表示",
+    },
+    tooltip: TooltipText {
+        draw_text: "文字",
+        draw_rect: "矩形",
+        draw_circle: "円形",
+        draw_arrow: "矢印",
+        draw_pencil: "鉛筆",
+        draw_mosaic: "モザイク",
+        ocr: "テキスト抽出 (OCR)",
+        cancel: "キャンセル",
+        save: "デスクトップに保存",
+        save_to_clipboard: "クリップボードにコピー",
+        mouse_copy_color: "Ctrl + C を押して色をコピー",
+    },
+    help: HelpText {
+        shortcuts: "【ショートカット】",
+        esc: "Esc : スクリーンショットを終了",
+        undo: "Ctrl + Z : 元に戻す",
+        copy: "スクリーンショットをコピー",
+        tools: "【ツール】",
+    },
+    ocr: OcrText {
+        title: "📝 文字認識 (OCR)",
+        processing: "テキストを抽出中です、お待ちください...",
+        copy_all: "📋 クリップボードにすべてコピー",
+        engine_failed: "OCR エンジンエラー: ",
+    },
+    properties: PropertiesText {
+        no_image: "画像が読み込まれていません。",
+    },
+    grid: GridText {
+        loading: "読み込み中...",
+    },
+    magnifier: MagnifierText {
+        pos: "座標: ",
+        hex: "カラー: ",
+    },
 };
 
 pub fn get_text(lang: Language) -> &'static TextBundle {

@@ -40,15 +40,15 @@ pub fn render_context_menu(ctx: &Context, pos: &mut Option<Pos2>) -> Option<Cont
                 Frame::menu(ui.style()).show(ui, |ui| {
                     ui.set_width(CONTEXT_MENU_WIDTH);
                     ui.with_layout(Layout::top_down_justified(Align::Min), |ui| {
-                        if ui.button(text.context_menu_copy).clicked() {
+                        if ui.button(text.context_menu.copy).clicked() {
                             action = Some(ContextMenuAction::Copy);
                             close_menu = true;
                         }
-                        if ui.button(text.context_menu_copy_path).clicked() {
+                        if ui.button(text.context_menu.copy_path).clicked() {
                             action = Some(ContextMenuAction::CopyPath);
                             close_menu = true;
                         }
-                        if ui.button(text.context_menu_properties).clicked() {
+                        if ui.button(text.context_menu.properties).clicked() {
                             action = Some(ContextMenuAction::ShowProperties);
                             close_menu = true;
                         }

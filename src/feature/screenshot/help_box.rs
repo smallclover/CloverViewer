@@ -66,17 +66,17 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
                             // --- 1. 快捷键 ---
                             // 显式追加 .color(text_color)，否则默认使用区域主题就是黑色
                             ui.label(
-                                RichText::new(text_bundle.help_shortcuts)
+                                RichText::new(text_bundle.help.shortcuts)
                                     .font(font_id.clone())
                                     .color(text_color)
                                     .strong(),
                             );
-                            ui.label(RichText::new(text_bundle.help_esc).font(font_id.clone()));
-                            ui.label(RichText::new(text_bundle.help_undo).font(font_id.clone()));
+                            ui.label(RichText::new(text_bundle.help.esc).font(font_id.clone()));
+                            ui.label(RichText::new(text_bundle.help.undo).font(font_id.clone()));
                             ui.label(
                                 RichText::new(format!(
                                     "{} : {}",
-                                    config.hotkeys.copy_screenshot, text_bundle.help_copy
+                                    config.hotkeys.copy_screenshot, text_bundle.help.copy
                                 ))
                                 .font(font_id.clone()),
                             );
@@ -84,7 +84,7 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
 
                             // --- 2. 图标说明 ---
                             ui.label(
-                                RichText::new(text_bundle.help_tools)
+                                RichText::new(text_bundle.help.tools)
                                     .font(font_id.clone())
                                     .color(text_color)
                                     .strong(),
@@ -100,17 +100,17 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
                                 });
                             };
 
-                            draw_icon_row(IconType::DrawRect, text_bundle.tooltip_draw_rect);
-                            draw_icon_row(IconType::DrawCircle, text_bundle.tooltip_draw_circle);
-                            draw_icon_row(IconType::DrawArrow, text_bundle.tooltip_draw_arrow);
-                            draw_icon_row(IconType::Pencil, text_bundle.tooltip_draw_pencil);
-                            draw_icon_row(IconType::Mosaic, text_bundle.tooltip_draw_mosaic);
-                            draw_icon_row(IconType::Text, text_bundle.tooltip_draw_text);
-                            draw_icon_row(IconType::Ocr, text_bundle.tooltip_ocr);
-                            draw_icon_row(IconType::Save, text_bundle.tooltip_save);
+                            draw_icon_row(IconType::DrawRect, text_bundle.tooltip.draw_rect);
+                            draw_icon_row(IconType::DrawCircle, text_bundle.tooltip.draw_circle);
+                            draw_icon_row(IconType::DrawArrow, text_bundle.tooltip.draw_arrow);
+                            draw_icon_row(IconType::Pencil, text_bundle.tooltip.draw_pencil);
+                            draw_icon_row(IconType::Mosaic, text_bundle.tooltip.draw_mosaic);
+                            draw_icon_row(IconType::Text, text_bundle.tooltip.draw_text);
+                            draw_icon_row(IconType::Ocr, text_bundle.tooltip.ocr);
+                            draw_icon_row(IconType::Save, text_bundle.tooltip.save);
                             draw_icon_row(
                                 IconType::SaveToClipboard,
-                                text_bundle.tooltip_save_to_clipboard,
+                                text_bundle.tooltip.save_to_clipboard,
                             );
                         });
                 });

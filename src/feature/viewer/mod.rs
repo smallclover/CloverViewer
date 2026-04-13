@@ -93,7 +93,7 @@ impl ViewerFeature {
                 Ok(text) => common.ocr_state.text = Some(text),
                 Err(err) => {
                     let text = get_i18n_text(ctx);
-                    common.ocr_state.text = Some(format!("{}{}", text.ocr_engine_failed, err));
+                    common.ocr_state.text = Some(format!("{}{}", text.ocr.engine_failed, err));
                 }
             }
             common.ocr_state.receiver = None; // 接收完毕，清理通道
@@ -329,7 +329,7 @@ impl ViewerFeature {
 
         // 加载提示
         if self.state.current_texture.is_none() && self.state.loader.is_loading {
-            global_loading(ctx, text.loading_parsing.to_string());
+            global_loading(ctx, text.loading.parsing.to_string());
         }
 
         context_menu_action

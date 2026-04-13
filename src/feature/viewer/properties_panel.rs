@@ -23,7 +23,7 @@ pub fn draw_properties_panel_inside(ui: &mut Ui, overlay: &mut OverlayMode, view
             }
 
             ui.horizontal(|ui| {
-                ui.heading(text.img_prop);
+                ui.heading(text.image.properties);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     if draw_icon_button(ui, false, IconType::Cancel, 20.0).clicked() {
                         is_open = false;
@@ -35,7 +35,7 @@ pub fn draw_properties_panel_inside(ui: &mut Ui, overlay: &mut OverlayMode, view
             if let Some(props) = &viewer.current_properties {
                 render_properties_content(ui, props);
             } else {
-                ui.label(text.prop_no_image);
+                ui.label(text.properties.no_image);
             }
         });
 
@@ -52,16 +52,16 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
         .num_columns(2)
         .spacing([20.0, 4.0])
         .show(ui, |ui| {
-            ui.label(format!("{}:", text.img_name));
+            ui.label(format!("{}:", text.image.name));
             ui.add(egui::Label::new(&properties.name).wrap())
                 .on_hover_text(&properties.name);
             ui.end_row();
 
-            ui.label(format!("{}:", text.img_date));
+            ui.label(format!("{}:", text.image.date));
             ui.label(&properties.date);
             ui.end_row();
 
-            ui.label(format!("{}:", text.img_dim));
+            ui.label(format!("{}:", text.image.dimensions));
             ui.label(format!(
                 "{}x{} {:.1} MB",
                 properties.width,
@@ -74,7 +74,7 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
     ui.add_space(10.0);
 
     // 侧边栏路径
-    ui.label(format!("{}:", text.img_path));
+    ui.label(format!("{}:", text.image.path));
     ui.horizontal(|ui| {
         let path_str = properties.path.to_string_lossy().to_string();
         // 预留复制按钮的空间

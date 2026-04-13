@@ -42,7 +42,7 @@ pub fn draw_grid_view(ctx: &Context, ui: &mut Ui, viewer: &mut ViewerState) {
 
     if viewer.list.is_empty() {
         ui.centered_and_justified(|ui| {
-            ui.label(text.viewer_no_images);
+            ui.label(text.viewer.no_images);
         });
         return;
     }
@@ -61,7 +61,7 @@ pub fn draw_grid_view(ctx: &Context, ui: &mut Ui, viewer: &mut ViewerState) {
     let preload_rect = visible_rect.expand(GRID_PRELOAD_MARGIN);
     let mut render_context = GridRenderContext {
         ctx,
-        loading_text: text.grid_loading,
+        loading_text: text.grid.loading,
         current_index,
         preload_rect,
         thumb_cache,

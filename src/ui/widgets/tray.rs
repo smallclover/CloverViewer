@@ -21,11 +21,11 @@ pub fn init_tray(
     // 创建常规的菜单项
     let config = get_context_config(&cc.egui_ctx);
     let text = get_text(config.language);
-    let label = format!("{}    {}", text.menu_screenshot, screenshot_hotkey_text);
+    let label = format!("{}    {}", text.menu.screenshot, screenshot_hotkey_text);
     let item_screenshot = MenuItem::new(&label, true, None);
     let item_screenshot_id = item_screenshot.id().clone();
 
-    let item_exit = MenuItem::new(text.menu_exit, true, None);
+    let item_exit = MenuItem::new(text.menu.exit, true, None);
     let item_exit_id = item_exit.id().clone();
 
     let _ = tray_menu.append(&item_screenshot);

@@ -15,7 +15,7 @@ pub fn show_inside(ui: &mut Ui, ocr_state: &mut OcrState) {
         .resizable(true)
         .show_inside(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.heading(i18n.ocr_title);
+                ui.heading(i18n.ocr.title);
                 // 靠右放置一个关闭按钮
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if draw_icon_button(ui, false, IconType::Cancel, 20.0).clicked() {
@@ -29,7 +29,7 @@ pub fn show_inside(ui: &mut Ui, ocr_state: &mut OcrState) {
             if ocr_state.is_processing {
                 ui.horizontal(|ui| {
                     ui.spinner();
-                    ui.label(i18n.ocr_processing);
+                    ui.label(i18n.ocr.processing);
                 });
             } else if let Some(text) = &mut ocr_state.text {
                 // 让文本框占满剩余的高度（留出底部按钮的空间）
@@ -49,7 +49,7 @@ pub fn show_inside(ui: &mut Ui, ocr_state: &mut OcrState) {
 
                 ui.separator();
                 ui.vertical_centered(|ui| {
-                    if ui.button(i18n.ocr_copy_all).clicked() {
+                    if ui.button(i18n.ocr.copy_all).clicked() {
                         // 直接使用项目中现有的 arboard 库写入纯文本
                         if let Ok(mut clipboard) = arboard::Clipboard::new() {
                             if let Err(e) = clipboard.set_text(text.clone()) {

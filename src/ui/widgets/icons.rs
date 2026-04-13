@@ -21,18 +21,18 @@ pub enum IconType {
 impl IconType {
     pub fn tooltip(&self, text: &TextBundle) -> &'static str {
         match self {
-            IconType::Grid => text.status_grid,
-            IconType::Single => text.status_single,
-            IconType::Text => text.tooltip_draw_text,
-            IconType::DrawRect => text.tooltip_draw_rect,
-            IconType::DrawCircle => text.tooltip_draw_circle,
-            IconType::DrawArrow => text.tooltip_draw_arrow,
-            IconType::Pencil => text.tooltip_draw_pencil,
-            IconType::Mosaic => text.tooltip_draw_mosaic,
-            IconType::Cancel => text.tooltip_cancel,
-            IconType::Save => text.tooltip_save,
-            IconType::SaveToClipboard => text.tooltip_save_to_clipboard,
-            IconType::Ocr => text.tooltip_ocr,
+            IconType::Grid => text.status.grid,
+            IconType::Single => text.status.single,
+            IconType::Text => text.tooltip.draw_text,
+            IconType::DrawRect => text.tooltip.draw_rect,
+            IconType::DrawCircle => text.tooltip.draw_circle,
+            IconType::DrawArrow => text.tooltip.draw_arrow,
+            IconType::Pencil => text.tooltip.draw_pencil,
+            IconType::Mosaic => text.tooltip.draw_mosaic,
+            IconType::Cancel => text.tooltip.cancel,
+            IconType::Save => text.tooltip.save,
+            IconType::SaveToClipboard => text.tooltip.save_to_clipboard,
+            IconType::Ocr => text.tooltip.ocr,
         }
     }
 }

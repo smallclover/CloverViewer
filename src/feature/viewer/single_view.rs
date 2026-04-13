@@ -52,7 +52,7 @@ pub fn draw_single_view(
                 ui.vertical_centered(|ui| {
                     ui.add_space(ui.available_height() * 0.4);
                     ui.label(
-                        RichText::new(text.viewer_error)
+                        RichText::new(text.viewer.error)
                             .color(Color32::RED)
                             .size(14.0),
                     );
@@ -71,9 +71,9 @@ pub fn draw_single_view(
                 });
             });
         } else if viewer.list.is_empty() {
-            ui.centered_and_justified(|ui| ui.label(text.viewer_no_images));
+            ui.centered_and_justified(|ui| ui.label(text.viewer.no_images));
         } else {
-            ui.centered_and_justified(|ui| ui.label(text.viewer_drag_hint));
+            ui.centered_and_justified(|ui| ui.label(text.viewer.drag_hint));
         }
     }
 
