@@ -243,27 +243,7 @@ fn paint_selection_shade(
     viewport_rect: Rect,
     overlay_color: Color32,
 ) {
-    let top = Rect::from_min_max(
-        viewport_rect.min,
-        Pos2::new(viewport_rect.max.x, clipped_local_sel.min.y),
-    );
-    let bottom = Rect::from_min_max(
-        Pos2::new(viewport_rect.min.x, clipped_local_sel.max.y),
-        viewport_rect.max,
-    );
-    let left = Rect::from_min_max(
-        Pos2::new(viewport_rect.min.x, clipped_local_sel.min.y),
-        Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y),
-    );
-    let right = Rect::from_min_max(
-        Pos2::new(clipped_local_sel.max.x, clipped_local_sel.min.y),
-        Pos2::new(viewport_rect.max.x, clipped_local_sel.max.y),
-    );
-
-    painter.rect_filled(top, 0.0, overlay_color);
-    painter.rect_filled(bottom, 0.0, overlay_color);
-    painter.rect_filled(left, 0.0, overlay_color);
-    painter.rect_filled(right, 0.0, overlay_color);
+    paint_shade_around_rect(painter, clipped_local_sel, viewport_rect, overlay_color);
 }
 
 fn paint_hover_window_overlay(
@@ -281,30 +261,43 @@ fn paint_hover_window_overlay(
     let clipped_local_sel = local_logical_rect.intersect(viewport_rect);
 
     if clipped_local_sel.is_positive() {
-        let top = Rect::from_min_max(
-            viewport_rect.min,
-            Pos2::new(viewport_rect.max.x, clipped_local_sel.min.y),
-        );
-        let bottom = Rect::from_min_max(
-            Pos2::new(viewport_rect.min.x, clipped_local_sel.max.y),
-            viewport_rect.max,
-        );
-        let left = Rect::from_min_max(
-            Pos2::new(viewport_rect.min.x, clipped_local_sel.min.y),
-            Pos2::new(clipped_local_sel.min.x, clipped_local_sel.max.y),
-        );
-        let right = Rect::from_min_max(
-            Pos2::new(clipped_local_sel.max.x, clipped_local_sel.min.y),
-            Pos2::new(viewport_rect.max.x, clipped_local_sel.max.y),
-        );
-
-        painter.rect_filled(top, 0.0, overlay_color);
-        painter.rect_filled(bottom, 0.0, overlay_color);
-        painter.rect_filled(left, 0.0, overlay_color);
-        painter.rect_filled(right, 0.0, overlay_color);
-
+        paint_shade_around_rect(painter, clipped_local_sel, viewport_rect, overlay_color);
         paint_style_box(painter, clipped_local_sel, 2.0);
     }
+}
+
+fn paint_shade_around_rect(
+    painter: &Painter,
+    highlight_rect: Rect,
+    viewport_rect: Rect,
+    overlay_color: Color32,
+) {
+    for shade_rect in shade_rects_around(highlight_rect, viewport_rect) {
+        if shade_rect.is_positive() {
+            painter.rect_filled(shade_rect, 0.0, overlay_color);
+        }
+    }
+}
+
+fn shade_rects_around(highlight_rect: Rect, viewport_rect: Rect) -> [Rect; 4] {
+    let top = Rect::from_min_max(
+        viewport_rect.min,
+        Pos2::new(viewport_rect.max.x, highlight_rect.min.y),
+    );
+    let bottom = Rect::from_min_max(
+        Pos2::new(viewport_rect.min.x, highlight_rect.max.y),
+        viewport_rect.max,
+    );
+    let left = Rect::from_min_max(
+        Pos2::new(viewport_rect.min.x, highlight_rect.min.y),
+        Pos2::new(highlight_rect.min.x, highlight_rect.max.y),
+    );
+    let right = Rect::from_min_max(
+        Pos2::new(highlight_rect.max.x, highlight_rect.min.y),
+        Pos2::new(viewport_rect.max.x, highlight_rect.max.y),
+    );
+
+    [top, bottom, left, right]
 }
 
 fn paint_style_box(painter: &Painter, rect: Rect, line_width: f32) {
