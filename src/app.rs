@@ -12,7 +12,7 @@ use crate::{
     os::current_platform,
     ui::{
         resources::APP_FONT,
-        widgets::{modal::ModalAction, tray::init_tray},
+        widgets::{modal::ModalAction, tray::{AppTray, init_tray}},
     },
     utils::image::load_icon,
 };
@@ -26,7 +26,6 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
 };
-use tray_icon::TrayIcon;
 
 pub fn run() -> eframe::Result<()> {
     // 提前加载配置
@@ -67,7 +66,7 @@ pub fn run() -> eframe::Result<()> {
 }
 
 pub struct CloverApp {
-    _tray: TrayIcon,
+    tray: AppTray,
     state: AppState,
     config_manager: ConfigManager,
     viewer_feature: ViewerFeature,
@@ -114,7 +113,7 @@ impl CloverApp {
         }
 
         Self {
-            _tray: tray,
+            tray,
             state,
             config_manager,
             viewer_feature,
@@ -262,6 +261,8 @@ impl CloverApp {
             self.config_manager.save_now();
 
             self.state.reload_hotkeys(&config);
+            self.tray
+                .refresh_labels(config.language, &config.hotkeys.show_screenshot);
         }
     }
 }

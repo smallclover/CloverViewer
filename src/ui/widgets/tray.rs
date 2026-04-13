@@ -1,4 +1,4 @@
-use crate::i18n::lang::get_text;
+use crate::i18n::lang::{Language, get_text};
 use crate::model::config::get_context_config;
 use crate::os::current_platform;
 use crate::utils::image::load_tray_icon;
@@ -6,6 +6,35 @@ use egui::{ViewportCommand, WindowLevel};
 use std::sync::{Arc, Mutex};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
+
+pub struct AppTray {
+    _tray_icon: TrayIcon,
+    screenshot_item: MenuItem,
+    exit_item: MenuItem,
+    current_language: Language,
+    screenshot_hotkey_text: String,
+}
+
+impl AppTray {
+    pub fn refresh_labels(&mut self, language: Language, screenshot_hotkey_text: &str) {
+        if self.current_language == language && self.screenshot_hotkey_text == screenshot_hotkey_text {
+            return;
+        }
+
+        let text = get_text(language);
+        self.screenshot_item
+            .set_text(build_screenshot_menu_label(text.menu.screenshot, screenshot_hotkey_text));
+        self.exit_item.set_text(text.menu.exit);
+
+        self.current_language = language;
+        self.screenshot_hotkey_text = screenshot_hotkey_text.to_string();
+    }
+}
+
+fn build_screenshot_menu_label(label: &str, screenshot_hotkey_text: &str) -> String {
+    format!("{}    {}", label, screenshot_hotkey_text)
+}
+
 /// 创建托盘
 /// `tray_restore_requested` - 当点击托盘且窗口处于隐藏状态时设置为 true，app.rs 的 update loop 会重置模式并清除此标志
 pub fn init_tray(
@@ -16,12 +45,12 @@ pub fn init_tray(
     tray_restore_requested: &Arc<Mutex<bool>>,
     tray_screenshot_requested: &Arc<Mutex<bool>>,
     screenshot_hotkey_text: &str,
-) -> TrayIcon {
+) -> AppTray {
     let tray_menu = Menu::new();
     // 创建常规的菜单项
     let config = get_context_config(&cc.egui_ctx);
     let text = get_text(config.language);
-    let label = format!("{}    {}", text.menu.screenshot, screenshot_hotkey_text);
+    let label = build_screenshot_menu_label(text.menu.screenshot, screenshot_hotkey_text);
     let item_screenshot = MenuItem::new(&label, true, None);
     let item_screenshot_id = item_screenshot.id().clone();
 
@@ -129,5 +158,11 @@ pub fn init_tray(
         }
     }));
 
-    tray_icon
+    AppTray {
+        _tray_icon: tray_icon,
+        screenshot_item: item_screenshot,
+        exit_item: item_exit,
+        current_language: config.language,
+        screenshot_hotkey_text: screenshot_hotkey_text.to_string(),
+    }
 }
