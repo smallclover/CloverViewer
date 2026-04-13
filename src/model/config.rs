@@ -2,6 +2,7 @@ use crate::i18n::lang::Language;
 use egui::{Context, Id};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::sync::RwLock;
 use std::{fs, path::PathBuf};
 
 /// 获取配置目录
@@ -168,16 +169,45 @@ pub fn save_config(config: &Config) {
     }
 }
 
+pub struct ConfigStore {
+    config: RwLock<Config>,
+}
+
+impl ConfigStore {
+    pub fn new(config: Config) -> Self {
+        Self {
+            config: RwLock::new(config),
+        }
+    }
+
+    pub fn snapshot(&self) -> Arc<Config> {
+        let config = self.config.read().unwrap_or_else(|poisoned| poisoned.into_inner());
+        Arc::new(config.clone())
+    }
+
+    pub fn replace(&self, new_config: Config) {
+        let mut config = self
+            .config
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *config = new_config;
+    }
+}
+
+fn config_store_id() -> Id {
+    Id::new("config_store")
+}
+
+pub fn get_context_config_store(ctx: &Context) -> Option<Arc<ConfigStore>> {
+    ctx.data(|d| d.get_temp::<Arc<ConfigStore>>(config_store_id()))
+}
+
 pub fn get_context_config(ctx: &Context) -> Arc<Config> {
-    ctx.data(|d| d.get_temp::<Arc<Config>>(Id::new("config")))
+    get_context_config_store(ctx)
+        .map(|store| store.snapshot())
         .unwrap_or_else(|| Arc::new(Config::default()))
 }
 
-pub fn update_context_config(ctx: &Context, config: &Arc<Config>) {
-    // 保持 Config 在 context 中更新
-    ctx.data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(config)));
-}
-
-pub fn init_config_arc(ctx: &Context, config: &Arc<Config>) {
-    ctx.data_mut(|data| data.insert_temp(Id::new("config"), Arc::clone(config)));
+pub fn init_context_config_store(ctx: &Context, config_store: &Arc<ConfigStore>) {
+    ctx.data_mut(|data| data.insert_temp(config_store_id(), Arc::clone(config_store)));
 }

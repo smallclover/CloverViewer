@@ -1,11 +1,11 @@
-use crate::model::config::init_config_arc;
+use crate::model::config::init_context_config_store;
 use crate::{
     core::config_manager::ConfigManager,
     feature::Feature,
     feature::screenshot::ScreenshotFeature,
     feature::viewer::ViewerFeature,
     model::{
-        config::{Config, load_config, update_context_config},
+        config::{Config, load_config},
         mode::AppMode,
         state::AppState,
     },
@@ -87,8 +87,8 @@ impl CloverApp {
         let platform = current_platform();
         let hwnd_usize = platform.get_window_handle(cc);
 
-        let config_arc = Arc::new(config);
-        init_config_arc(&cc.egui_ctx, &Arc::clone(&config_arc));
+        let config_manager = ConfigManager::new(config);
+        init_context_config_store(&cc.egui_ctx, &config_manager.config_store());
 
         let state = AppState::new(&cc.egui_ctx, visible, allow_quit, hwnd_usize);
 
@@ -100,11 +100,8 @@ impl CloverApp {
             hwnd_usize,
             &state.common.tray_restore_requested,
             &state.common.tray_screenshot_requested,
-            &config_arc.hotkeys.show_screenshot,
+            &config_manager.config().hotkeys.show_screenshot,
         );
-
-        // 创建 ConfigManager 用于防抖保存配置
-        let config_manager = ConfigManager::new(Arc::clone(&config_arc));
 
         // 创建 ViewerFeature（持有自己的 ViewerState 副本）
         let mut viewer_feature = ViewerFeature::new();
@@ -248,32 +245,23 @@ impl CloverApp {
                 let mut new_config = (*current_config).clone();
                 new_config.window_pos = Some(current_pos);
                 new_config.window_size = Some(current_size);
-                let new_config_arc = Arc::new(new_config);
 
                 // 更新并触发保存
-                self.config_manager
-                    .update_and_save(Arc::clone(&new_config_arc));
-
-                // 更新 Context 里的配置（保证全局同步）
-                update_context_config(ctx, &new_config_arc);
+                self.config_manager.update_and_save(new_config);
             }
         }
     }
 
     /// 更新应用配置
-    fn handle_update_config(&mut self, ctx: &Context) {
+    fn handle_update_config(&mut self) {
         if let Some(ModalAction::Apply) = self.viewer_feature.get_pending_config_action()
             && let Some(config) = self.viewer_feature.take_pending_config()
         {
-            let new_config_arc = Arc::new(config);
-
             // 直接立刻保存（因为这是手动点确认修改的，无需防抖）
-            self.config_manager
-                .update_and_save(Arc::clone(&new_config_arc));
+            self.config_manager.update_and_save(config.clone());
             self.config_manager.save_now();
 
-            self.state.reload_hotkeys(&new_config_arc);
-            update_context_config(ctx, &new_config_arc)
+            self.state.reload_hotkeys(&config);
         }
     }
 }
@@ -321,14 +309,13 @@ impl eframe::App for CloverApp {
     }
 
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
-        let ctx = ui.ctx().clone();
         let common = &mut self.state.common;
 
         match self.state.mode {
             AppMode::Viewer => {
                 self.viewer_feature.ui(ui, common);
                 // 处理配置应用（从 overlay 状态）
-                self.handle_update_config(&ctx);
+                self.handle_update_config();
             }
             AppMode::Screenshot => {
                 self.screenshot_feature

@@ -1,10 +1,10 @@
-use crate::model::config::{Config, save_config};
+use crate::model::config::{Config, ConfigStore, save_config};
 use egui::Context;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 pub struct ConfigManager {
-    config: Arc<Config>,
+    config_store: Arc<ConfigStore>,
     pending_save: Option<Instant>,
     last_saved: Instant,
 }
@@ -13,22 +13,26 @@ impl ConfigManager {
     const DEBOUNCE_DURATION: Duration = Duration::from_millis(500);
     const MIN_SAVE_INTERVAL: Duration = Duration::from_secs(1);
 
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(config: Config) -> Self {
         Self {
-            config,
+            config_store: Arc::new(ConfigStore::new(config)),
             pending_save: None,
             last_saved: Instant::now(),
         }
     }
 
+    pub fn config_store(&self) -> Arc<ConfigStore> {
+        Arc::clone(&self.config_store)
+    }
+
     /// 供外部读取当前最新的配置
     pub fn config(&self) -> Arc<Config> {
-        Arc::clone(&self.config)
+        self.config_store.snapshot()
     }
 
     /// 直接在这里更新配置，并自动触发防抖保存
-    pub fn update_and_save(&mut self, new_config: Arc<Config>) {
-        self.config = new_config; // 永远保持唯一的数据源是最新的
+    pub fn update_and_save(&mut self, new_config: Config) {
+        self.config_store.replace(new_config);
         self.pending_save = Some(Instant::now());
     }
 
@@ -48,14 +52,15 @@ impl ConfigManager {
     }
 
     pub fn save_now(&mut self) {
-        save_config(&self.config);
+        let config = self.config_store.snapshot();
+        save_config(config.as_ref());
         self.pending_save = None;
     }
 
     fn save_async(&mut self) {
-        let config = Arc::clone(&self.config);
+        let config = self.config_store.snapshot();
         rayon::spawn(move || {
-            save_config(&config);
+            save_config(config.as_ref());
         });
         self.last_saved = Instant::now();
     }
