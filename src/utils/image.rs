@@ -26,28 +26,33 @@ pub fn collect_images(dir: &Path) -> Vec<PathBuf> {
     result
 }
 
-pub fn load_icon() -> egui::IconData {
-    let img = image::load_from_memory(APP_IMG)
-        .expect("Failed to read embedded app icon")
-        .into_rgba8();
+pub fn load_icon() -> Option<egui::IconData> {
+    let img = match image::load_from_memory(APP_IMG) {
+        Ok(img) => img.into_rgba8(),
+        Err(err) => {
+            tracing::error!("Failed to read embedded app icon: {}", err);
+            return None;
+        }
+    };
     let (w, h) = img.dimensions();
 
-    egui::IconData {
+    Some(egui::IconData {
         rgba: img.into_raw(),
         width: w,
         height: h,
-    }
+    })
 }
 
-pub fn load_tray_icon() -> Icon {
+pub fn load_tray_icon() -> Result<Icon, String> {
     let img = image::load_from_memory(APP_IMG)
-        .expect("Failed to read embedded app icon")
+        .map_err(|err| format!("Failed to read embedded app icon: {err}"))?
         .resize_exact(16, 16, image::imageops::FilterType::Lanczos3)
         .into_rgba8();
 
     let (w, h) = img.dimensions();
 
-    Icon::from_rgba(img.into_raw(), w, h).expect("Failed to create tray icon")
+    Icon::from_rgba(img.into_raw(), w, h)
+        .map_err(|err| format!("Failed to create tray icon: {err}"))
 }
 
 #[cfg(test)]

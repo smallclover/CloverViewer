@@ -30,32 +30,44 @@ pub mod ocr;
 pub struct WindowsPlatform;
 
 impl WindowsPlatform {
-    fn get_window_handle(&self, hwnd_usize: usize) -> HWND {
+    fn hwnd_from_usize(&self, hwnd_usize: usize) -> Option<HWND> {
+        if hwnd_usize == 0 {
+            tracing::warn!("Window handle is unavailable; skipping Windows API call");
+            return None;
+        }
+
         HWND(hwnd_usize as *mut std::ffi::c_void)
+            .into()
     }
 }
 
 impl WindowManager for WindowsPlatform {
     fn get_window_handle(&self, cc: &eframe::CreationContext<'_>) -> usize {
         let Ok(window_handle) = cc.window_handle() else {
-            panic!("Failed to get window handle");
+            tracing::error!("Failed to get window handle");
+            return 0;
         };
         let RawWindowHandle::Win32(handle) = window_handle.as_raw() else {
-            panic!("Unsupported platform");
+            tracing::error!("Unsupported platform raw window handle");
+            return 0;
         };
 
         handle.hwnd.get() as usize
     }
 
     fn show_window_restore(&self, hwnd_usize: usize) {
-        let window_handle = self.get_window_handle(hwnd_usize);
+        let Some(window_handle) = self.hwnd_from_usize(hwnd_usize) else {
+            return;
+        };
         unsafe {
             let _ = ShowWindow(window_handle, SW_RESTORE);
         }
     }
 
     fn show_window_restore_offscreen(&self, hwnd_usize: usize) {
-        let window_handle = self.get_window_handle(hwnd_usize);
+        let Some(window_handle) = self.hwnd_from_usize(hwnd_usize) else {
+            return;
+        };
         unsafe {
             let _ = SetWindowPos(
                 window_handle,
@@ -71,15 +83,19 @@ impl WindowManager for WindowsPlatform {
     }
 
     fn show_window_hide(&self, hwnd_usize: usize) {
-        let window_handle = self.get_window_handle(hwnd_usize);
+        let Some(window_handle) = self.hwnd_from_usize(hwnd_usize) else {
+            return;
+        };
         unsafe {
             let _ = ShowWindow(window_handle, SW_HIDE);
         }
     }
 
     fn force_get_focus(&self, hwnd_usize: usize) {
+        let Some(window_handle) = self.hwnd_from_usize(hwnd_usize) else {
+            return;
+        };
         unsafe {
-            let window_handle = self.get_window_handle(hwnd_usize);
             let fg_hwnd = GetForegroundWindow();
 
             if fg_hwnd == window_handle {
@@ -136,13 +152,17 @@ impl ScreenshotPlatform for WindowsPlatform {
                 bottom: bottom_limit,
             };
 
-            ClipCursor(Some(&rect as *const RECT)).expect("Calling Windows API failed!");
+            if let Err(err) = ClipCursor(Some(&rect as *const RECT)) {
+                tracing::warn!("Failed to lock cursor for screenshot: {:?}", err);
+            }
         }
     }
 
     fn unlock_cursor(&self) {
         unsafe {
-            ClipCursor(None).expect("Calling Windows API failed!");
+            if let Err(err) = ClipCursor(None) {
+                tracing::warn!("Failed to unlock cursor: {:?}", err);
+            }
         }
     }
 

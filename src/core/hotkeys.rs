@@ -18,7 +18,7 @@ pub enum HotkeyAction {
 }
 
 pub struct HotkeyManager {
-    hotkeys_manager: GlobalHotKeyManager,
+    hotkeys_manager: Option<GlobalHotKeyManager>,
     hotkey_receiver: mpsc::Receiver<(u32, WindowPrevState)>,
 
     // 当前生效的热键对象
@@ -30,9 +30,6 @@ pub struct HotkeyManager {
 
 impl HotkeyManager {
     pub fn new(ctx: &Context, window_state: Arc<WindowState>) -> Self {
-        let Ok(hotkeys_manager) = GlobalHotKeyManager::new() else {
-            panic!("Failed to initialize GlobalHotKeyManager");
-        };
         let config = get_context_config(ctx);
         // 初始化时直接从 Config 解析
         let show_hotkey = parse_hotkey_str(&config.hotkeys.show_screenshot)
@@ -43,64 +40,72 @@ impl HotkeyManager {
             Code::KeyC,
         ));
 
-        // 注册显示截图的热键
-        if let Err(e) = hotkeys_manager.register(show_hotkey) {
-            tracing::error!("Failed to register screenshot hotkey: {:?}", e);
-        }
-
         let (tx, rx) = mpsc::channel();
-        let ctx_clone = ctx.clone();
 
-        // 能够通过 ID 发送事件
-        GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
-            // [重要] global-hotkey 回调运行在独立线程上，
-            // 绝不能在持有 visible Mutex 的同时调用 ctx.input() 或 Win32 API
-            // (如 ShowWindow/SetWindowPos)，否则会与主线程（持有 Context 写锁并
-            // 尝试获取 visible Mutex）产生跨线程死锁。
-
-            // 1. 先在无锁状态下读取 egui 层面的最小化状态
-            let is_minimized = ctx_clone.input(|i| i.viewport().minimized.unwrap_or(false));
-
-            // 2. 最小范围持有 visible 锁：读取 + 设置，然后立刻释放
-            let prev_state = {
-                let Ok(mut visible) = window_state.visible.lock() else {
-                    return;
-                };
-                let is_visible = *visible;
-
-                let state = if !is_visible {
-                    WindowPrevState::Tray
-                } else if is_minimized {
-                    WindowPrevState::Minimized
-                } else {
-                    WindowPrevState::Normal
-                };
-
-                // 提前标记为可见，释放锁后主线程就能正确读取
-                if state != WindowPrevState::Normal {
-                    *visible = true;
+        let hotkeys_manager = match GlobalHotKeyManager::new() {
+            Ok(hotkeys_manager) => {
+                if let Err(e) = hotkeys_manager.register(show_hotkey) {
+                    tracing::error!("Failed to register screenshot hotkey: {:?}", e);
                 }
 
-                state
-                // visible 锁在此处释放
-            };
+                let ctx_clone = ctx.clone();
+                GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
+                    // [重要] global-hotkey 回调运行在独立线程上，
+                    // 绝不能在持有 visible Mutex 的同时调用 ctx.input() 或 Win32 API
+                    // (如 ShowWindow/SetWindowPos)，否则会与主线程（持有 Context 写锁并
+                    // 尝试获取 visible Mutex）产生跨线程死锁。
 
-            // 3. 锁已释放，安全调用 Win32 API 和 egui viewport commands
-            if prev_state != WindowPrevState::Normal {
-                if prev_state == WindowPrevState::Tray {
-                    let platform = current_platform();
-                    platform.show_window_restore_offscreen(window_state.hwnd_usize);
-                    platform.force_get_focus(window_state.hwnd_usize);
-                    ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                } else {
-                    ctx_clone.send_viewport_cmd(ViewportCommand::Minimized(false));
-                    ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                }
+                    // 1. 先在无锁状态下读取 egui 层面的最小化状态
+                    let is_minimized = ctx_clone.input(|i| i.viewport().minimized.unwrap_or(false));
+
+                    // 2. 最小范围持有 visible 锁：读取 + 设置，然后立刻释放
+                    let prev_state = {
+                        let Ok(mut visible) = window_state.visible.lock() else {
+                            return;
+                        };
+                        let is_visible = *visible;
+
+                        let state = if !is_visible {
+                            WindowPrevState::Tray
+                        } else if is_minimized {
+                            WindowPrevState::Minimized
+                        } else {
+                            WindowPrevState::Normal
+                        };
+
+                        // 提前标记为可见，释放锁后主线程就能正确读取
+                        if state != WindowPrevState::Normal {
+                            *visible = true;
+                        }
+
+                        state
+                        // visible 锁在此处释放
+                    };
+
+                    // 3. 锁已释放，安全调用 Win32 API 和 egui viewport commands
+                    if prev_state != WindowPrevState::Normal {
+                        if prev_state == WindowPrevState::Tray {
+                            let platform = current_platform();
+                            platform.show_window_restore_offscreen(window_state.hwnd_usize);
+                            platform.force_get_focus(window_state.hwnd_usize);
+                            ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                        } else {
+                            ctx_clone.send_viewport_cmd(ViewportCommand::Minimized(false));
+                            ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                        }
+                    }
+
+                    let _ = tx.send((event.id, prev_state));
+                    ctx_clone.request_repaint();
+                })));
+
+                Some(hotkeys_manager)
             }
-
-            let _ = tx.send((event.id, prev_state));
-            ctx_clone.request_repaint();
-        })));
+            Err(err) => {
+                tracing::error!("Failed to initialize GlobalHotKeyManager: {:?}", err);
+                None
+            }
+        };
 
         Self {
             hotkeys_manager,
@@ -113,10 +118,14 @@ impl HotkeyManager {
 
     /// 当设置点击“应用”时调用此方法
     pub fn update_hotkeys(&mut self, config: &Config) {
+        let Some(hotkeys_manager) = self.hotkeys_manager.as_ref() else {
+            return;
+        };
+
         // 1. 卸载旧的快捷键
-        let _ = self.hotkeys_manager.unregister(self.show_hotkey);
+        let _ = hotkeys_manager.unregister(self.show_hotkey);
         if self.is_copy_registered {
-            let _ = self.hotkeys_manager.unregister(self.copy_hotkey);
+            let _ = hotkeys_manager.unregister(self.copy_hotkey);
             self.is_copy_registered = false;
         }
 
@@ -130,7 +139,7 @@ impl HotkeyManager {
         }
 
         // 3. 重新注册 "显示截图" 的快捷键
-        if let Err(e) = self.hotkeys_manager.register(self.show_hotkey) {
+        if let Err(e) = hotkeys_manager.register(self.show_hotkey) {
             tracing::error!("Failed to register show hotkey: {:?}", e);
         }
 
@@ -141,14 +150,18 @@ impl HotkeyManager {
     pub fn update(&mut self, mode: &AppMode) -> Vec<HotkeyAction> {
         let mut actions = Vec::new();
 
+        let Some(hotkeys_manager) = self.hotkeys_manager.as_ref() else {
+            return actions;
+        };
+
         // 1. 动态注册/注销 Copy 快捷键 (逻辑保持不变)
         if *mode == AppMode::Screenshot && !self.is_copy_registered {
-            if self.hotkeys_manager.register(self.copy_hotkey).is_ok() {
+            if hotkeys_manager.register(self.copy_hotkey).is_ok() {
                 self.is_copy_registered = true;
             }
         } else if *mode != AppMode::Screenshot
             && self.is_copy_registered
-            && self.hotkeys_manager.unregister(self.copy_hotkey).is_ok()
+            && hotkeys_manager.unregister(self.copy_hotkey).is_ok()
         {
             self.is_copy_registered = false;
         }

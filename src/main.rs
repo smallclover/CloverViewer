@@ -13,11 +13,18 @@ fn main() -> eframe::Result<()> {
     // 初始化日志系统
     core::logging::init_logging();
 
-    let instance = single_instance::SingleInstance::new("CloverViewer")
-        .expect("Failed to create single instance guard");
-    if !instance.is_single() {
-        return Ok(());
-    }
+    let _instance_guard = match single_instance::SingleInstance::new("CloverViewer") {
+        Ok(instance) => {
+            if !instance.is_single() {
+                return Ok(());
+            }
+            Some(instance)
+        }
+        Err(err) => {
+            tracing::error!("Failed to create single instance guard: {}", err);
+            None
+        }
+    };
     #[cfg(target_os = "windows")]
     app::run()
 }

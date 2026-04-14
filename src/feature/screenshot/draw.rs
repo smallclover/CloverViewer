@@ -5,9 +5,15 @@ use eframe::egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2
 use image::{Rgba, RgbaImage};
 use std::sync::LazyLock;
 
-static EMBEDDED_FONT: LazyLock<FontRef<'static>> = LazyLock::new(|| {
+static EMBEDDED_FONT: LazyLock<Option<FontRef<'static>>> = LazyLock::new(|| {
     let data = include_bytes!("../../../assets/fonts/msyhl.ttf");
-    FontRef::try_from_slice(data).expect("字体加载失败")
+    match FontRef::try_from_slice(data) {
+        Ok(font) => Some(font),
+        Err(err) => {
+            tracing::error!("Failed to load embedded screenshot font: {}", err);
+            None
+        }
+    }
 });
 
 /// 渲染 UI 时的实时绘图 (Egui)
@@ -220,9 +226,22 @@ pub fn draw_skia_shapes_on_image(
     // 2. 使用 imageproc 渲染顶层的文本
     // ==========================================
 
+    let embedded_font = match EMBEDDED_FONT.as_ref() {
+        Some(font) => Some(font),
+        None => {
+            if shapes.iter().any(|shape| shape.tool == ScreenshotTool::Text) {
+                tracing::warn!(
+                    "Skipping text rendering during screenshot export because the embedded font is unavailable"
+                );
+            }
+            None
+        }
+    };
+
     for shape in shapes {
         if shape.tool == ScreenshotTool::Text
             && let Some(ref text) = shape.text
+            && let Some(font) = embedded_font
         {
             let start_x = shape.start.x - selection_phys.min.x;
             let start_y = shape.start.y - selection_phys.min.y;
@@ -255,7 +274,7 @@ pub fn draw_skia_shapes_on_image(
                     start_x as i32,
                     current_y as i32,
                     scale,
-                    &*EMBEDDED_FONT,
+                    font,
                     clean_line,
                 );
                 current_y += line_height;

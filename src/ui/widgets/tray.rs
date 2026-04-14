@@ -8,9 +8,9 @@ use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 pub struct AppTray {
-    _tray_icon: TrayIcon,
-    screenshot_item: MenuItem,
-    exit_item: MenuItem,
+    _tray_icon: Option<TrayIcon>,
+    screenshot_item: Option<MenuItem>,
+    exit_item: Option<MenuItem>,
     current_language: Language,
     screenshot_hotkey_text: String,
 }
@@ -22,9 +22,12 @@ impl AppTray {
         }
 
         let text = get_text(language);
-        self.screenshot_item
-            .set_text(build_screenshot_menu_label(text.menu.screenshot, screenshot_hotkey_text));
-        self.exit_item.set_text(text.menu.exit);
+        if let Some(item) = &self.screenshot_item {
+            item.set_text(build_screenshot_menu_label(text.menu.screenshot, screenshot_hotkey_text));
+        }
+        if let Some(item) = &self.exit_item {
+            item.set_text(text.menu.exit);
+        }
 
         self.current_language = language;
         self.screenshot_hotkey_text = screenshot_hotkey_text.to_string();
@@ -61,13 +64,40 @@ pub fn init_tray(
     let _ = tray_menu.append(&PredefinedMenuItem::separator()); // 添加一条分割线
     let _ = tray_menu.append(&item_exit);
 
+    let tray_icon_image = match load_tray_icon() {
+        Ok(icon) => icon,
+        Err(err) => {
+            tracing::error!("{}", err);
+            return AppTray {
+                _tray_icon: None,
+                screenshot_item: None,
+                exit_item: None,
+                current_language: config.language,
+                screenshot_hotkey_text: screenshot_hotkey_text.to_string(),
+            };
+        }
+    };
+
     let tray_icon = TrayIconBuilder::new()
-        .with_icon(load_tray_icon())
+        .with_icon(tray_icon_image)
         .with_tooltip("CloverViewer")
         .with_menu(Box::new(tray_menu))
         .with_menu_on_left_click(false)
-        .build()
-        .expect("Failed to build tray icon");
+        .build();
+
+    let tray_icon = match tray_icon {
+        Ok(tray_icon) => tray_icon,
+        Err(err) => {
+            tracing::error!("Failed to build tray icon: {}", err);
+            return AppTray {
+                _tray_icon: None,
+                screenshot_item: None,
+                exit_item: None,
+                current_language: config.language,
+                screenshot_hotkey_text: screenshot_hotkey_text.to_string(),
+            };
+        }
+    };
 
     // 2. 克隆给托盘和快捷键回调闭包使用
     let visible_for_tray = Arc::clone(visible);
@@ -159,9 +189,9 @@ pub fn init_tray(
     }));
 
     AppTray {
-        _tray_icon: tray_icon,
-        screenshot_item: item_screenshot,
-        exit_item: item_exit,
+        _tray_icon: Some(tray_icon),
+        screenshot_item: Some(item_screenshot),
+        exit_item: Some(item_exit),
         current_language: config.language,
         screenshot_hotkey_text: screenshot_hotkey_text.to_string(),
     }

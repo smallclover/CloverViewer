@@ -31,9 +31,10 @@ pub fn run() -> eframe::Result<()> {
     // 提前加载配置
     let config = load_config();
 
-    let mut viewport = ViewportBuilder::default()
-        .with_transparent(true)
-        .with_icon(load_icon());
+    let mut viewport = ViewportBuilder::default().with_transparent(true);
+    if let Some(icon) = load_icon() {
+        viewport = viewport.with_icon(icon);
+    }
 
     // 应用配置文件中的大小，否则默认 1024x768
     if let Some((w, h)) = config.window_size {
