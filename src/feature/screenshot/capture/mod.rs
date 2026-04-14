@@ -249,7 +249,7 @@ pub fn draw_screenshot_ui_inside(
     let local_toolbar_rect = calculate_toolbar_rect(state, global_offset_phys, ppp);
 
     let mut canvas_state = CanvasState::load_from_ui(ui);
-    canvas::interaction::handle_interaction(
+    let interaction_action = canvas::interaction::handle_interaction(
         ui,
         state,
         &mut canvas_state,
@@ -266,6 +266,10 @@ pub fn draw_screenshot_ui_inside(
         is_hovered,
     );
     canvas_state.save_to_ui(ui);
+
+    if interaction_action != ScreenshotAction::None {
+        action = interaction_action;
+    }
 
     // [新增] 绘制左下角快捷键与工具栏帮助说明框
     help_box::render_help_box(ui, state, global_offset_phys, ppp);

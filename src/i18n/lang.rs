@@ -142,6 +142,9 @@ pub struct TooltipText {
 
 pub struct HelpText {
     pub shortcuts: &'static str,
+    pub start_screenshot: &'static str,
+    pub select_region: &'static str,
+    pub exit_with_right_click: &'static str,
     pub esc: &'static str,
     pub undo: &'static str,
     pub redo: &'static str,
@@ -268,6 +271,9 @@ pub const ZH_TEXT: TextBundle = TextBundle {
     },
     help: HelpText {
         shortcuts: "【快捷键】",
+        start_screenshot: "开始截图",
+        select_region: "左键拖拽 : 选择区域",
+        exit_with_right_click: "右键 : 退出截图",
         esc: "Esc : 退出截图",
         undo: "Ctrl+Z : 撤销上一步绘制",
         redo: "Ctrl+Y / Ctrl+Shift+Z : 重做上一步绘制",
@@ -372,6 +378,9 @@ pub const EN_TEXT: TextBundle = TextBundle {
     },
     help: HelpText {
         shortcuts: "[ Shortcuts ]",
+        start_screenshot: "Start Screenshot",
+        select_region: "Left Click / Drag : Select Area",
+        exit_with_right_click: "Right Click : Exit Screenshot",
         esc: "Esc : Exit Screenshot",
         undo: "Ctrl + Z : Undo Drawing",
         redo: "Ctrl + Y / Ctrl + Shift + Z : Redo Drawing",
@@ -476,6 +485,9 @@ pub const JA_TEXT: TextBundle = TextBundle {
     },
     help: HelpText {
         shortcuts: "【ショートカット】",
+        start_screenshot: "スクリーンショット開始",
+        select_region: "左クリック / ドラッグ : 範囲選択",
+        exit_with_right_click: "右クリック : スクリーンショットを終了",
         esc: "Esc : スクリーンショットを終了",
         undo: "Ctrl + Z : 元に戻す",
         redo: "Ctrl + Y / Ctrl + Shift + Z : やり直す",

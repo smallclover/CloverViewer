@@ -5,7 +5,7 @@ use eframe::egui::{Pos2, Rect, Response, Ui};
 
 use crate::feature::screenshot::{
     canvas::{CanvasState, commit_text_shape, shape::ShapeRender},
-    capture::{ScreenshotState, ScreenshotTool},
+    capture::{ScreenshotAction, ScreenshotState, ScreenshotTool},
 };
 use crate::model::device::find_target_screen_rect;
 use drag::{on_drag_start, on_drag_stop, on_dragged};
@@ -19,7 +19,7 @@ pub fn handle_interaction(
     global_offset_phys: Pos2,
     ppp: f32,
     toolbar_rect: Option<Rect>,
-) {
+) -> ScreenshotAction {
     let response = ui.interact(
         ui.max_rect(),
         ui.id().with("screenshot_background"),
@@ -47,6 +47,12 @@ pub fn handle_interaction(
         ppp,
         is_hovering_ui,
     );
+
+    if response.secondary_clicked()
+        && can_exit_screenshot_on_secondary_click(state, canvas_state, is_hovering_ui)
+    {
+        return ScreenshotAction::Close;
+    }
 
     if response.clicked() {
         handle_click(
@@ -83,6 +89,26 @@ pub fn handle_interaction(
             on_drag_stop(state, canvas_state);
         }
     }
+
+    ScreenshotAction::None
+}
+
+fn can_exit_screenshot_on_secondary_click(
+    state: &ScreenshotState,
+    canvas_state: &CanvasState,
+    is_hovering_ui: bool,
+) -> bool {
+    !is_hovering_ui
+        && state.select.selection.is_some()
+        && state.edit.shapes.is_empty()
+        && state.input.active_text_input.is_none()
+        && state.input.current_shape_start.is_none()
+        && state.input.current_shape_end.is_none()
+        && state.input.current_pen_points.is_empty()
+        && state.select.drag_start.is_none()
+        && !canvas_state.dragging_selection
+        && canvas_state.dragging_shape.is_none()
+        && canvas_state.dragging_handle.is_none()
 }
 
 fn handle_click(

@@ -1,6 +1,6 @@
 [package]
 name = "CloverViewer"
-version = "0.0.16"
+version = "0.0.17"
 edition = "2024"
 #cargo packager --release打包安装文件
 [package.metadata.packager]
