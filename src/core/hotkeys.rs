@@ -53,40 +53,46 @@ impl HotkeyManager {
 
         // 能够通过 ID 发送事件
         GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
-            // 热键变更后此时的show_hotkey.id 和 event.id 是不一样的，需要在update中取到最新的id
-            // SW_RESTORE 是 恢复窗口
-            // 如果当前是托盘状态
-            // 唤起主窗口导最小化
-            // 然后开始截图
+            // [重要] global-hotkey 回调运行在独立线程上，
+            // 绝不能在持有 visible Mutex 的同时调用 ctx.input() 或 Win32 API
+            // (如 ShowWindow/SetWindowPos)，否则会与主线程（持有 Context 写锁并
+            // 尝试获取 visible Mutex）产生跨线程死锁。
 
-            let Ok(mut visible) = window_state.visible.lock() else {
-                return;
-            };
-            let is_visible = *visible;
-
-            // 获取 eframe 层面的最小化状态
+            // 1. 先在无锁状态下读取 egui 层面的最小化状态
             let is_minimized = ctx_clone.input(|i| i.viewport().minimized.unwrap_or(false));
 
-            let prev_state = if !is_visible {
-                WindowPrevState::Tray
-            } else if is_minimized {
-                WindowPrevState::Minimized
-            } else {
-                WindowPrevState::Normal
+            // 2. 最小范围持有 visible 锁：读取 + 设置，然后立刻释放
+            let prev_state = {
+                let Ok(mut visible) = window_state.visible.lock() else {
+                    return;
+                };
+                let is_visible = *visible;
+
+                let state = if !is_visible {
+                    WindowPrevState::Tray
+                } else if is_minimized {
+                    WindowPrevState::Minimized
+                } else {
+                    WindowPrevState::Normal
+                };
+
+                // 提前标记为可见，释放锁后主线程就能正确读取
+                if state != WindowPrevState::Normal {
+                    *visible = true;
+                }
+
+                state
+                // visible 锁在此处释放
             };
 
-            // 只要不是前台 Normal，统统唤醒
+            // 3. 锁已释放，安全调用 Win32 API 和 egui viewport commands
             if prev_state != WindowPrevState::Normal {
                 if prev_state == WindowPrevState::Tray {
-                    // 使用系统 API 在屏幕外唤醒！
                     let platform = current_platform();
                     platform.show_window_restore_offscreen(window_state.hwnd_usize);
                     platform.force_get_focus(window_state.hwnd_usize);
-                    *visible = true;
                     ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                 } else {
-                    // show_window_restore(window_state.hwnd_isize);
-                    *visible = true;
                     ctx_clone.send_viewport_cmd(ViewportCommand::Minimized(false));
                     ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
                 }

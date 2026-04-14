@@ -102,7 +102,7 @@ impl Feature for ScreenshotFeature {
 }
 
 impl ScreenshotFeature {
-    pub fn logic(&mut self, _ctx: &Context, _common: &mut CommonState, mode: &mut AppMode) {
+    pub fn logic(&mut self, ctx: &Context, _common: &mut CommonState, mode: &mut AppMode) {
         // 检测是否刚进入截图模式
         if *mode == AppMode::Screenshot && !self.is_active {
             self.enter_screenshot_mode(crate::feature::screenshot::state::WindowPrevState::Normal);
@@ -116,6 +116,17 @@ impl ScreenshotFeature {
         // 检测是否退出截图模式
         if !self.is_active {
             *mode = AppMode::Viewer;
+            return;
+        }
+
+        // [关键] 在 logic() 中驱动截图准备流程（截屏捕获 + 窗口配置）
+        // egui 0.34 在窗口不可见/被遮挡时会跳过 ui()，
+        // 但截图流程需要在 ui() 之前就启动（发送 ViewportCommand、启动后台线程），
+        // 否则窗口会卡在屏幕外无法恢复。
+        if !prepare_screenshot_frame(ctx, &mut self.is_active, &mut self.state, _common) {
+            if !self.is_active {
+                *mode = AppMode::Viewer;
+            }
         }
     }
 
@@ -124,14 +135,12 @@ impl ScreenshotFeature {
             return;
         }
 
-        let ctx = ui.ctx().clone();
-
-        if !prepare_screenshot_frame(&ctx, &mut self.is_active, &mut self.state, common) {
-            if !self.is_active {
-                *mode = AppMode::Viewer;
-            }
+        // 截屏尚未完成或窗口尚未配置好，跳过绘制
+        if self.state.capture.captures.is_empty() || !self.state.runtime.window_configured {
             return;
         }
+
+        let ctx = ui.ctx().clone();
 
         let action = egui::CentralPanel::default()
             .frame(Frame::NONE.fill(egui::Color32::TRANSPARENT))
