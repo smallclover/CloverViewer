@@ -291,11 +291,19 @@ pub fn draw_screenshot_ui_inside(
         }
     }
 
-    // Ctrl+Z 撤销
-    if ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z))
-        && let Some(entry) = state.edit.history.pop()
-    {
-        state.restore_history_entry(entry);
+    let undo_requested = ui.input(|i| i.modifiers.ctrl && !i.modifiers.shift && i.key_pressed(egui::Key::Z));
+    let redo_requested = ui.input(|i| {
+        i.modifiers.ctrl
+            && (i.key_pressed(egui::Key::Y)
+                || (i.modifiers.shift && i.key_pressed(egui::Key::Z)))
+    });
+
+    if undo_requested {
+        state.undo_last();
+    }
+
+    if redo_requested {
+        state.redo_last();
     }
 
     if ui.input(|i| i.key_pressed(egui::Key::Enter)) {

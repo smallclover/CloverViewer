@@ -123,10 +123,10 @@ impl ScreenshotFeature {
         // egui 0.34 在窗口不可见/被遮挡时会跳过 ui()，
         // 但截图流程需要在 ui() 之前就启动（发送 ViewportCommand、启动后台线程），
         // 否则窗口会卡在屏幕外无法恢复。
-        if !prepare_screenshot_frame(ctx, &mut self.is_active, &mut self.state, _common) {
-            if !self.is_active {
-                *mode = AppMode::Viewer;
-            }
+        if !prepare_screenshot_frame(ctx, &mut self.is_active, &mut self.state, _common)
+            && !self.is_active
+        {
+            *mode = AppMode::Viewer;
         }
     }
 

@@ -4,6 +4,7 @@ use crate::feature::screenshot::{
         shape::{ShapeRender, clamp_pos_to_rect},
     },
     capture::{DrawnShape, ScreenshotState, ScreenshotTool},
+    state::SelectionChangeOrigin,
 };
 use eframe::egui::{Pos2, Rect, Ui};
 use std::sync::Arc;
@@ -29,7 +30,7 @@ pub(super) fn on_drag_start(
         let start = shape.start;
         let end = shape.end;
         // 开始 resize 拖拽
-        state.push_history_snapshot();
+        state.record_shape_before_edit(selected_idx);
         canvas_state.dragging_shape = Some(selected_idx);
         canvas_state.dragging_handle = Some(handle);
         canvas_state.resize_start_state = Some(ResizeStartState { start, end });
@@ -49,9 +50,6 @@ pub(super) fn on_drag_start(
     }
 
     if let Some(index) = interaction_hovered {
-        // 在修改 shapes 之前记录历史，这样撤销时才能正确删除复制出来的图形
-        state.push_history_snapshot();
-
         // 检查是否按下了 Alt 键
         if ui.input(|i| i.modifiers.alt) {
             // 克隆当前图形
@@ -60,10 +58,12 @@ pub(super) fn on_drag_start(
 
             // 将拖拽目标和选中目标切换为刚刚生成的新图形
             let new_index = state.edit.shapes.len() - 1;
+            state.record_shape_added(new_index);
             canvas_state.dragging_shape = Some(new_index);
             canvas_state.selected_shape = Some(new_index);
         } else {
             // 正常拖拽当前图形
+            state.record_shape_before_edit(index);
             canvas_state.dragging_shape = Some(index);
             canvas_state.selected_shape = Some(index);
         }
@@ -97,6 +97,9 @@ pub(super) fn on_drag_start(
         {
             return;
         }
+        state.input.selection_change_origin = Some(SelectionChangeOrigin {
+            previous_selection: state.select.selection,
+        });
         state.select.drag_start = Some(global_phys);
         state.clear_toolbar();
         state.drawing.color_picker.close();
@@ -200,8 +203,6 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
                 max_pos = max_pos.max(*p);
             }
 
-            state.push_history_snapshot();
-
             let Some(tool) = state.drawing.current_tool else {
                 return;
             };
@@ -223,13 +224,13 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
                 cached_galley: None,
                 cached_mosaic: None,
             });
+            state.record_shape_added(state.edit.shapes.len() - 1);
         }
     } else if let Some(start_pos) = state.input.current_shape_start {
         let end_pos = state.input.current_shape_end.unwrap_or(start_pos);
         if start_pos.distance(end_pos) > 5.0
             && let Some(tool) = state.drawing.current_tool
         {
-            state.push_history_snapshot();
             state.edit.shapes.push(DrawnShape {
                 tool,
                 start: start_pos,
@@ -241,22 +242,34 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
                 cached_galley: None,
                 cached_mosaic: None,
             });
+            state.record_shape_added(state.edit.shapes.len() - 1);
         }
         state.input.current_shape_start = None;
         state.input.current_shape_end = None;
     } else if state.select.drag_start.take().is_some()
         && let Some(sel) = state.select.selection
     {
+        let selection_origin = state.input.selection_change_origin.take();
         if sel.width() > 10.0 && sel.height() > 10.0 {
+            if let Some(origin) = selection_origin {
+                let selection_changed = origin.previous_selection != Some(sel);
+                if selection_changed || !state.edit.shapes.is_empty() {
+                    state.record_selection_change(origin.previous_selection);
+                }
+            }
+
             // 重新选择区域时，清除已有图形
             if !state.edit.shapes.is_empty() {
-                state.push_history_snapshot();
                 state.edit.shapes.clear();
                 canvas_state.selected_shape = None;
             }
-            state.push_history_snapshot();
             state.sync_toolbar_to_selection();
         } else {
+            if let Some(origin) = selection_origin
+                && origin.previous_selection.is_some()
+            {
+                state.record_selection_change(origin.previous_selection);
+            }
             state.set_selection(None);
         }
     }

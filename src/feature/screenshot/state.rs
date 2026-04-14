@@ -9,6 +9,7 @@ use crate::model::device::MonitorInfo;
 const DEFAULT_ACTIVE_COLOR: Color32 = Color32::from_rgb(204, 0, 0);
 const DEFAULT_STROKE_WIDTH: f32 = 2.0;
 const DEFAULT_MOSAIC_WIDTH: f32 = 16.0;
+const MAX_HISTORY_ENTRIES: usize = 50;
 
 #[derive(PartialEq, Clone, Copy)]
 pub enum ScreenshotAction {
@@ -81,8 +82,9 @@ pub struct ScreenshotState {
 #[derive(Default)]
 pub struct ScreenshotEditState {
     pub shapes: Vec<DrawnShape>,
-    // 撤销功能：历史栈
+    // 撤销/重做功能：历史栈
     pub history: Vec<HistoryEntry>,
+    pub redo: Vec<HistoryEntry>,
 }
 
 #[derive(Default)]
@@ -147,12 +149,31 @@ pub struct ScreenshotInputState {
     pub active_text_input: Option<(Pos2, String)>,
     // 当前正在绘制的画笔轨迹
     pub current_pen_points: Vec<Pos2>,
+    pub selection_change_origin: Option<SelectionChangeOrigin>,
 }
 
 #[derive(Clone)]
-pub struct HistoryEntry {
-    pub shapes: Vec<DrawnShape>,
-    pub selection: Option<Rect>,
+pub enum HistoryEntry {
+    InsertShape {
+        index: usize,
+        shape: DrawnShape,
+    },
+    RemoveShape {
+        index: usize,
+    },
+    ReplaceShape {
+        index: usize,
+        shape: DrawnShape,
+    },
+    RestoreSelectionAndShapes {
+        selection: Option<Rect>,
+        shapes: Vec<DrawnShape>,
+    },
+}
+
+#[derive(Clone, Copy)]
+pub struct SelectionChangeOrigin {
+    pub previous_selection: Option<Rect>,
 }
 
 impl Default for ScreenshotState {
@@ -173,15 +194,32 @@ impl ScreenshotState {
         }
     }
 
-    pub fn push_history_snapshot(&mut self) {
-        self.edit.history.push(HistoryEntry {
-            shapes: self
-                .edit
-                .shapes
-                .iter()
-                .map(DrawnShape::clone_for_history)
-                .collect(),
-            selection: self.select.selection,
+    pub fn record_shape_added(&mut self, index: usize) {
+        self.push_undo_entry(HistoryEntry::RemoveShape { index });
+    }
+
+    pub fn record_shape_before_edit(&mut self, index: usize) {
+        let Some(shape) = self.edit.shapes.get(index) else {
+            return;
+        };
+
+        self.push_undo_entry(HistoryEntry::ReplaceShape {
+            index,
+            shape: shape.clone_for_history(),
+        });
+    }
+
+    pub fn record_selection_change(&mut self, previous_selection: Option<Rect>) {
+        let shapes = self
+            .edit
+            .shapes
+            .iter()
+            .map(DrawnShape::clone_for_history)
+            .collect();
+
+        self.push_undo_entry(HistoryEntry::RestoreSelectionAndShapes {
+            selection: previous_selection,
+            shapes,
         });
     }
 
@@ -212,9 +250,108 @@ impl ScreenshotState {
         self.select.toolbar_pos = None;
     }
 
-    pub fn restore_history_entry(&mut self, entry: HistoryEntry) {
-        self.edit.shapes = entry.shapes;
-        self.set_selection(entry.selection);
+    pub fn undo_last(&mut self) {
+        let Some(entry) = self.edit.history.pop() else {
+            return;
+        };
+
+        let Some(inverse) = self.apply_history_entry(entry) else {
+            return;
+        };
+
+        Self::push_bounded_entry(&mut self.edit.redo, inverse);
+    }
+
+    pub fn redo_last(&mut self) {
+        let Some(entry) = self.edit.redo.pop() else {
+            return;
+        };
+
+        let Some(inverse) = self.apply_history_entry(entry) else {
+            return;
+        };
+
+        Self::push_bounded_entry(&mut self.edit.history, inverse);
+    }
+
+    fn apply_history_entry(&mut self, entry: HistoryEntry) -> Option<HistoryEntry> {
+        match entry {
+            HistoryEntry::InsertShape { index, shape } => {
+                if index <= self.edit.shapes.len() {
+                    self.edit.shapes.insert(index, shape);
+                    Some(HistoryEntry::RemoveShape { index })
+                } else {
+                    tracing::warn!(
+                        "History insert-shape entry was out of bounds: index={}, len={}",
+                        index,
+                        self.edit.shapes.len()
+                    );
+                    None
+                }
+            }
+            HistoryEntry::RemoveShape { index } => {
+                if index < self.edit.shapes.len() {
+                    let removed = self.edit.shapes.remove(index);
+                    Some(HistoryEntry::InsertShape {
+                        index,
+                        shape: removed.clone_for_history(),
+                    })
+                } else {
+                    tracing::warn!(
+                        "History remove-shape entry was out of bounds: index={}, len={}",
+                        index,
+                        self.edit.shapes.len()
+                    );
+                    None
+                }
+            }
+            HistoryEntry::ReplaceShape { index, shape } => {
+                if let Some(target) = self.edit.shapes.get_mut(index) {
+                    let inverse = HistoryEntry::ReplaceShape {
+                        index,
+                        shape: target.clone_for_history(),
+                    };
+                    *target = shape;
+                    Some(inverse)
+                } else {
+                    tracing::warn!(
+                        "History replace-shape entry was out of bounds: index={}, len={}",
+                        index,
+                        self.edit.shapes.len()
+                    );
+                    None
+                }
+            }
+            HistoryEntry::RestoreSelectionAndShapes { selection, shapes } => {
+                let previous_selection = self.select.selection;
+                let previous_shapes = self
+                    .edit
+                    .shapes
+                    .iter()
+                    .map(DrawnShape::clone_for_history)
+                    .collect();
+
+                self.edit.shapes = shapes;
+                self.set_selection(selection);
+
+                Some(HistoryEntry::RestoreSelectionAndShapes {
+                    selection: previous_selection,
+                    shapes: previous_shapes,
+                })
+            }
+        }
+    }
+
+    fn push_undo_entry(&mut self, entry: HistoryEntry) {
+        self.edit.redo.clear();
+        Self::push_bounded_entry(&mut self.edit.history, entry);
+    }
+
+    fn push_bounded_entry(stack: &mut Vec<HistoryEntry>, entry: HistoryEntry) {
+        stack.push(entry);
+        if stack.len() > MAX_HISTORY_ENTRIES {
+            stack.remove(0);
+        }
     }
 }
 
@@ -234,12 +371,26 @@ pub enum WindowPrevState {
 
 #[cfg(test)]
 mod tests {
-    use super::{DrawnShape, ScreenshotState, ScreenshotTool};
-    use eframe::egui::{Color32, Pos2};
+    use super::{DrawnShape, HistoryEntry, MAX_HISTORY_ENTRIES, ScreenshotState, ScreenshotTool};
+    use eframe::egui::{Color32, Pos2, Rect};
     use std::sync::Arc;
 
+    fn make_shape(start_x: f32) -> DrawnShape {
+        DrawnShape {
+            tool: ScreenshotTool::Rect,
+            start: Pos2::new(start_x, 0.0),
+            end: Pos2::new(start_x + 10.0, 10.0),
+            color: Color32::WHITE,
+            stroke_width: 2.0,
+            text: None,
+            points: None,
+            cached_galley: None,
+            cached_mosaic: None,
+        }
+    }
+
     #[test]
-    fn history_snapshot_shares_shape_payloads() {
+    fn selection_history_shares_shape_payloads() {
         let shared_text: Arc<str> = Arc::from("hello");
         let shared_points = Arc::new(vec![Pos2::new(1.0, 2.0), Pos2::new(3.0, 4.0)]);
         let mut state = ScreenshotState::default();
@@ -255,18 +406,108 @@ mod tests {
             cached_mosaic: None,
         });
 
-        state.push_history_snapshot();
+        state.record_selection_change(None);
 
-        let snapshot = &state.edit.history[0].shapes[0];
-        assert!(Arc::ptr_eq(
-            snapshot.text.as_ref().expect("text missing"),
-            &shared_text,
-        ));
-        assert!(Arc::ptr_eq(
-            snapshot.points.as_ref().expect("points missing"),
-            &shared_points,
-        ));
+        let HistoryEntry::RestoreSelectionAndShapes { shapes, .. } = &state.edit.history[0] else {
+            panic!("expected selection restore history entry");
+        };
+
+        let snapshot = &shapes[0];
+        assert!(Arc::ptr_eq(snapshot.text.as_ref().expect("text missing"), &shared_text));
+        assert!(Arc::ptr_eq(snapshot.points.as_ref().expect("points missing"), &shared_points));
         assert!(snapshot.cached_galley.is_none());
         assert!(snapshot.cached_mosaic.is_none());
+    }
+
+    #[test]
+    fn history_is_bounded() {
+        let mut state = ScreenshotState::default();
+
+        for index in 0..=MAX_HISTORY_ENTRIES {
+            state.record_shape_added(index);
+        }
+
+        assert_eq!(state.edit.history.len(), MAX_HISTORY_ENTRIES);
+    }
+
+    #[test]
+    fn undo_redo_shape_addition_roundtrip() {
+        let mut state = ScreenshotState::default();
+        state.edit.shapes.push(make_shape(10.0));
+        state.record_shape_added(0);
+
+        state.undo_last();
+        assert!(state.edit.shapes.is_empty());
+        assert!(state.edit.history.is_empty());
+        assert_eq!(state.edit.redo.len(), 1);
+
+        state.redo_last();
+        assert_eq!(state.edit.shapes.len(), 1);
+        assert_eq!(state.edit.shapes[0].start.x, 10.0);
+        assert_eq!(state.edit.history.len(), 1);
+        assert!(state.edit.redo.is_empty());
+    }
+
+    #[test]
+    fn undo_redo_shape_edit_roundtrip() {
+        let mut state = ScreenshotState::default();
+        state.edit.shapes.push(make_shape(10.0));
+        state.record_shape_before_edit(0);
+        state.edit.shapes[0].start.x = 40.0;
+        state.edit.shapes[0].end.x = 60.0;
+
+        state.undo_last();
+        assert_eq!(state.edit.shapes[0].start.x, 10.0);
+        assert_eq!(state.edit.shapes[0].end.x, 20.0);
+
+        state.redo_last();
+        assert_eq!(state.edit.shapes[0].start.x, 40.0);
+        assert_eq!(state.edit.shapes[0].end.x, 60.0);
+    }
+
+    #[test]
+    fn undo_redo_selection_change_roundtrip() {
+        let mut state = ScreenshotState::default();
+        let original_selection = Some(Rect::from_min_max(
+            Pos2::new(0.0, 0.0),
+            Pos2::new(100.0, 100.0),
+        ));
+        let changed_selection = Some(Rect::from_min_max(
+            Pos2::new(10.0, 10.0),
+            Pos2::new(80.0, 80.0),
+        ));
+
+        state.set_selection(original_selection);
+        state.edit.shapes.push(make_shape(5.0));
+        state.record_selection_change(original_selection);
+
+        state.set_selection(changed_selection);
+        state.edit.shapes.clear();
+
+        state.undo_last();
+        assert_eq!(state.select.selection, original_selection);
+        assert_eq!(state.edit.shapes.len(), 1);
+        assert_eq!(state.edit.shapes[0].start.x, 5.0);
+
+        state.redo_last();
+        assert_eq!(state.select.selection, changed_selection);
+        assert!(state.edit.shapes.is_empty());
+    }
+
+    #[test]
+    fn redo_is_cleared_after_new_edit() {
+        let mut state = ScreenshotState::default();
+        state.edit.shapes.push(make_shape(10.0));
+        state.record_shape_added(0);
+        state.undo_last();
+
+        state.edit.shapes.push(make_shape(20.0));
+        state.record_shape_added(0);
+
+        assert!(state.edit.redo.is_empty());
+
+        state.redo_last();
+        assert_eq!(state.edit.shapes.len(), 1);
+        assert_eq!(state.edit.shapes[0].start.x, 20.0);
     }
 }

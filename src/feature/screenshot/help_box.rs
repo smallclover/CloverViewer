@@ -73,6 +73,7 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
                             );
                             ui.label(RichText::new(text_bundle.help.esc).font(font_id.clone()));
                             ui.label(RichText::new(text_bundle.help.undo).font(font_id.clone()));
+                            ui.label(RichText::new(text_bundle.help.redo).font(font_id.clone()));
                             ui.label(
                                 RichText::new(format!(
                                     "{} : {}",
