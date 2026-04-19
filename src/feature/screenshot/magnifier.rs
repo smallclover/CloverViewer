@@ -1,6 +1,5 @@
 use crate::feature::screenshot::capture::ScreenshotState;
 use crate::i18n::lang::get_i18n_text;
-use arboard::Clipboard;
 use eframe::egui::ColorImage;
 use eframe::egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, StrokeKind, Ui, Vec2};
 use egui::epaint::Vertex;
@@ -78,9 +77,13 @@ pub fn handle_magnifier(
         );
 
         // 4. 处理颜色复制 (Ctrl + C 或按钮请求)
-        if state.input.copy_requested
-            || ui.input(|i| i.modifiers.ctrl && i.key_pressed(eframe::egui::Key::C))
-        {
+        // 优先消费 egui 原生 Copy 事件，其次兼容 Command/Ctrl + C。
+        let is_copy_shortcut = ui.input(|i| {
+            i.events.iter().any(|e| matches!(e, eframe::egui::Event::Copy))
+                || (i.modifiers.command && i.key_pressed(eframe::egui::Key::C))
+        });
+
+        if state.input.copy_requested || is_copy_shortcut {
             state.input.copy_requested = false;
 
             let center_phys_x =
@@ -99,13 +102,8 @@ pub fn handle_magnifier(
                 let color = screen.image.pixels[idx];
                 let hex_text = format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b());
 
-                if let Ok(mut clipboard) = Clipboard::new() {
-                    if let Err(e) = clipboard.set_text(hex_text.clone()) {
-                        tracing::error!("Failed to set clipboard text: {}", e);
-                    } else {
-                        tracing::info!("Color {} copied to clipboard", hex_text);
-                    }
-                }
+                ui.copy_text(hex_text.clone());
+                tracing::info!("Color {} copied to clipboard via egui", hex_text);
             }
         }
     }
