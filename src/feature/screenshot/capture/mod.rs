@@ -11,6 +11,8 @@ use eframe::egui::{Color32, Context, Pos2, Rect, Ui, ViewportCommand};
 use eframe::emath::Vec2;
 use egui::WindowLevel;
 
+const MAX_SURFACE_EXTENT_PHYS: f32 = 8192.0;
+
 // 重新导出 state 模块的类型
 pub use crate::feature::screenshot::state::{
     CapturedScreen, DrawnShape, ScreenshotAction, ScreenshotState, ScreenshotTool, WindowPrevState,
@@ -18,6 +20,16 @@ pub use crate::feature::screenshot::state::{
 
 fn hidden_window_pos() -> Pos2 {
     Pos2::new(-20000.0, -20000.0)
+}
+
+fn clamp_viewport_extent(physical_size: Vec2, ppp: f32) -> Vec2 {
+    let max_logical_extent = MAX_SURFACE_EXTENT_PHYS / ppp.max(1.0);
+    Vec2::new(
+        physical_size.x.min(MAX_SURFACE_EXTENT_PHYS) / ppp,
+        physical_size.y.min(MAX_SURFACE_EXTENT_PHYS) / ppp,
+    )
+    .max(Vec2::new(1.0, 1.0))
+    .min(Vec2::new(max_logical_extent, max_logical_extent))
 }
 
 fn handle_capture_stage(
@@ -57,10 +69,10 @@ fn configure_screenshot_viewport(ctx: &Context, screenshot_state: &mut Screensho
 
     for cap in &screenshot_state.capture.captures {
         let info = &cap.screen_info;
-        let phys_x = info.x as f32 * info.scale_factor;
-        let phys_y = info.y as f32 * info.scale_factor;
-        let phys_w = info.width as f32 * info.scale_factor;
-        let phys_h = info.height as f32 * info.scale_factor;
+        let phys_x = info.x as f32;
+        let phys_y = info.y as f32;
+        let phys_w = info.width as f32;
+        let phys_h = info.height as f32;
 
         min_x = min_x.min(phys_x);
         min_y = min_y.min(phys_y);
@@ -68,10 +80,23 @@ fn configure_screenshot_viewport(ctx: &Context, screenshot_state: &mut Screensho
         max_y = max_y.max(phys_y + phys_h);
     }
 
-    let total_phys_width = max_x - min_x + 100.0;
-    let total_phys_height = max_y - min_y + 100.0;
+    let total_phys_width = (max_x - min_x + 100.0).max(1.0);
+    let total_phys_height = (max_y - min_y + 100.0).max(1.0);
     let exact_logical_pos = Pos2::new(min_x / ppp, min_y / ppp);
-    let exact_logical_size = Vec2::new(total_phys_width / ppp, total_phys_height / ppp);
+    let requested_phys_size = Vec2::new(total_phys_width, total_phys_height);
+    let exact_logical_size = clamp_viewport_extent(requested_phys_size, ppp);
+
+    if requested_phys_size.x > MAX_SURFACE_EXTENT_PHYS
+        || requested_phys_size.y > MAX_SURFACE_EXTENT_PHYS
+    {
+        tracing::warn!(
+            requested_width = requested_phys_size.x,
+            requested_height = requested_phys_size.y,
+            clamped_width = exact_logical_size.x * ppp,
+            clamped_height = exact_logical_size.y * ppp,
+            "Screenshot viewport exceeded wgpu surface extent and was clamped"
+        );
+    }
 
     ctx.send_viewport_cmd(ViewportCommand::Decorations(false));
     ctx.send_viewport_cmd(ViewportCommand::Transparent(true));

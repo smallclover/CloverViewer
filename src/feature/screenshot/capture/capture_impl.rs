@@ -47,7 +47,6 @@ pub(super) fn handle_capture_process(
                             y: monitor.y().unwrap_or(0),
                             width: monitor.width().unwrap_or(0),
                             height: monitor.height().unwrap_or(0),
-                            scale_factor: monitor.scale_factor().unwrap_or(1.0),
                         };
 
                         captures.push(CapturedScreen {

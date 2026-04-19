@@ -9,7 +9,6 @@ pub struct MonitorInfo {
     pub y: i32,
     pub width: u32,
     pub height: u32,
-    pub scale_factor: f32,
 }
 
 #[derive(Clone, Debug, Default)]
