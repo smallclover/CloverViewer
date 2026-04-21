@@ -1,6 +1,12 @@
 use crate::model::config::init_context_config_store;
 use crate::{
-    core::config_manager::ConfigManager,
+    core::{
+        config_manager::ConfigManager,
+        launch::{
+            apply_background_launch, apply_launch_on_startup_setting,
+            configure_startup_viewport, parse_launch_options, sync_launch_on_startup,
+        },
+    },
     feature::Feature,
     feature::screenshot::ScreenshotFeature,
     feature::viewer::ViewerFeature,
@@ -21,17 +27,17 @@ use egui::{
     Context, FontData, FontDefinitions, FontFamily, Pos2, Ui, Vec2, ViewportBuilder,
     ViewportCommand, WindowLevel,
 };
-use std::{
-    env,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 pub fn run() -> eframe::Result<()> {
     // 提前加载配置
     let config = load_config();
+    let launch_options = parse_launch_options();
 
-    let mut viewport = ViewportBuilder::default().with_transparent(true);
+    let mut viewport = configure_startup_viewport(
+        ViewportBuilder::default().with_transparent(true),
+        &launch_options,
+    );
     if let Some(icon) = load_icon() {
         viewport = viewport.with_icon(icon);
     }
@@ -53,15 +59,22 @@ pub fn run() -> eframe::Result<()> {
         ..Default::default()
     };
 
-    let start_path = env::args().nth(1).map(PathBuf::from);
+    let start_path = launch_options.start_path;
+    let start_in_background = launch_options.start_in_background;
+    let startup_config = config.clone();
 
     eframe::run_native(
         "CloverViewer",
         options,
         Box::new(move |cc| {
-            Ok(Box::new(CloverApp::new(
-                cc, start_path, config, // 将读取好的 config 传给 new()
-            )))
+            let app = CloverApp::new(cc, start_path.clone(), config.clone());
+            sync_launch_on_startup(&startup_config);
+            apply_background_launch(
+                &cc.egui_ctx,
+                &app.state.common.window_state,
+                start_in_background,
+            );
+            Ok(Box::new(app))
         }),
     )
 }
@@ -257,6 +270,8 @@ impl CloverApp {
         if let Some(ModalAction::Apply) = self.viewer_feature.get_pending_config_action()
             && let Some(config) = self.viewer_feature.take_pending_config()
         {
+            let current_config = self.config_manager.config();
+
             // 直接立刻保存（因为这是手动点确认修改的，无需防抖）
             self.config_manager.update_and_save(config.clone());
             self.config_manager.save_now();
@@ -264,6 +279,11 @@ impl CloverApp {
             self.state.reload_hotkeys(&config);
             self.tray
                 .refresh_labels(config.language, &config.hotkeys.show_screenshot);
+            apply_launch_on_startup_setting(
+                current_config.as_ref(),
+                &config,
+                &self.state.common.toast_manager,
+            );
         }
     }
 }

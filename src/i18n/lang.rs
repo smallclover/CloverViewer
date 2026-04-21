@@ -77,6 +77,7 @@ pub struct SettingsText {
     pub minimize_on_close: &'static str,
     pub magnifier_enabled: &'static str,
     pub screenshot_hides_main_window: &'static str,
+    pub launch_on_startup: &'static str,
     pub close: &'static str,
     pub apply: &'static str,
     pub shortcut_key: &'static str,
@@ -111,6 +112,7 @@ pub struct ToastText {
     pub copied: &'static str,
     pub copy_failed: &'static str,
     pub copying: &'static str,
+    pub launch_on_startup_failed: &'static str,
 }
 
 pub struct ImageText {
@@ -215,6 +217,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
         minimize_on_close: "关闭窗口时最小化到托盘",
         magnifier_enabled: "启用放大镜",
         screenshot_hides_main_window: "截图后隐藏主窗口",
+        launch_on_startup: "开机自启",
         close: "关闭",
         apply: "应用",
         shortcut_key: "快捷键",
@@ -244,6 +247,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
         copied: "已复制",
         copy_failed: "复制失败",
         copying: "正在复制中...",
+        launch_on_startup_failed: "设置开机自启失败:",
     },
     image: ImageText {
         properties: "属性",
@@ -322,6 +326,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
         minimize_on_close: "Minimize to tray on close",
         magnifier_enabled: "Enable Magnifier",
         screenshot_hides_main_window: "Hide main window after screenshot",
+        launch_on_startup: "Run at startup",
         close: "Close",
         apply: "Apply",
         shortcut_key: "Keyboard Shortcut",
@@ -351,6 +356,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
         copied: "Copied",
         copy_failed: "Copy failed",
         copying: "Copying...",
+        launch_on_startup_failed: "Failed to update run at startup:",
     },
     image: ImageText {
         properties: "Properties",
@@ -429,6 +435,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
         minimize_on_close: "閉じるときにトレイに最小化",
         magnifier_enabled: "虫眼鏡を有効にする",
         screenshot_hides_main_window: "スクリーンショット後にメインウィンドウを隠す",
+        launch_on_startup: "起動時に実行",
         close: "閉じる",
         apply: "設定",
         shortcut_key: "ショートカットキー",
@@ -458,6 +465,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
         copied: "コピーしました",
         copy_failed: "コピーに失敗しました",
         copying: "コピー中...",
+        launch_on_startup_failed: "起動時実行の設定に失敗しました:",
     },
     image: ImageText {
         properties: "プロパティーズ",

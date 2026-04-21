@@ -63,6 +63,8 @@ pub struct Config {
     pub magnifier_enabled: bool,
     #[serde(default)]
     pub screenshot_hides_main_window: bool,
+    #[serde(default = "default_launch_on_startup")]
+    pub launch_on_startup: bool,
 
     #[serde(default)]
     pub window_pos: Option<(f32, f32)>,
@@ -82,6 +84,10 @@ fn default_magnifier_enabled() -> bool {
     true
 }
 
+fn default_launch_on_startup() -> bool {
+    false
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -91,6 +97,7 @@ impl Default for Config {
             minimize_on_close: default_minimize_on_close(),
             magnifier_enabled: default_magnifier_enabled(),
             screenshot_hides_main_window: false,
+            launch_on_startup: default_launch_on_startup(),
             window_pos: None,
             window_size: None,
         }

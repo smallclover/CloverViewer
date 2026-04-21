@@ -17,6 +17,7 @@ pub trait WindowManager {
     fn show_window_restore_offscreen(&self, hwnd_usize: usize);
     fn show_window_hide(&self, hwnd_usize: usize);
     fn force_get_focus(&self, hwnd_usize: usize);
+    fn set_launch_on_startup(&self, enabled: bool) -> Result<(), String>;
 }
 
 pub trait ScreenshotPlatform {

@@ -15,6 +15,9 @@ impl WindowManager for MacosPlatform {
     fn show_window_restore_offscreen(&self, _hwnd_usize: usize) {}
     fn show_window_hide(&self, _hwnd_usize: usize) {}
     fn force_get_focus(&self, _hwnd_usize: usize) {}
+    fn set_launch_on_startup(&self, _enabled: bool) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 impl ScreenshotPlatform for MacosPlatform {

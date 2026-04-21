@@ -160,6 +160,11 @@ fn render_content_body(
                     ui.label(format!("{}:", text.settings.screenshot_hides_main_window));
                     ui.add(toggle(&mut config.screenshot_hides_main_window));
                 });
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    ui.label(format!("{}:", text.settings.launch_on_startup));
+                    ui.add(toggle(&mut config.launch_on_startup));
+                });
             }
             SettingsTab::Hotkeys => {
                 ui.heading(text.settings.shortcut_key);

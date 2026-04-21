@@ -26,6 +26,7 @@ use windows::core::{Interface, PCSTR, PCWSTR, s};
 use super::{OcrEngine, ScreenshotPlatform, ThumbnailProvider, WindowManager};
 
 pub mod ocr;
+pub mod startup;
 
 pub struct WindowsPlatform;
 
@@ -119,6 +120,10 @@ impl WindowManager for WindowsPlatform {
                 let _ = SetForegroundWindow(window_handle);
             }
         }
+    }
+
+    fn set_launch_on_startup(&self, enabled: bool) -> Result<(), String> {
+        startup::set_launch_on_startup(enabled)
     }
 }
 
