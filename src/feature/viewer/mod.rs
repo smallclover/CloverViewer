@@ -70,7 +70,6 @@ impl Feature for ViewerFeature {
     fn handle_hotkey(&mut self, action: HotkeyAction) -> Option<AppMode> {
         match action {
             HotkeyAction::SetScreenshotMode { .. } => Some(AppMode::Screenshot),
-            HotkeyAction::RequestScreenshotCopy => None,
         }
     }
 }

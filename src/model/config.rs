@@ -37,14 +37,15 @@ fn get_legacy_config_path() -> Option<PathBuf> {
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct HotkeysConfig {
     pub show_screenshot: String,
-    pub copy_screenshot: String,
+    #[serde(alias = "copy_screenshot")]
+    pub copy_color: String,
 }
 
 impl Default for HotkeysConfig {
     fn default() -> Self {
         Self {
             show_screenshot: "Alt+S".to_string(),
-            copy_screenshot: "Enter".to_string(),
+            copy_color: "Alt+C".to_string(),
         }
     }
 }

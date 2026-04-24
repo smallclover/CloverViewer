@@ -93,7 +93,7 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
                             ui.label(
                                 RichText::new(format!(
                                     "{} : {}",
-                                    config.hotkeys.copy_screenshot, text_bundle.help.copy
+                                    config.hotkeys.copy_color, text_bundle.help.copy
                                 ))
                                 .font(font_id.clone()),
                             );

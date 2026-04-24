@@ -45,6 +45,10 @@ pub fn handle_magnifier(
     ppp: f32,
     pointer_pos: Pos2,
 ) {
+    let copy_hotkey = crate::model::config::get_context_config(&ui.ctx())
+        .hotkeys
+        .copy_color
+        .clone();
     let global_pointer_phys = global_offset_phys + (pointer_pos.to_vec2() * ppp);
 
     // 1. 寻找鼠标当前所在的具体屏幕
@@ -74,16 +78,11 @@ pub fn handle_magnifier(
             pointer_pos,
             screen_local_pointer_pos,
             ppp,
+            &copy_hotkey,
         );
 
-        // 4. 处理颜色复制 (Ctrl + C 或按钮请求)
-        // 优先消费 egui 原生 Copy 事件，其次兼容 Command/Ctrl + C。
-        let is_copy_shortcut = ui.input(|i| {
-            i.events.iter().any(|e| matches!(e, eframe::egui::Event::Copy))
-                || (i.modifiers.command && i.key_pressed(eframe::egui::Key::C))
-        });
-
-        if state.input.copy_requested || is_copy_shortcut {
+        // 4. 处理颜色复制（由 mod.rs 中配置的热键触发，或按钮请求）
+        if state.input.copy_requested {
             state.input.copy_requested = false;
 
             let center_phys_x =
@@ -117,6 +116,7 @@ fn draw_magnifier_ui(
     draw_pos: Pos2,   // 决定 UI 画在哪
     sample_pos: Pos2, // 决定从图片哪里取色
     ppp: f32,
+    copy_hotkey: &str,
 ) {
     let text = get_i18n_text(ui);
     let half_grid = MAGNIFIER_GRID_SIZE / 2;
@@ -129,7 +129,7 @@ fn draw_magnifier_ui(
     painter.rect_filled(layout.card_rect, MAGNIFIER_CARD_CORNER_RADIUS, Color32::WHITE);
     paint_pixel_grid(painter, image, &layout, &sample, half_grid);
     paint_crosshair(painter, &layout.magnifier_rect, layout.card_pos, half_grid);
-    paint_info_panel(painter, &layout.info_rect, text, image, &sample, info_bar_height);
+    paint_info_panel(painter, &layout.info_rect, text, image, &sample, info_bar_height, copy_hotkey);
     paint_card_border(painter, layout.card_rect);
 }
 
@@ -267,6 +267,7 @@ fn paint_info_panel(
     image: &ColorImage,
     sample: &MagnifierSample,
     info_bar_height: f32,
+    copy_hotkey: &str,
 ) {
     let center_color = sampled_center_color(image, sample);
     let coord_text = format!("({}, {})", sample.center_phys_x, sample.center_phys_y);
@@ -332,7 +333,7 @@ fn paint_info_panel(
     painter.text(
         Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 2.5),
         Align2::LEFT_CENTER,
-        text.tooltip.mouse_copy_color,
+        format!("{} {}", copy_hotkey, text.tooltip.mouse_copy_color),
         hint_font_id,
         hint_color,
     );

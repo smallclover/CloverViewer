@@ -271,7 +271,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
         cancel: "取消",
         save: "保存到桌面",
         save_to_clipboard: "复制到剪贴板",
-        mouse_copy_color: "按 Ctrl + C 复制颜色",
+        mouse_copy_color: "复制颜色",
     },
     help: HelpText {
         shortcuts: "【快捷键】",
@@ -380,7 +380,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
         cancel: "Cancel",
         save: "Save to Desktop",
         save_to_clipboard: "Copy to Clipboard",
-        mouse_copy_color: "Press Ctrl + C Copy Color",
+        mouse_copy_color: "Copy Color",
     },
     help: HelpText {
         shortcuts: "[ Shortcuts ]",
@@ -489,7 +489,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
         cancel: "キャンセル",
         save: "デスクトップに保存",
         save_to_clipboard: "クリップボードにコピー",
-        mouse_copy_color: "Ctrl + C を押して色をコピー",
+        mouse_copy_color: "色をコピー",
     },
     help: HelpText {
         shortcuts: "【ショートカット】",

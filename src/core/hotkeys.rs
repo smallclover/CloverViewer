@@ -14,7 +14,6 @@ use std::sync::{Arc, mpsc};
 #[derive(Clone)]
 pub enum HotkeyAction {
     SetScreenshotMode { prev_state: WindowPrevState },
-    RequestScreenshotCopy,
 }
 
 pub struct HotkeyManager {
@@ -23,9 +22,6 @@ pub struct HotkeyManager {
 
     // 当前生效的热键对象
     show_hotkey: HotKey,
-    copy_hotkey: HotKey,
-
-    is_copy_registered: bool,
 }
 
 impl HotkeyManager {
@@ -34,11 +30,6 @@ impl HotkeyManager {
         // 初始化时直接从 Config 解析
         let show_hotkey = parse_hotkey_str(&config.hotkeys.show_screenshot)
             .unwrap_or(HotKey::new(Some(Modifiers::ALT), Code::KeyS));
-
-        let copy_hotkey = parse_hotkey_str(&config.hotkeys.copy_screenshot).unwrap_or(HotKey::new(
-            Some(Modifiers::CONTROL | Modifiers::SHIFT),
-            Code::KeyC,
-        ));
 
         let (tx, rx) = mpsc::channel();
 
@@ -111,12 +102,10 @@ impl HotkeyManager {
             hotkeys_manager,
             hotkey_receiver: rx,
             show_hotkey,
-            copy_hotkey,
-            is_copy_registered: false,
         }
     }
 
-    /// 当设置点击“应用”时调用此方法
+    /// 当设置点击"应用"时调用此方法
     pub fn update_hotkeys(&mut self, config: &Config) {
         let Some(hotkeys_manager) = self.hotkeys_manager.as_ref() else {
             return;
@@ -124,52 +113,29 @@ impl HotkeyManager {
 
         // 1. 卸载旧的快捷键
         let _ = hotkeys_manager.unregister(self.show_hotkey);
-        if self.is_copy_registered {
-            let _ = hotkeys_manager.unregister(self.copy_hotkey);
-            self.is_copy_registered = false;
-        }
 
         // 2. 解析新的快捷键
         if let Some(new_show) = parse_hotkey_str(&config.hotkeys.show_screenshot) {
             self.show_hotkey = new_show;
         }
 
-        if let Some(new_copy) = parse_hotkey_str(&config.hotkeys.copy_screenshot) {
-            self.copy_hotkey = new_copy;
-        }
-
         // 3. 重新注册 "显示截图" 的快捷键
         if let Err(e) = hotkeys_manager.register(self.show_hotkey) {
             tracing::error!("Failed to register show hotkey: {:?}", e);
         }
-
-        // 注意：复制快捷键通常是在进入截图模式后才动态注册的，所以这里不需要立即注册 copy_hotkey
-        // 除非你目前的逻辑是全局都生效。依照你的 update 逻辑，它是动态的，所以这里不动。
     }
 
     pub fn update(&mut self, mode: &AppMode) -> Vec<HotkeyAction> {
         let mut actions = Vec::new();
 
-        let Some(hotkeys_manager) = self.hotkeys_manager.as_ref() else {
+        let Some(_hotkeys_manager) = self.hotkeys_manager.as_ref() else {
             return actions;
         };
 
-        // 1. 动态注册/注销 Copy 快捷键 (逻辑保持不变)
-        if *mode == AppMode::Screenshot && !self.is_copy_registered {
-            if hotkeys_manager.register(self.copy_hotkey).is_ok() {
-                self.is_copy_registered = true;
-            }
-        } else if *mode != AppMode::Screenshot
-            && self.is_copy_registered
-            && hotkeys_manager.unregister(self.copy_hotkey).is_ok()
-        {
-            self.is_copy_registered = false;
-        }
-
-        // --- 新增：用于防止一帧内处理多次重复按键 ---
+        // --- 用于防止一帧内处理多次重复按键 ---
         let mut screenshot_triggered_this_frame = false;
 
-        // 2. 处理接收到的热键事件
+        // 处理接收到的热键事件
         while let Ok((id, prev_state)) = self.hotkey_receiver.try_recv() {
             // 通过 ID 对比来判断是哪个键被按下了
             if id == self.show_hotkey.id() {
@@ -179,8 +145,6 @@ impl HotkeyManager {
                     actions.push(HotkeyAction::SetScreenshotMode { prev_state });
                     screenshot_triggered_this_frame = true;
                 }
-            } else if id == self.copy_hotkey.id() && *mode == AppMode::Screenshot {
-                actions.push(HotkeyAction::RequestScreenshotCopy);
             }
         }
 

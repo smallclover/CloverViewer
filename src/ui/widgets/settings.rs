@@ -185,7 +185,7 @@ fn render_content_body(
                         render_hotkey_row(
                             ui,
                             text.shortcuts.copy_color,
-                            &mut config.hotkeys.copy_screenshot,
+                            &mut config.hotkeys.copy_color,
                             recording_state,
                             RecordingState::CopyScreenshot,
                         );
@@ -240,6 +240,11 @@ fn render_hotkey_row(
                     ..
                 } = event
                 {
+                    // Enter 键直接退出录制，不修改快捷键（避免与文本输入框冲突）
+                    if *key == Key::Enter {
+                        *recording_state = RecordingState::None;
+                        break;
+                    }
                     *hotkey_str = format_hotkey(modifiers, *key);
                     *recording_state = RecordingState::None;
                     break;
