@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "CloverViewer"
-version = "0.0.17"
+version = "0.0.18"
 dependencies = [
  "ab_glyph",
  "arboard",
