@@ -69,17 +69,19 @@ pub fn handle_interaction(
     if let Some(press_pos) = response.interact_pointer_pos()
         && !is_hovering_ui
     {
-        let global_phys = global_offset_phys + (press_pos.to_vec2() * ppp);
-
+        // drag_started() 分支改用 ui.input(|i| i.pointer.press_origin())
+        // 获取鼠标按下时的原始位置来计算起始坐标，而非当前指针位置
         if response.drag_started() {
+            let start_pos = ui.input(|i| i.pointer.press_origin()).unwrap_or(press_pos);
+            let start_global_phys = global_offset_phys + (start_pos.to_vec2() * ppp);
             on_drag_start(
                 ui,
                 state,
                 canvas_state,
-                global_phys,
+                start_global_phys,
                 global_offset_phys,
                 ppp,
-                press_pos,
+                start_pos,
             );
         }
         if response.dragged() {
