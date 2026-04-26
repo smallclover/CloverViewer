@@ -81,10 +81,15 @@ pub fn handle_magnifier(
             &copy_hotkey,
         );
 
-        // 4. 处理颜色复制（由 mod.rs 中配置的热键触发，或按钮请求）
-        if state.input.copy_requested {
-            state.input.copy_requested = false;
-
+        // 4. 处理颜色复制 (Ctrl + C 或按钮请求)
+        // 优先消费 egui 原生 Copy 事件，其次兼容 Command/Ctrl + C。
+        let is_copy_shortcut = ui.input(|i| {
+            i.events.iter().any(|e| matches!(e, eframe::egui::Event::Copy))
+                || (i.modifiers.command && i.key_pressed(eframe::egui::Key::C))
+        });
+        
+        // 4. 处理颜色复制（由配置的热键触发）
+        if is_copy_shortcut {
             let center_phys_x =
                 (global_pointer_phys.x - screen.screen_info.x as f32).round() as isize;
             let center_phys_y =

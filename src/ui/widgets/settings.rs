@@ -182,13 +182,13 @@ fn render_content_body(
                             recording_state,
                             RecordingState::ShowScreenshot,
                         );
-                        render_hotkey_row(
-                            ui,
-                            text.shortcuts.copy_color,
-                            &mut config.hotkeys.copy_color,
-                            recording_state,
-                            RecordingState::CopyScreenshot,
-                        );
+                        // render_hotkey_row(
+                        //     ui,
+                        //     text.shortcuts.copy_color,
+                        //     &mut config.hotkeys.copy_color,
+                        //     recording_state,
+                        //     RecordingState::CopyScreenshot,
+                        // );
                     });
             }
         }

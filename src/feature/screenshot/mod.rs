@@ -17,90 +17,7 @@ use crate::feature::screenshot::capture::{
 use crate::model::config::get_context_config;
 use crate::model::mode::AppMode;
 use crate::model::state::CommonState;
-use eframe::egui::{Context, Frame, Ui, Key, Modifiers};
-
-/// 将快捷键字符串（如 "Alt+C"）解析为 egui 的 Modifiers + Key
-fn parse_egui_hotkey(hotkey_str: &str) -> Option<(Modifiers, Key)> {
-    let parts: Vec<&str> = hotkey_str.split('+').collect();
-    if parts.is_empty() {
-        return None;
-    }
-
-    let mut modifiers = Modifiers::default();
-    let mut key = None;
-
-    for part in &parts {
-        match *part {
-            "Ctrl" => modifiers.ctrl = true,
-            "Alt" => modifiers.alt = true,
-            "Shift" => modifiers.shift = true,
-            "Cmd" | "Super" => modifiers.mac_cmd = true,
-            k => {
-                key = str_to_egui_key(k);
-            }
-        }
-    }
-
-    key.map(|k| (modifiers, k))
-}
-
-fn str_to_egui_key(s: &str) -> Option<Key> {
-    match s {
-        "A" => Some(Key::A),
-        "B" => Some(Key::B),
-        "C" => Some(Key::C),
-        "D" => Some(Key::D),
-        "E" => Some(Key::E),
-        "F" => Some(Key::F),
-        "G" => Some(Key::G),
-        "H" => Some(Key::H),
-        "I" => Some(Key::I),
-        "J" => Some(Key::J),
-        "K" => Some(Key::K),
-        "L" => Some(Key::L),
-        "M" => Some(Key::M),
-        "N" => Some(Key::N),
-        "O" => Some(Key::O),
-        "P" => Some(Key::P),
-        "Q" => Some(Key::Q),
-        "R" => Some(Key::R),
-        "S" => Some(Key::S),
-        "T" => Some(Key::T),
-        "U" => Some(Key::U),
-        "V" => Some(Key::V),
-        "W" => Some(Key::W),
-        "X" => Some(Key::X),
-        "Y" => Some(Key::Y),
-        "Z" => Some(Key::Z),
-        "Num0" | "0" => Some(Key::Num0),
-        "Num1" | "1" => Some(Key::Num1),
-        "Num2" | "2" => Some(Key::Num2),
-        "Num3" | "3" => Some(Key::Num3),
-        "Num4" | "4" => Some(Key::Num4),
-        "Num5" | "5" => Some(Key::Num5),
-        "Num6" | "6" => Some(Key::Num6),
-        "Num7" | "7" => Some(Key::Num7),
-        "Num8" | "8" => Some(Key::Num8),
-        "Num9" | "9" => Some(Key::Num9),
-        "Enter" => Some(Key::Enter),
-        "Space" => Some(Key::Space),
-        "Tab" => Some(Key::Tab),
-        "Backspace" => Some(Key::Backspace),
-        "F1" => Some(Key::F1),
-        "F2" => Some(Key::F2),
-        "F3" => Some(Key::F3),
-        "F4" => Some(Key::F4),
-        "F5" => Some(Key::F5),
-        "F6" => Some(Key::F6),
-        "F7" => Some(Key::F7),
-        "F8" => Some(Key::F8),
-        "F9" => Some(Key::F9),
-        "F10" => Some(Key::F10),
-        "F11" => Some(Key::F11),
-        "F12" => Some(Key::F12),
-        _ => None,
-    }
-}
+use eframe::egui::{Context, Frame, Ui};
 
 /// ScreenshotFeature - 截图功能模块
 pub struct ScreenshotFeature {
@@ -218,16 +135,6 @@ impl ScreenshotFeature {
         }
 
         let ctx = ui.ctx().clone();
-
-        // 通过 egui 本地按键检测复制快捷键（替代全局热键）
-        let config = get_context_config(&ctx);
-        if let Some((required_mods, required_key)) = parse_egui_hotkey(&config.hotkeys.copy_color) {
-            ui.input(|i| {
-                if i.key_pressed(required_key) && i.modifiers == required_mods {
-                    self.state.input.copy_requested = true;
-                }
-            });
-        }
 
         let action = egui::CentralPanel::default()
             .frame(Frame::NONE.fill(egui::Color32::TRANSPARENT))

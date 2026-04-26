@@ -142,7 +142,6 @@ impl ScreenshotRuntimeState {
 
 #[derive(Default)]
 pub struct ScreenshotInputState {
-    pub copy_requested: bool,
     pub current_shape_start: Option<Pos2>,
     pub current_shape_end: Option<Pos2>,
     // 记录文本输入状态：Option<(文本所在的物理坐标, 文本内容)>
