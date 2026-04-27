@@ -55,11 +55,6 @@ fn handle_capture_stage(
 }
 
 fn configure_screenshot_viewport(ctx: &Context, screenshot_state: &mut ScreenshotState) {
-    if screenshot_state.runtime.window_configured {
-        current_platform().lock_cursor_for_screenshot();
-        return;
-    }
-
     let ppp = ctx.pixels_per_point();
 
     let mut min_x = f32::MAX;
@@ -86,6 +81,24 @@ fn configure_screenshot_viewport(ctx: &Context, screenshot_state: &mut Screensho
     let requested_phys_size = Vec2::new(total_phys_width, total_phys_height);
     let exact_logical_size = clamp_viewport_extent(requested_phys_size, ppp);
 
+    // 计算当前窗口的实际物理尺寸
+    let viewport = ctx.input(|i| i.viewport().clone());
+    let current_phys_size = viewport.inner_rect.map(|r| r.size() * ppp).unwrap_or_default();
+    
+    // 判断是否需要调整。容差值设为 5.0，避免操作系统的细微边框计算差异导致死循环
+    let needs_resize = !screenshot_state.runtime.window_configured 
+        || (current_phys_size.x - requested_phys_size.x).abs() > 5.0 
+        || (current_phys_size.y - requested_phys_size.y).abs() > 5.0;
+
+    // 如果尺寸匹配，说明 DPI 已经稳定且窗口完全覆盖，此时锁定鼠标并退出
+    if !needs_resize {
+        if !screenshot_state.runtime.window_configured {
+             // 防止某些边界情况下没锁上
+             current_platform().lock_cursor_for_screenshot();
+        }
+        return;
+    }
+
     if requested_phys_size.x > MAX_SURFACE_EXTENT_PHYS
         || requested_phys_size.y > MAX_SURFACE_EXTENT_PHYS
     {
@@ -108,7 +121,9 @@ fn configure_screenshot_viewport(ctx: &Context, screenshot_state: &mut Screensho
     ctx.send_viewport_cmd(ViewportCommand::InnerSize(exact_logical_size));
 
     screenshot_state.runtime.window_configured = true;
-    ctx.request_repaint();
+    
+    // 强制请求重绘，以便在下一帧立即检查 DPI 是否发生漂移并再次修正
+    ctx.request_repaint(); 
 }
 
 fn resolve_effective_prev_state(
