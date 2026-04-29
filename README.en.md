@@ -151,7 +151,7 @@ The project uses GitHub Actions for CI. Every push and PR automatically runs:
 
 ## 🤝 Acknowledgements
 
-Special thanks to **Gemini AI**, **DeepSeek**, **MiMo**, and **ChatGPT** for the valuable assistance provided during the development of this project.
+Special thanks to **ChatGPT**, **DeepSeek**, **Gemini AI** and **MiMo** for the valuable assistance provided during the development of this project.
 
 ## 📄 License
 

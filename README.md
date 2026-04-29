@@ -151,7 +151,7 @@ cargo packager --release
 
 ## 🤝 致谢
 
-特别感谢 **Gemini AI**、**DeepSeek**、**MiMo**、**ChatGPT** 在本项目开发过程中提供的宝贵协助。
+特别感谢 **ChatGPT**、**DeepSeek**、**Gemini AI** 和 **MiMo** 在本项目开发过程中提供的宝贵协助。
 
 ## 📄 开源协议
 
