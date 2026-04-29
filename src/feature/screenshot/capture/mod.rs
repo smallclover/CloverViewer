@@ -348,12 +348,8 @@ pub fn draw_screenshot_ui_inside(
         }
     }
 
-    let undo_requested = ui.input(|i| i.modifiers.ctrl && !i.modifiers.shift && i.key_pressed(egui::Key::Z));
-    let redo_requested = ui.input(|i| {
-        i.modifiers.ctrl
-            && (i.key_pressed(egui::Key::Y)
-                || (i.modifiers.shift && i.key_pressed(egui::Key::Z)))
-    });
+    let undo_requested = ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z));
+    let redo_requested = ui.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Y));
 
     if undo_requested {
         state.undo_last();

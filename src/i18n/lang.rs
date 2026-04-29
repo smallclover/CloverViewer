@@ -150,7 +150,8 @@ pub struct HelpText {
     pub esc: &'static str,
     pub undo: &'static str,
     pub redo: &'static str,
-    pub copy: &'static str,
+    pub copy_color: &'static str,
+    pub copy_to_clipboard: &'static str,
     pub tools: &'static str,
 }
 
@@ -280,8 +281,9 @@ pub const ZH_TEXT: TextBundle = TextBundle {
         exit_with_right_click: "右键 : 退出截图",
         esc: "Esc : 退出截图",
         undo: "Ctrl+Z : 撤销上一步绘制",
-        redo: "Ctrl+Y / Ctrl+Shift+Z : 重做上一步绘制",
-        copy: "复制截图",
+        redo: "Ctrl+Y : 重做上一步绘制",
+        copy_color: "复制颜色",
+        copy_to_clipboard: "Enter : 复制截图到剪贴板",
         tools: "【工具说明】",
     },
     ocr: OcrText {
@@ -389,8 +391,9 @@ pub const EN_TEXT: TextBundle = TextBundle {
         exit_with_right_click: "Right Click : Exit Screenshot",
         esc: "Esc : Exit Screenshot",
         undo: "Ctrl + Z : Undo Drawing",
-        redo: "Ctrl + Y / Ctrl + Shift + Z : Redo Drawing",
-        copy: "Copy Screenshot",
+        redo: "Ctrl + Y : Redo Drawing",
+        copy_color: "Copy Color",
+        copy_to_clipboard: "Enter : Copy Screenshot to Clipboard",
         tools: "[ Tools ]",
     },
     ocr: OcrText {
@@ -498,8 +501,9 @@ pub const JA_TEXT: TextBundle = TextBundle {
         exit_with_right_click: "右クリック : スクリーンショットを終了",
         esc: "Esc : スクリーンショットを終了",
         undo: "Ctrl + Z : 元に戻す",
-        redo: "Ctrl + Y / Ctrl + Shift + Z : やり直す",
-        copy: "スクリーンショットをコピー",
+        redo: "Ctrl + Y : やり直す",
+        copy_color: "色をコピー",
+        copy_to_clipboard: "Enter : スクリーンショットをクリップボードにコピー",
         tools: "【ツール】",
     },
     ocr: OcrText {

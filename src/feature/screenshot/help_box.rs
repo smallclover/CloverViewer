@@ -34,8 +34,8 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
 
         //  扩大估算范围：高度给到 350，宽度给到 300，并向外扩张 10 像素作为触碰容差
         let estimated_rect = Rect::from_min_max(
-            Pos2::new(target_pos.x, target_pos.y - 350.0),
-            Pos2::new(target_pos.x + 300.0, target_pos.y),
+            Pos2::new(target_pos.x, target_pos.y - 380.0),
+            Pos2::new(target_pos.x + 310.0, target_pos.y),
         )
         .expand(10.0);
 
@@ -93,9 +93,13 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
                             ui.label(
                                 RichText::new(format!(
                                     "{} : {}",
-                                    config.hotkeys.copy_color, text_bundle.help.copy
+                                    config.hotkeys.copy_color, text_bundle.help.copy_color
                                 ))
                                 .font(font_id.clone()),
+                            );
+                            ui.label(
+                                RichText::new(text_bundle.help.copy_to_clipboard)
+                                    .font(font_id.clone()),
                             );
                             ui.add_space(6.0);
 
