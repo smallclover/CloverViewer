@@ -1,4 +1,4 @@
-use egui::{Align, Button, ComboBox, Context, Id, Key, Layout, Modifiers, ScrollArea, Ui};
+use egui::{Align, Button, ComboBox, Context, Frame, Id, Key, Layout, Margin, Modifiers, ScrollArea, Ui};
 
 use crate::ui::widgets::toggle::toggle;
 use crate::{
@@ -50,7 +50,7 @@ pub fn render_settings_window(
                     Layout::left_to_right(Align::Min),
                     |ui| {
                         render_sidebar(ui, &mut current_tab, text);
-                        ui.separator();
+                        light_separator(ui);
                         ui.vertical(|ui| {
                             render_content_header(ui, current_tab, text);
                             ui.add_space(8.0);
@@ -68,7 +68,7 @@ pub fn render_settings_window(
                 );
             });
 
-            ui.separator();
+            light_separator(ui);
             ui.add_space(4.0);
             render_footer(ui, &mut action, text);
         });
@@ -118,6 +118,28 @@ fn render_content_header(ui: &mut Ui, current_tab: SettingsTab, text: &TextBundl
     });
 }
 
+fn light_separator(ui: &mut Ui) {
+    ui.add_space(4.0);
+    let rect = ui.available_rect_before_wrap();
+    let y = rect.top();
+    let color = ui.style().visuals.widgets.noninteractive.bg_stroke.color;
+    let faint = color.gamma_multiply(0.2);
+    ui.painter().hline(rect.x_range(), y, (0.5, faint));
+    ui.add_space(4.0);
+}
+
+fn setting_card<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
+    Frame::NONE
+        .fill(ui.style().visuals.extreme_bg_color)
+        .corner_radius(ui.style().visuals.window_corner_radius)
+        .inner_margin(Margin::symmetric(12, 8))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            add_contents(ui)
+        })
+        .inner
+}
+
 fn render_content_body(
     ui: &mut Ui,
     current_tab: SettingsTab,
@@ -131,65 +153,80 @@ fn render_content_body(
             SettingsTab::General => {
                 ui.heading(text.settings.general);
                 ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    ui.label(format!("{}:", text.settings.language));
-                    let mut selected = config.language;
-                    ComboBox::from_id_salt("lang_selector")
-                        .selected_text(selected.as_str())
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut selected, Language::Zh, Language::Zh.as_str());
-                            ui.selectable_value(&mut selected, Language::En, Language::En.as_str());
-                            ui.selectable_value(&mut selected, Language::Ja, Language::Ja.as_str());
+
+                setting_card(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{}:", text.settings.language));
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            let mut selected = config.language;
+                            ComboBox::from_id_salt("lang_selector")
+                                .selected_text(selected.as_str())
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(&mut selected, Language::Zh, Language::Zh.as_str());
+                                    ui.selectable_value(&mut selected, Language::En, Language::En.as_str());
+                                    ui.selectable_value(&mut selected, Language::Ja, Language::Ja.as_str());
+                                });
+                            if selected != config.language {
+                                config.language = selected;
+                            }
                         });
-                    if selected != config.language {
-                        config.language = selected;
-                    }
-                });
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    ui.label(format!("{}:", text.settings.minimize_on_close));
-                    ui.add(toggle(&mut config.minimize_on_close));
-                });
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    ui.label(format!("{}:", text.settings.magnifier_enabled));
-                    ui.add(toggle(&mut config.magnifier_enabled));
-                });
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    ui.label(format!("{}:", text.settings.screenshot_hides_main_window));
-                    ui.add(toggle(&mut config.screenshot_hides_main_window));
-                });
-                ui.add_space(10.0);
-                ui.horizontal(|ui| {
-                    ui.label(format!("{}:", text.settings.launch_on_startup));
-                    ui.add(toggle(&mut config.launch_on_startup));
+                    });
+                    light_separator(ui);
+
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{}:", text.settings.minimize_on_close));
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.add(toggle(&mut config.minimize_on_close));
+                        });
+                    });
+                    light_separator(ui);
+
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{}:", text.settings.magnifier_enabled));
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.add(toggle(&mut config.magnifier_enabled));
+                        });
+                    });
+                    light_separator(ui);
+
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{}:", text.settings.screenshot_hides_main_window));
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.add(toggle(&mut config.screenshot_hides_main_window));
+                        });
+                    });
+                    light_separator(ui);
+
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{}:", text.settings.launch_on_startup));
+                        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            ui.add(toggle(&mut config.launch_on_startup));
+                        });
+                    });
                 });
             }
             SettingsTab::Hotkeys => {
                 ui.heading(text.settings.shortcut_key);
                 ui.add_space(10.0);
 
-                egui::Grid::new("hotkeys_grid")
-                    .num_columns(2)
-                    .spacing([40.0, 10.0])
-                    .striped(true)
-                    .show(ui, |ui| {
-                        render_hotkey_row(
-                            ui,
-                            text.shortcuts.screenshot,
-                            &mut config.hotkeys.show_screenshot,
-                            recording_state,
-                            RecordingState::ShowScreenshot,
-                        );
-                        render_hotkey_row(
-                            ui,
-                            text.shortcuts.copy_color,
-                            &mut config.hotkeys.copy_color,
-                            recording_state,
-                            RecordingState::CopyScreenshot,
-                        );
-                    });
+                setting_card(ui, |ui| {
+                    render_hotkey_row(
+                        ui,
+                        text.shortcuts.screenshot,
+                        &mut config.hotkeys.show_screenshot,
+                        recording_state,
+                        RecordingState::ShowScreenshot,
+                    );
+                    light_separator(ui);
+
+                    render_hotkey_row(
+                        ui,
+                        text.shortcuts.copy_color,
+                        &mut config.hotkeys.copy_color,
+                        recording_state,
+                        RecordingState::CopyScreenshot,
+                    );
+                });
             }
         }
     });
@@ -202,57 +239,59 @@ fn render_hotkey_row(
     recording_state: &mut RecordingState,
     this_recorder: RecordingState,
 ) {
-    ui.label(format!("{}:", label));
-
     let text = get_i18n_text(ui);
-    let is_recording = *recording_state == this_recorder;
-    let button_text = if is_recording {
-        text.shortcuts.modified
-    } else {
-        hotkey_str.as_str()
-    };
+    ui.horizontal(|ui| {
+        ui.label(format!("{}:", label));
 
-    if ui
-        .add_sized([120.0, 20.0], Button::new(button_text))
-        .clicked()
-    {
-        *recording_state = if is_recording {
-            RecordingState::None
-        } else {
-            this_recorder
-        };
-    }
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            let is_recording = *recording_state == this_recorder;
+            let button_text = if is_recording {
+                text.shortcuts.modified
+            } else {
+                hotkey_str.as_str()
+            };
 
-    if is_recording {
-        ui.input(|i| {
-            if i.key_pressed(Key::Escape) {
-                *recording_state = RecordingState::None;
-                return;
+            if ui
+                .add_sized([120.0, 20.0], Button::new(button_text))
+                .clicked()
+            {
+                *recording_state = if is_recording {
+                    RecordingState::None
+                } else {
+                    this_recorder
+                };
             }
 
-            let modifiers = i.modifiers;
-
-            for event in &i.events {
-                if let egui::Event::Key {
-                    key,
-                    pressed: true,
-                    repeat: false,
-                    ..
-                } = event
-                {
-                    // Enter 键直接退出录制，不修改快捷键（避免与文本输入框冲突）
-                    if *key == Key::Enter {
+            if is_recording {
+                ui.input(|i| {
+                    if i.key_pressed(Key::Escape) {
                         *recording_state = RecordingState::None;
-                        break;
+                        return;
                     }
-                    *hotkey_str = format_hotkey(modifiers, *key);
-                    *recording_state = RecordingState::None;
-                    break;
-                }
+
+                    let modifiers = i.modifiers;
+
+                    for event in &i.events {
+                        if let egui::Event::Key {
+                            key,
+                            pressed: true,
+                            repeat: false,
+                            ..
+                        } = event
+                        {
+                            if *key == Key::Enter {
+                                *recording_state = RecordingState::None;
+                                break;
+                            }
+                            *hotkey_str = format_hotkey(modifiers, *key);
+                            *recording_state = RecordingState::None;
+                            break;
+                        }
+                    }
+                });
             }
         });
-    }
-    ui.end_row();
+    });
 }
 
 /// 格式化热键字符串
