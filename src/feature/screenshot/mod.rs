@@ -138,7 +138,9 @@ impl ScreenshotFeature {
 
         let action = egui::CentralPanel::default()
             .frame(Frame::NONE.fill(egui::Color32::TRANSPARENT))
-            .show_inside(ui, |ui| draw_screenshot_ui_inside(ui, &mut self.state, &common.device_info))
+            .show_inside(ui, |ui| {
+                draw_screenshot_ui_inside(ui, &mut self.state, &common.device_info)
+            })
             .inner;
 
         if action != crate::feature::screenshot::state::ScreenshotAction::None {

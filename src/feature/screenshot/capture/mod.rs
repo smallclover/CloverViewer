@@ -87,18 +87,21 @@ fn configure_screenshot_viewport(
 
     // 计算当前窗口的实际物理尺寸
     let viewport = ctx.input(|i| i.viewport().clone());
-    let current_phys_size = viewport.inner_rect.map(|r| r.size() * ppp).unwrap_or_default();
-    
+    let current_phys_size = viewport
+        .inner_rect
+        .map(|r| r.size() * ppp)
+        .unwrap_or_default();
+
     // 判断是否需要调整。容差值设为 5.0，避免操作系统的细微边框计算差异导致死循环
-    let needs_resize = !screenshot_state.runtime.window_configured 
-        || (current_phys_size.x - requested_phys_size.x).abs() > 5.0 
+    let needs_resize = !screenshot_state.runtime.window_configured
+        || (current_phys_size.x - requested_phys_size.x).abs() > 5.0
         || (current_phys_size.y - requested_phys_size.y).abs() > 5.0;
 
     // 如果尺寸匹配，说明 DPI 已经稳定且窗口完全覆盖，此时锁定鼠标并退出
     if !needs_resize {
         if !screenshot_state.runtime.window_configured {
-             // 防止某些边界情况下没锁上
-             current_platform().lock_cursor_for_screenshot();
+            // 防止某些边界情况下没锁上
+            current_platform().lock_cursor_for_screenshot();
         }
         return;
     }

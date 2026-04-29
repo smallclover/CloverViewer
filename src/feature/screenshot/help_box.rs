@@ -80,8 +80,7 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
                                 .font(font_id.clone()),
                             );
                             ui.label(
-                                RichText::new(text_bundle.help.select_region)
-                                    .font(font_id.clone()),
+                                RichText::new(text_bundle.help.select_region).font(font_id.clone()),
                             );
                             ui.label(
                                 RichText::new(text_bundle.help.exit_with_right_click)

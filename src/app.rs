@@ -3,8 +3,8 @@ use crate::{
     core::{
         config_manager::ConfigManager,
         launch::{
-            apply_background_launch, apply_launch_on_startup_setting,
-            configure_startup_viewport, parse_launch_options, sync_launch_on_startup,
+            apply_background_launch, apply_launch_on_startup_setting, configure_startup_viewport,
+            parse_launch_options, sync_launch_on_startup,
         },
     },
     feature::Feature,
@@ -18,7 +18,10 @@ use crate::{
     os::current_platform,
     ui::{
         resources::APP_FONT,
-        widgets::{modal::ModalAction, tray::{AppTray, init_tray}},
+        widgets::{
+            modal::ModalAction,
+            tray::{AppTray, init_tray},
+        },
     },
     utils::image::load_icon,
 };
@@ -27,7 +30,10 @@ use egui::{
     Context, FontData, FontDefinitions, FontFamily, Pos2, Ui, Vec2, ViewportBuilder,
     ViewportCommand, WindowLevel,
 };
-use std::{path::PathBuf, sync::{Arc, Mutex}};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 pub fn run() -> eframe::Result<()> {
     // 提前加载配置
@@ -320,8 +326,7 @@ impl eframe::App for CloverApp {
         let common = &mut self.state.common;
         match self.state.mode {
             AppMode::Viewer => {
-                self.viewer_feature
-                    .logic(ctx, common, &mut self.state.mode);
+                self.viewer_feature.logic(ctx, common, &mut self.state.mode);
             }
             AppMode::Screenshot => {
                 self.screenshot_feature
@@ -340,8 +345,7 @@ impl eframe::App for CloverApp {
                 self.handle_update_config();
             }
             AppMode::Screenshot => {
-                self.screenshot_feature
-                    .ui(ui, common, &mut self.state.mode);
+                self.screenshot_feature.ui(ui, common, &mut self.state.mode);
             }
         }
     }

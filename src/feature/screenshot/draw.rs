@@ -229,7 +229,10 @@ pub fn draw_skia_shapes_on_image(
     let embedded_font = match EMBEDDED_FONT.as_ref() {
         Some(font) => Some(font),
         None => {
-            if shapes.iter().any(|shape| shape.tool == ScreenshotTool::Text) {
+            if shapes
+                .iter()
+                .any(|shape| shape.tool == ScreenshotTool::Text)
+            {
                 tracing::warn!(
                     "Skipping text rendering during screenshot export because the embedded font is unavailable"
                 );

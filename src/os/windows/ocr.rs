@@ -121,7 +121,10 @@ fn build_candidate_specs(language: Language) -> Vec<OcrCandidateSpec> {
 fn create_candidate_operation(
     spec: OcrCandidateSpec,
     bitmap: &SoftwareBitmap,
-) -> Result<(Option<Language>, impl IntoFuture<Output = Result<windows::Media::Ocr::OcrResult>>)> {
+) -> Result<(
+    Option<Language>,
+    impl IntoFuture<Output = Result<windows::Media::Ocr::OcrResult>>,
+)> {
     let engine = match spec.source {
         OcrEngineSource::UserProfile => OcrEngine::TryCreateFromUserProfileLanguages()?,
         OcrEngineSource::UiLanguage(language) => create_engine_for_ui_language(language)?,

@@ -329,11 +329,7 @@ fn resized_endpoints(
     }
 }
 
-fn resize_arrow(
-    handle: usize,
-    clamped: Pos2,
-    start_state: &ResizeStartState,
-) -> (Pos2, Pos2) {
+fn resize_arrow(handle: usize, clamped: Pos2, start_state: &ResizeStartState) -> (Pos2, Pos2) {
     match handle {
         0 => (clamped, start_state.end),
         1 => (start_state.start, clamped),
@@ -341,11 +337,7 @@ fn resize_arrow(
     }
 }
 
-fn resize_box_handle(
-    handle: usize,
-    clamped: Pos2,
-    start_state: &ResizeStartState,
-) -> (Pos2, Pos2) {
+fn resize_box_handle(handle: usize, clamped: Pos2, start_state: &ResizeStartState) -> (Pos2, Pos2) {
     match handle {
         0 => (clamped, start_state.end),
         1 => (

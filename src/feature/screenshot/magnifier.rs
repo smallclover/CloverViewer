@@ -14,7 +14,9 @@ const MAGNIFIER_GRID_LINE_ALPHA: u8 = 80;
 const MAGNIFIER_MESH_RESERVE_CELLS: usize = 961;
 
 /// 将 ParsedHotkey 转换为 egui 的 (Modifiers, Key)，供 magnifier 内部使用。
-fn parsed_to_egui(parsed: &crate::core::hotkey_parser::ParsedHotkey) -> Option<(egui::Modifiers, egui::Key)> {
+fn parsed_to_egui(
+    parsed: &crate::core::hotkey_parser::ParsedHotkey,
+) -> Option<(egui::Modifiers, egui::Key)> {
     let key = crate::core::hotkey_parser::parsed_key_to_egui_key(&parsed.key_name)?;
     Some((
         egui::Modifiers {
@@ -87,7 +89,10 @@ pub fn handle_magnifier(
 
         // 3. 绘制放大镜 UI
         let now = ui.input(|i| i.time);
-        let recently_copied = state.runtime.color_copied_time.is_some_and(|t| now - t < 1.5);
+        let recently_copied = state
+            .runtime
+            .color_copied_time
+            .is_some_and(|t| now - t < 1.5);
         draw_magnifier_ui(
             ui,
             ui.painter(),
@@ -103,17 +108,19 @@ pub fn handle_magnifier(
         // Alt 组合键在 Windows 上需要 Win32 子类化配合才能正常工作，
         // 详见 src/os/windows/mod.rs 中的 suppress_alt_menu_activation。
         let is_copy_shortcut = ui.input(|i| {
-            i.events.iter().any(|e| matches!(e, eframe::egui::Event::Copy))
+            i.events
+                .iter()
+                .any(|e| matches!(e, eframe::egui::Event::Copy))
                 || (i.modifiers.command && i.key_pressed(eframe::egui::Key::C))
                 || crate::core::hotkey_parser::parse_hotkey_str(&copy_hotkey)
                     .and_then(|p| parsed_to_egui(&p))
                     .is_some_and(|(mods, key)| {
-                    mods.ctrl == i.modifiers.ctrl
-                        && mods.alt == i.modifiers.alt
-                        && mods.shift == i.modifiers.shift
-                        && mods.mac_cmd == i.modifiers.mac_cmd
-                        && i.key_pressed(key)
-                })
+                        mods.ctrl == i.modifiers.ctrl
+                            && mods.alt == i.modifiers.alt
+                            && mods.shift == i.modifiers.shift
+                            && mods.mac_cmd == i.modifiers.mac_cmd
+                            && i.key_pressed(key)
+                    })
         });
 
         // 4. 处理颜色复制（由配置的热键触发）
@@ -162,10 +169,23 @@ fn draw_magnifier_ui(
     let layout = resolve_magnifier_layout(ui, draw_pos, card_size, magnifier_size, info_bar_height);
     let sample = sample_image(image, sample_pos, ppp);
 
-    painter.rect_filled(layout.card_rect, MAGNIFIER_CARD_CORNER_RADIUS, Color32::WHITE);
+    painter.rect_filled(
+        layout.card_rect,
+        MAGNIFIER_CARD_CORNER_RADIUS,
+        Color32::WHITE,
+    );
     paint_pixel_grid(painter, image, &layout, &sample, half_grid);
     paint_crosshair(painter, &layout.magnifier_rect, layout.card_pos, half_grid);
-    paint_info_panel(painter, &layout.info_rect, text, image, &sample, info_bar_height, copy_hotkey, recently_copied);
+    paint_info_panel(
+        painter,
+        &layout.info_rect,
+        text,
+        image,
+        &sample,
+        info_bar_height,
+        copy_hotkey,
+        recently_copied,
+    );
     paint_card_border(painter, layout.card_rect);
 }
 
@@ -340,7 +360,11 @@ fn paint_info_panel(
     );
 
     // Row 2: 颜色值（正常）或 "已复制"（复制后 1.5 秒内）
-    let row2_col = if recently_copied { Color32::from_rgb(40, 160, 60) } else { text_color };
+    let row2_col = if recently_copied {
+        Color32::from_rgb(40, 160, 60)
+    } else {
+        text_color
+    };
     let row2_text = if recently_copied {
         text.toast.copied.to_string()
     } else {

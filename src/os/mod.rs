@@ -34,10 +34,7 @@ pub trait OcrEngine {
     fn recognize_text(&self, img: DynamicImage, language: Language) -> Result<String, String>;
 }
 
-pub trait Platform:
-    WindowManager + ScreenshotPlatform + ThumbnailProvider + OcrEngine
-{
-}
+pub trait Platform: WindowManager + ScreenshotPlatform + ThumbnailProvider + OcrEngine {}
 
 impl<T> Platform for T where T: WindowManager + ScreenshotPlatform + ThumbnailProvider + OcrEngine {}
 

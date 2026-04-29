@@ -189,7 +189,10 @@ impl ConfigStore {
     }
 
     pub fn snapshot(&self) -> Arc<Config> {
-        let config = self.config.read().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let config = self
+            .config
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         Arc::new(config.clone())
     }
 

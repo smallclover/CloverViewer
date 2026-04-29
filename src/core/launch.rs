@@ -3,12 +3,7 @@ use crate::model::{config::Config, window_state::WindowState};
 use crate::os::current_platform;
 use crate::ui::widgets::toast::ToastManager;
 use egui::{Context, ViewportBuilder, ViewportCommand};
-use std::{
-    env,
-    ffi::OsStr,
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{env, ffi::OsStr, path::PathBuf, sync::Arc};
 
 const STARTUP_ARG: &str = "--startup";
 

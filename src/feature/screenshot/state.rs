@@ -414,8 +414,14 @@ mod tests {
         };
 
         let snapshot = &shapes[0];
-        assert!(Arc::ptr_eq(snapshot.text.as_ref().expect("text missing"), &shared_text));
-        assert!(Arc::ptr_eq(snapshot.points.as_ref().expect("points missing"), &shared_points));
+        assert!(Arc::ptr_eq(
+            snapshot.text.as_ref().expect("text missing"),
+            &shared_text
+        ));
+        assert!(Arc::ptr_eq(
+            snapshot.points.as_ref().expect("points missing"),
+            &shared_points
+        ));
         assert!(snapshot.cached_galley.is_none());
         assert!(snapshot.cached_mosaic.is_none());
     }

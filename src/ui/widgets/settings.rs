@@ -1,4 +1,6 @@
-use egui::{Align, Button, ComboBox, Context, Frame, Id, Key, Layout, Margin, Modifiers, ScrollArea, Ui};
+use egui::{
+    Align, Button, ComboBox, Context, Frame, Id, Key, Layout, Margin, Modifiers, ScrollArea, Ui,
+};
 
 use crate::ui::widgets::toggle::toggle;
 use crate::{
@@ -162,9 +164,21 @@ fn render_content_body(
                             ComboBox::from_id_salt("lang_selector")
                                 .selected_text(selected.as_str())
                                 .show_ui(ui, |ui| {
-                                    ui.selectable_value(&mut selected, Language::Zh, Language::Zh.as_str());
-                                    ui.selectable_value(&mut selected, Language::En, Language::En.as_str());
-                                    ui.selectable_value(&mut selected, Language::Ja, Language::Ja.as_str());
+                                    ui.selectable_value(
+                                        &mut selected,
+                                        Language::Zh,
+                                        Language::Zh.as_str(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut selected,
+                                        Language::En,
+                                        Language::En.as_str(),
+                                    );
+                                    ui.selectable_value(
+                                        &mut selected,
+                                        Language::Ja,
+                                        Language::Ja.as_str(),
+                                    );
                                 });
                             if selected != config.language {
                                 config.language = selected;

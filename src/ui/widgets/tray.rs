@@ -17,13 +17,18 @@ pub struct AppTray {
 
 impl AppTray {
     pub fn refresh_labels(&mut self, language: Language, screenshot_hotkey_text: &str) {
-        if self.current_language == language && self.screenshot_hotkey_text == screenshot_hotkey_text {
+        if self.current_language == language
+            && self.screenshot_hotkey_text == screenshot_hotkey_text
+        {
             return;
         }
 
         let text = get_text(language);
         if let Some(item) = &self.screenshot_item {
-            item.set_text(build_screenshot_menu_label(text.menu.screenshot, screenshot_hotkey_text));
+            item.set_text(build_screenshot_menu_label(
+                text.menu.screenshot,
+                screenshot_hotkey_text,
+            ));
         }
         if let Some(item) = &self.exit_item {
             item.set_text(text.menu.exit);

@@ -28,11 +28,10 @@ impl HotkeyManager {
     pub fn new(ctx: &Context, window_state: Arc<WindowState>) -> Self {
         let config = get_context_config(ctx);
         // 初始化时直接从 Config 解析
-        let show_hotkey = crate::core::hotkey_parser::parse_hotkey_str(
-            &config.hotkeys.show_screenshot,
-        )
-        .and_then(|p| parsed_to_hotkey(&p))
-        .unwrap_or(HotKey::new(Some(Modifiers::ALT), Code::KeyS));
+        let show_hotkey =
+            crate::core::hotkey_parser::parse_hotkey_str(&config.hotkeys.show_screenshot)
+                .and_then(|p| parsed_to_hotkey(&p))
+                .unwrap_or(HotKey::new(Some(Modifiers::ALT), Code::KeyS));
 
         let (tx, rx) = mpsc::channel();
 
@@ -43,55 +42,58 @@ impl HotkeyManager {
                 }
 
                 let ctx_clone = ctx.clone();
-                GlobalHotKeyEvent::set_event_handler(Some(Box::new(move |event: GlobalHotKeyEvent| {
-                    // [重要] global-hotkey 回调运行在独立线程上，
-                    // 绝不能在持有 visible Mutex 的同时调用 ctx.input() 或 Win32 API
-                    // (如 ShowWindow/SetWindowPos)，否则会与主线程（持有 Context 写锁并
-                    // 尝试获取 visible Mutex）产生跨线程死锁。
+                GlobalHotKeyEvent::set_event_handler(Some(Box::new(
+                    move |event: GlobalHotKeyEvent| {
+                        // [重要] global-hotkey 回调运行在独立线程上，
+                        // 绝不能在持有 visible Mutex 的同时调用 ctx.input() 或 Win32 API
+                        // (如 ShowWindow/SetWindowPos)，否则会与主线程（持有 Context 写锁并
+                        // 尝试获取 visible Mutex）产生跨线程死锁。
 
-                    // 1. 先在无锁状态下读取 egui 层面的最小化状态
-                    let is_minimized = ctx_clone.input(|i| i.viewport().minimized.unwrap_or(false));
+                        // 1. 先在无锁状态下读取 egui 层面的最小化状态
+                        let is_minimized =
+                            ctx_clone.input(|i| i.viewport().minimized.unwrap_or(false));
 
-                    // 2. 最小范围持有 visible 锁：读取 + 设置，然后立刻释放
-                    let prev_state = {
-                        let Ok(mut visible) = window_state.visible.lock() else {
-                            return;
+                        // 2. 最小范围持有 visible 锁：读取 + 设置，然后立刻释放
+                        let prev_state = {
+                            let Ok(mut visible) = window_state.visible.lock() else {
+                                return;
+                            };
+                            let is_visible = *visible;
+
+                            let state = if !is_visible {
+                                WindowPrevState::Tray
+                            } else if is_minimized {
+                                WindowPrevState::Minimized
+                            } else {
+                                WindowPrevState::Normal
+                            };
+
+                            // 提前标记为可见，释放锁后主线程就能正确读取
+                            if state != WindowPrevState::Normal {
+                                *visible = true;
+                            }
+
+                            state
+                            // visible 锁在此处释放
                         };
-                        let is_visible = *visible;
 
-                        let state = if !is_visible {
-                            WindowPrevState::Tray
-                        } else if is_minimized {
-                            WindowPrevState::Minimized
-                        } else {
-                            WindowPrevState::Normal
-                        };
-
-                        // 提前标记为可见，释放锁后主线程就能正确读取
-                        if state != WindowPrevState::Normal {
-                            *visible = true;
+                        // 3. 锁已释放，安全调用 Win32 API 和 egui viewport commands
+                        if prev_state != WindowPrevState::Normal {
+                            if prev_state == WindowPrevState::Tray {
+                                let platform = current_platform();
+                                platform.show_window_restore_offscreen(window_state.hwnd_usize);
+                                platform.force_get_focus(window_state.hwnd_usize);
+                                ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                            } else {
+                                ctx_clone.send_viewport_cmd(ViewportCommand::Minimized(false));
+                                ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                            }
                         }
 
-                        state
-                        // visible 锁在此处释放
-                    };
-
-                    // 3. 锁已释放，安全调用 Win32 API 和 egui viewport commands
-                    if prev_state != WindowPrevState::Normal {
-                        if prev_state == WindowPrevState::Tray {
-                            let platform = current_platform();
-                            platform.show_window_restore_offscreen(window_state.hwnd_usize);
-                            platform.force_get_focus(window_state.hwnd_usize);
-                            ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                        } else {
-                            ctx_clone.send_viewport_cmd(ViewportCommand::Minimized(false));
-                            ctx_clone.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                        }
-                    }
-
-                    let _ = tx.send((event.id, prev_state));
-                    ctx_clone.request_repaint();
-                })));
+                        let _ = tx.send((event.id, prev_state));
+                        ctx_clone.request_repaint();
+                    },
+                )));
 
                 Some(hotkeys_manager)
             }
@@ -118,10 +120,9 @@ impl HotkeyManager {
         let _ = hotkeys_manager.unregister(self.show_hotkey);
 
         // 2. 解析新的快捷键
-        if let Some(new_show) = crate::core::hotkey_parser::parse_hotkey_str(
-            &config.hotkeys.show_screenshot,
-        )
-        .and_then(|p| parsed_to_hotkey(&p))
+        if let Some(new_show) =
+            crate::core::hotkey_parser::parse_hotkey_str(&config.hotkeys.show_screenshot)
+                .and_then(|p| parsed_to_hotkey(&p))
         {
             self.show_hotkey = new_show;
         }

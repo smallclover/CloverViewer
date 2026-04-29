@@ -6,6 +6,7 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use std::{iter, slice};
 use windows::Win32::Foundation::{HWND, POINT, RECT, SIZE};
+use windows::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
     BITMAP, DeleteObject, GetMonitorInfoW, GetObjectW, HGDIOBJ, MONITOR_DEFAULTTONEAREST,
     MONITORINFO, MonitorFromPoint,
@@ -21,7 +22,6 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SW_HIDE, SW_RESTORE, SWP_NOSIZE,
     SWP_NOZORDER, SetForegroundWindow, SetWindowPos, ShowWindow, WM_SYSCOMMAND,
 };
-use windows::Win32::Foundation::{LRESULT, LPARAM, WPARAM};
 use windows::core::{Interface, PCSTR, PCWSTR, s};
 
 use super::{OcrEngine, ScreenshotPlatform, ThumbnailProvider, WindowManager};
@@ -55,12 +55,7 @@ unsafe extern "system" {
         uidsubclass: usize,
     ) -> i32;
 
-    fn DefSubclassProc(
-        hwnd: HWND,
-        umsg: u32,
-        wparam: WPARAM,
-        lparam: LPARAM,
-    ) -> LRESULT;
+    fn DefSubclassProc(hwnd: HWND, umsg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT;
 }
 
 /// 截图模式下用于阻止 Alt 键激活 Windows 系统菜单的子类化回调。
@@ -125,8 +120,7 @@ impl WindowsPlatform {
             return None;
         }
 
-        HWND(hwnd_usize as *mut std::ffi::c_void)
-            .into()
+        HWND(hwnd_usize as *mut std::ffi::c_void).into()
     }
 }
 
