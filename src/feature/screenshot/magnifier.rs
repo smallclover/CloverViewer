@@ -62,7 +62,7 @@ pub fn handle_magnifier(
     ppp: f32,
     pointer_pos: Pos2,
 ) {
-    let copy_hotkey = crate::model::config::get_context_config(&ui.ctx())
+    let copy_hotkey = crate::model::config::get_context_config(ui.ctx())
         .hotkeys
         .copy_color
         .clone();

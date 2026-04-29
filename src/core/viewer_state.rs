@@ -250,19 +250,17 @@ impl ViewerState {
                 self.current_texture = Some(tex.clone());
                 self.current_texture_path = Some(path);
                 self.loader.is_loading = false;
+            } else if self.failed_thumbs.contains(&path) {
+                self.error = Some(ImageLoadError::DecodeError("缩略图加载失败".to_string()));
+                self.current_texture = None;
+                self.current_texture_path = None;
+                self.loader.is_loading = false;
             } else {
-                if self.failed_thumbs.contains(&path) {
-                    self.error = Some(ImageLoadError::DecodeError("缩略图加载失败".to_string()));
-                    self.current_texture = None;
-                    self.current_texture_path = None;
-                    self.loader.is_loading = false;
-                } else {
-                    if let Some(thumb) = self.thumb_cache.get(&path).cloned() {
-                        self.current_texture = Some(thumb);
-                        self.current_texture_path = Some(path.clone());
-                    }
-                    self.loader.load_async(ctx, path, true, None);
+                if let Some(thumb) = self.thumb_cache.get(&path).cloned() {
+                    self.current_texture = Some(thumb);
+                    self.current_texture_path = Some(path.clone());
                 }
+                self.loader.load_async(ctx, path, true, None);
             }
         } else {
             self.current_texture = None;
