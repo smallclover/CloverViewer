@@ -14,9 +14,9 @@ pub fn draw_properties_panel_inside(ui: &mut Ui, overlay: &mut OverlayMode, view
     let text = get_i18n_text(ui);
 
     Panel::right("properties_panel")
-        .resizable(true)
-        .default_size(250.0)
-        .min_size(250.0)
+        .resizable(false)
+        .default_size(300.0)
+        .min_size(300.0)
         .show_inside(ui, |ui| {
             if ui.rect_contains_pointer(ui.max_rect()) {
                 ui.set_cursor_icon(CursorIcon::Default);
