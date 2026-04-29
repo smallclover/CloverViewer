@@ -28,8 +28,11 @@ impl HotkeyManager {
     pub fn new(ctx: &Context, window_state: Arc<WindowState>) -> Self {
         let config = get_context_config(ctx);
         // 初始化时直接从 Config 解析
-        let show_hotkey = parse_hotkey_str(&config.hotkeys.show_screenshot)
-            .unwrap_or(HotKey::new(Some(Modifiers::ALT), Code::KeyS));
+        let show_hotkey = crate::core::hotkey_parser::parse_hotkey_str(
+            &config.hotkeys.show_screenshot,
+        )
+        .and_then(|p| parsed_to_hotkey(&p))
+        .unwrap_or(HotKey::new(Some(Modifiers::ALT), Code::KeyS));
 
         let (tx, rx) = mpsc::channel();
 
@@ -115,7 +118,11 @@ impl HotkeyManager {
         let _ = hotkeys_manager.unregister(self.show_hotkey);
 
         // 2. 解析新的快捷键
-        if let Some(new_show) = parse_hotkey_str(&config.hotkeys.show_screenshot) {
+        if let Some(new_show) = crate::core::hotkey_parser::parse_hotkey_str(
+            &config.hotkeys.show_screenshot,
+        )
+        .and_then(|p| parsed_to_hotkey(&p))
+        {
             self.show_hotkey = new_show;
         }
 
@@ -152,122 +159,45 @@ impl HotkeyManager {
     }
 }
 
-/// 辅助函数：将字符串 (如 "Ctrl+Alt+S") 解析为 HotKey
-fn parse_hotkey_str(hotkey_str: &str) -> Option<HotKey> {
-    let parts: Vec<&str> = hotkey_str.split('+').collect();
-    if parts.is_empty() {
-        return None;
+/// 将 ParsedHotkey 转换为 global_hotkey::HotKey。
+fn parsed_to_hotkey(parsed: &crate::core::hotkey_parser::ParsedHotkey) -> Option<HotKey> {
+    use global_hotkey::hotkey::Modifiers as GModifiers;
+    let code = crate::core::hotkey_parser::parsed_key_to_code(&parsed.key_name)?;
+    let mut modifiers = GModifiers::empty();
+    if parsed.ctrl {
+        modifiers.insert(GModifiers::CONTROL);
     }
-
-    let mut modifiers = Modifiers::empty();
-    let mut key_code = None;
-
-    for part in parts {
-        match part {
-            "Ctrl" => modifiers.insert(Modifiers::CONTROL),
-            "Alt" => modifiers.insert(Modifiers::ALT),
-            "Shift" => modifiers.insert(Modifiers::SHIFT),
-            "Cmd" | "Super" => modifiers.insert(Modifiers::SUPER), // 处理 Mac Cmd 或 Win 键
-            key_name => {
-                // 将按键名转换为 Code
-                key_code = str_to_code(key_name);
-            }
-        }
+    if parsed.alt {
+        modifiers.insert(GModifiers::ALT);
     }
-
-    if let Some(code) = key_code {
-        return Some(HotKey::new(Some(modifiers), code));
+    if parsed.shift {
+        modifiers.insert(GModifiers::SHIFT);
     }
-    None
-}
-
-/// 简单的字符串到 Code 的映射
-/// global_hotkey 的 Code 是枚举，无法直接从 "A" 转换，需要手动映射
-fn str_to_code(s: &str) -> Option<Code> {
-    // 移除 egui 可能产生的引号或其他格式，虽然你的 settings.rs 产生的是干净的字符串
-    // 这里处理常用的键，如果需要支持所有键盘按键，需要一个巨大的 match
-    match s {
-        "A" => Some(Code::KeyA),
-        "B" => Some(Code::KeyB),
-        "C" => Some(Code::KeyC),
-        "D" => Some(Code::KeyD),
-        "E" => Some(Code::KeyE),
-        "F" => Some(Code::KeyF),
-        "G" => Some(Code::KeyG),
-        "H" => Some(Code::KeyH),
-        "I" => Some(Code::KeyI),
-        "J" => Some(Code::KeyJ),
-        "K" => Some(Code::KeyK),
-        "L" => Some(Code::KeyL),
-        "M" => Some(Code::KeyM),
-        "N" => Some(Code::KeyN),
-        "O" => Some(Code::KeyO),
-        "P" => Some(Code::KeyP),
-        "Q" => Some(Code::KeyQ),
-        "R" => Some(Code::KeyR),
-        "S" => Some(Code::KeyS),
-        "T" => Some(Code::KeyT),
-        "U" => Some(Code::KeyU),
-        "V" => Some(Code::KeyV),
-        "W" => Some(Code::KeyW),
-        "X" => Some(Code::KeyX),
-        "Y" => Some(Code::KeyY),
-        "Z" => Some(Code::KeyZ),
-        "Num0" => Some(Code::Digit0),
-        "Num1" => Some(Code::Digit1),
-        "Num2" => Some(Code::Digit2),
-        "Num3" => Some(Code::Digit3),
-        "Num4" => Some(Code::Digit4),
-        "Num5" => Some(Code::Digit5),
-        "Num6" => Some(Code::Digit6),
-        "Num7" => Some(Code::Digit7),
-        "Num8" => Some(Code::Digit8),
-        "Num9" => Some(Code::Digit9),
-        "Escape" => Some(Code::Escape),
-        "Enter" => Some(Code::Enter),
-        "Space" => Some(Code::Space),
-        "Tab" => Some(Code::Tab),
-        "Backspace" => Some(Code::Backspace),
-        "F1" => Some(Code::F1),
-        "F2" => Some(Code::F2),
-        "F3" => Some(Code::F3),
-        "F4" => Some(Code::F4),
-        "F5" => Some(Code::F5),
-        "F6" => Some(Code::F6),
-        "F7" => Some(Code::F7),
-        "F8" => Some(Code::F8),
-        "F9" => Some(Code::F9),
-        "F10" => Some(Code::F10),
-        "F11" => Some(Code::F11),
-        "F12" => Some(Code::F12),
-        _ => {
-            tracing::debug!("Unknown key code: {}", s);
-            None
-        }
+    if parsed.cmd {
+        modifiers.insert(GModifiers::SUPER);
     }
+    Some(HotKey::new(Some(modifiers), code))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_hotkey_str, str_to_code};
-    use global_hotkey::hotkey::Code;
+    use super::parsed_to_hotkey;
+    use crate::core::hotkey_parser;
 
     #[test]
-    fn parse_hotkey_str_accepts_modifier_combinations() {
-        assert!(parse_hotkey_str("Ctrl+Alt+S").is_some());
-        assert!(parse_hotkey_str("Cmd+Shift+F12").is_some());
+    fn parsed_to_hotkey_accepts_modifier_combinations() {
+        let p = hotkey_parser::parse_hotkey_str("Ctrl+Alt+S").unwrap();
+        assert!(parsed_to_hotkey(&p).is_some());
+
+        let p = hotkey_parser::parse_hotkey_str("Cmd+Shift+F12").unwrap();
+        assert!(parsed_to_hotkey(&p).is_some());
     }
 
     #[test]
-    fn parse_hotkey_str_rejects_unknown_key_names() {
-        assert!(parse_hotkey_str("Ctrl+NoSuchKey").is_none());
-        assert!(parse_hotkey_str("").is_none());
-    }
+    fn parsed_to_hotkey_rejects_unknown_key_names() {
+        let p = hotkey_parser::parse_hotkey_str("Ctrl+NoSuchKey").unwrap();
+        assert!(parsed_to_hotkey(&p).is_none());
 
-    #[test]
-    fn str_to_code_maps_known_keys() {
-        assert_eq!(str_to_code("A"), Some(Code::KeyA));
-        assert_eq!(str_to_code("F12"), Some(Code::F12));
-        assert_eq!(str_to_code("Space"), Some(Code::Space));
+        assert!(hotkey_parser::parse_hotkey_str("").is_none());
     }
 }
