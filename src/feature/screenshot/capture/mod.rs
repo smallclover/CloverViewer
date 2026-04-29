@@ -54,7 +54,11 @@ fn handle_capture_stage(
     true
 }
 
-fn configure_screenshot_viewport(ctx: &Context, screenshot_state: &mut ScreenshotState) {
+fn configure_screenshot_viewport(
+    ctx: &Context,
+    screenshot_state: &mut ScreenshotState,
+    hwnd_usize: usize,
+) {
     let ppp = ctx.pixels_per_point();
 
     let mut min_x = f32::MAX;
@@ -121,9 +125,13 @@ fn configure_screenshot_viewport(ctx: &Context, screenshot_state: &mut Screensho
     ctx.send_viewport_cmd(ViewportCommand::InnerSize(exact_logical_size));
 
     screenshot_state.runtime.window_configured = true;
-    
+
+    // 阻止 Alt 键激活 Windows 系统菜单（否则会破坏截图覆盖层状态）
+    #[cfg(windows)]
+    crate::os::windows::suppress_alt_menu_activation(hwnd_usize);
+
     // 强制请求重绘，以便在下一帧立即检查 DPI 是否发生漂移并再次修正
-    ctx.request_repaint(); 
+    ctx.request_repaint();
 }
 
 fn resolve_effective_prev_state(
@@ -149,6 +157,11 @@ fn restore_window_after_screenshot(
     effective_prev_state: WindowPrevState,
 ) {
     current_platform().unlock_cursor();
+
+    // 恢复 Alt 键的默认 Windows 系统行为
+    #[cfg(windows)]
+    crate::os::windows::remove_alt_menu_suppression(common.window_state.hwnd_usize);
+
     ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::ZERO));
 
     match effective_prev_state {
@@ -206,7 +219,7 @@ pub fn prepare_screenshot_frame(
     ctx: &Context,
     is_active: &mut bool,
     screenshot_state: &mut ScreenshotState,
-    _common: &CommonState,
+    common: &CommonState,
 ) -> bool {
     if !*is_active {
         return false;
@@ -216,7 +229,7 @@ pub fn prepare_screenshot_frame(
         return false;
     }
 
-    configure_screenshot_viewport(ctx, screenshot_state);
+    configure_screenshot_viewport(ctx, screenshot_state, common.window_state.hwnd_usize);
 
     true
 }

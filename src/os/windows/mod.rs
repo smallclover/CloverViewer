@@ -19,14 +19,102 @@ use windows::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, ClipCursor, FindWindowA, FindWindowExA, GetCursorPos, GetForegroundWindow,
     GetSystemMetrics, GetWindowRect, GetWindowThreadProcessId, HWND_TOP, SM_CXVIRTUALSCREEN,
     SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SW_HIDE, SW_RESTORE, SWP_NOSIZE,
-    SWP_NOZORDER, SetForegroundWindow, SetWindowPos, ShowWindow,
+    SWP_NOZORDER, SetForegroundWindow, SetWindowPos, ShowWindow, WM_SYSCOMMAND,
 };
+use windows::Win32::Foundation::{LRESULT, LPARAM, WPARAM};
 use windows::core::{Interface, PCSTR, PCWSTR, s};
 
 use super::{OcrEngine, ScreenshotPlatform, ThumbnailProvider, WindowManager};
 
 pub mod ocr;
 pub mod startup;
+
+// ── ComCtl32 子类化 API（windows 0.62 未直接暴露这些函数，通过 FFI 调用）──
+
+type SubclassProc = unsafe extern "system" fn(
+    hwnd: HWND,
+    umsg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    uidsubclass: usize,
+    dwrefdata: usize,
+) -> LRESULT;
+
+#[link(name = "ComCtl32")]
+unsafe extern "system" {
+    fn SetWindowSubclass(
+        hwnd: HWND,
+        pfnsubclass: Option<SubclassProc>,
+        uidsubclass: usize,
+        dwrefdata: usize,
+    ) -> i32;
+
+    fn RemoveWindowSubclass(
+        hwnd: HWND,
+        pfnsubclass: Option<SubclassProc>,
+        uidsubclass: usize,
+    ) -> i32;
+
+    fn DefSubclassProc(
+        hwnd: HWND,
+        umsg: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT;
+}
+
+/// 截图模式下用于阻止 Alt 键激活 Windows 系统菜单的子类化回调。
+/// 当按下 Alt 时 Windows 会发送 WM_SYSCOMMAND + SC_KEYMENU 使窗口进入菜单循环模式，
+/// 导致截图覆盖层状态异常（放大镜消失、后续按键被消费）。
+/// 该回调在截图窗口生命周期内拦截并丢弃该消息。
+const SCREENSHOT_SUBCLASS_ID: usize = 1;
+const SC_KEYMENU: usize = 0xF100;
+
+unsafe extern "system" fn screenshot_alt_suppress_proc(
+    hwnd: HWND,
+    umsg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _uidsubclass: usize,
+    _dwrefdata: usize,
+) -> LRESULT {
+    if umsg == WM_SYSCOMMAND && (wparam.0 & 0xFFF0) == SC_KEYMENU {
+        return LRESULT(0);
+    }
+    unsafe { DefSubclassProc(hwnd, umsg, wparam, lparam) }
+}
+
+/// 为截图窗口安装子类化，阻止 Alt 键激活 Windows 系统菜单。
+/// 与 `remove_alt_menu_suppression` 配对调用。
+pub fn suppress_alt_menu_activation(hwnd_usize: usize) {
+    let hwnd = HWND(hwnd_usize as *mut std::ffi::c_void);
+    unsafe {
+        // 先移除再安装，保证幂等
+        let _ = RemoveWindowSubclass(
+            hwnd,
+            Some(screenshot_alt_suppress_proc as SubclassProc),
+            SCREENSHOT_SUBCLASS_ID,
+        );
+        let _ = SetWindowSubclass(
+            hwnd,
+            Some(screenshot_alt_suppress_proc as SubclassProc),
+            SCREENSHOT_SUBCLASS_ID,
+            0,
+        );
+    }
+}
+
+/// 移除截图窗口的子类化，恢复 Alt 键的默认系统行为。
+pub fn remove_alt_menu_suppression(hwnd_usize: usize) {
+    let hwnd = HWND(hwnd_usize as *mut std::ffi::c_void);
+    unsafe {
+        let _ = RemoveWindowSubclass(
+            hwnd,
+            Some(screenshot_alt_suppress_proc as SubclassProc),
+            SCREENSHOT_SUBCLASS_ID,
+        );
+    }
+}
 
 pub struct WindowsPlatform;
 

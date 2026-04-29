@@ -13,6 +13,106 @@ const MAGNIFIER_BORDER_COLOR: Color32 = Color32::from_gray(200);
 const MAGNIFIER_GRID_LINE_ALPHA: u8 = 80;
 const MAGNIFIER_MESH_RESERVE_CELLS: usize = 961;
 
+/// 将热键字符串中的按键名（如 "C", "F1", "Space"）转换为 egui::Key。
+/// 反向操作对应 settings.rs 中 `format!("{:?}", key)` 的输出格式。
+fn str_to_egui_key(s: &str) -> Option<egui::Key> {
+    use egui::Key;
+    match s {
+        // 单字母 A-Z
+        "A" => Some(Key::A),
+        "B" => Some(Key::B),
+        "C" => Some(Key::C),
+        "D" => Some(Key::D),
+        "E" => Some(Key::E),
+        "F" => Some(Key::F),
+        "G" => Some(Key::G),
+        "H" => Some(Key::H),
+        "I" => Some(Key::I),
+        "J" => Some(Key::J),
+        "K" => Some(Key::K),
+        "L" => Some(Key::L),
+        "M" => Some(Key::M),
+        "N" => Some(Key::N),
+        "O" => Some(Key::O),
+        "P" => Some(Key::P),
+        "Q" => Some(Key::Q),
+        "R" => Some(Key::R),
+        "S" => Some(Key::S),
+        "T" => Some(Key::T),
+        "U" => Some(Key::U),
+        "V" => Some(Key::V),
+        "W" => Some(Key::W),
+        "X" => Some(Key::X),
+        "Y" => Some(Key::Y),
+        "Z" => Some(Key::Z),
+        // 数字 0-9
+        "0" => Some(Key::Num0),
+        "1" => Some(Key::Num1),
+        "2" => Some(Key::Num2),
+        "3" => Some(Key::Num3),
+        "4" => Some(Key::Num4),
+        "5" => Some(Key::Num5),
+        "6" => Some(Key::Num6),
+        "7" => Some(Key::Num7),
+        "8" => Some(Key::Num8),
+        "9" => Some(Key::Num9),
+        // 功能键
+        "F1" => Some(Key::F1),
+        "F2" => Some(Key::F2),
+        "F3" => Some(Key::F3),
+        "F4" => Some(Key::F4),
+        "F5" => Some(Key::F5),
+        "F6" => Some(Key::F6),
+        "F7" => Some(Key::F7),
+        "F8" => Some(Key::F8),
+        "F9" => Some(Key::F9),
+        "F10" => Some(Key::F10),
+        "F11" => Some(Key::F11),
+        "F12" => Some(Key::F12),
+        // 特殊键
+        "Space" => Some(Key::Space),
+        "Enter" => Some(Key::Enter),
+        "Escape" => Some(Key::Escape),
+        "Tab" => Some(Key::Tab),
+        "Backspace" => Some(Key::Backspace),
+        "Delete" => Some(Key::Delete),
+        "Insert" => Some(Key::Insert),
+        "Home" => Some(Key::Home),
+        "End" => Some(Key::End),
+        "PageUp" => Some(Key::PageUp),
+        "PageDown" => Some(Key::PageDown),
+        "ArrowLeft" => Some(Key::ArrowLeft),
+        "ArrowRight" => Some(Key::ArrowRight),
+        "ArrowUp" => Some(Key::ArrowUp),
+        "ArrowDown" => Some(Key::ArrowDown),
+        _ => None,
+    }
+}
+
+/// 解析热键字符串（如 "Alt+C", "Ctrl+Shift+A"）为 (Modifiers, Key)。
+fn parse_hotkey_str(hotkey_str: &str) -> Option<(egui::Modifiers, egui::Key)> {
+    let parts: Vec<&str> = hotkey_str.split('+').collect();
+    if parts.is_empty() {
+        return None;
+    }
+
+    let mut modifiers = egui::Modifiers::default();
+    let key_part = parts.last()?;
+
+    for &part in &parts[..parts.len() - 1] {
+        match part {
+            "Ctrl" => modifiers.ctrl = true,
+            "Alt" => modifiers.alt = true,
+            "Shift" => modifiers.shift = true,
+            "Cmd" => modifiers.mac_cmd = true,
+            _ => return None, // 未知修饰键
+        }
+    }
+
+    let key = str_to_egui_key(key_part)?;
+    Some((modifiers, key))
+}
+
 struct MagnifierPixelContext<'a> {
     image: &'a ColorImage,
     card_pos: Pos2,
@@ -81,13 +181,21 @@ pub fn handle_magnifier(
             &copy_hotkey,
         );
 
-        // 4. 处理颜色复制 (Ctrl + C 或按钮请求)
-        // 优先消费 egui 原生 Copy 事件，其次兼容 Command/Ctrl + C。
+        // 4. 处理颜色复制 (Ctrl+C / Event::Copy / 配置热键)
+        // Alt 组合键在 Windows 上需要 Win32 子类化配合才能正常工作，
+        // 详见 src/os/windows/mod.rs 中的 suppress_alt_menu_activation。
         let is_copy_shortcut = ui.input(|i| {
             i.events.iter().any(|e| matches!(e, eframe::egui::Event::Copy))
                 || (i.modifiers.command && i.key_pressed(eframe::egui::Key::C))
+                || parse_hotkey_str(&copy_hotkey).is_some_and(|(mods, key)| {
+                    mods.ctrl == i.modifiers.ctrl
+                        && mods.alt == i.modifiers.alt
+                        && mods.shift == i.modifiers.shift
+                        && mods.mac_cmd == i.modifiers.mac_cmd
+                        && i.key_pressed(key)
+                })
         });
-        
+
         // 4. 处理颜色复制（由配置的热键触发）
         if is_copy_shortcut {
             let center_phys_x =
