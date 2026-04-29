@@ -86,6 +86,8 @@ pub fn handle_magnifier(
         let screen_local_pointer_pos = Pos2::new(screen_local_logical_x, screen_local_logical_y);
 
         // 3. 绘制放大镜 UI
+        let now = ui.input(|i| i.time);
+        let recently_copied = state.runtime.color_copied_time.is_some_and(|t| now - t < 1.5);
         draw_magnifier_ui(
             ui,
             ui.painter(),
@@ -94,6 +96,7 @@ pub fn handle_magnifier(
             screen_local_pointer_pos,
             ppp,
             &copy_hotkey,
+            recently_copied,
         );
 
         // 4. 处理颜色复制 (Ctrl+C / Event::Copy / 配置热键)
@@ -132,6 +135,7 @@ pub fn handle_magnifier(
                 let hex_text = format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b());
 
                 ui.copy_text(hex_text.clone());
+                state.runtime.color_copied_time = Some(now);
                 tracing::info!("Color {} copied to clipboard via egui", hex_text);
             }
         }
@@ -139,6 +143,7 @@ pub fn handle_magnifier(
 }
 
 /// 内部绘制放大镜组件的逻辑
+#[allow(clippy::too_many_arguments)]
 fn draw_magnifier_ui(
     ui: &Ui,
     painter: &Painter,
@@ -147,6 +152,7 @@ fn draw_magnifier_ui(
     sample_pos: Pos2, // 决定从图片哪里取色
     ppp: f32,
     copy_hotkey: &str,
+    recently_copied: bool,
 ) {
     let text = get_i18n_text(ui);
     let half_grid = MAGNIFIER_GRID_SIZE / 2;
@@ -159,7 +165,7 @@ fn draw_magnifier_ui(
     painter.rect_filled(layout.card_rect, MAGNIFIER_CARD_CORNER_RADIUS, Color32::WHITE);
     paint_pixel_grid(painter, image, &layout, &sample, half_grid);
     paint_crosshair(painter, &layout.magnifier_rect, layout.card_pos, half_grid);
-    paint_info_panel(painter, &layout.info_rect, text, image, &sample, info_bar_height, copy_hotkey);
+    paint_info_panel(painter, &layout.info_rect, text, image, &sample, info_bar_height, copy_hotkey, recently_copied);
     paint_card_border(painter, layout.card_rect);
 }
 
@@ -290,6 +296,7 @@ fn paint_crosshair(painter: &Painter, magnifier_rect: &Rect, card_pos: Pos2, hal
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn paint_info_panel(
     painter: &Painter,
     info_rect: &Rect,
@@ -298,6 +305,7 @@ fn paint_info_panel(
     sample: &MagnifierSample,
     info_bar_height: f32,
     copy_hotkey: &str,
+    recently_copied: bool,
 ) {
     let center_color = sampled_center_color(image, sample);
     let coord_text = format!("({}, {})", sample.center_phys_x, sample.center_phys_y);
@@ -319,6 +327,7 @@ fn paint_info_panel(
     let hint_font_id = FontId::proportional(10.0);
     let line_height = info_bar_height / 3.0;
 
+    // Row 1: 坐标
     painter.text(
         Pos2::new(
             info_rect.min.x + 8.0,
@@ -330,24 +339,26 @@ fn paint_info_panel(
         text_color,
     );
 
+    // Row 2: 颜色值（正常）或 "已复制"（复制后 1.5 秒内）
+    let row2_col = if recently_copied { Color32::from_rgb(40, 160, 60) } else { text_color };
+    let row2_text = if recently_copied {
+        text.toast.copied.to_string()
+    } else {
+        format!("{}{}", text.magnifier.hex, hex_text)
+    };
+    let row2_galley = painter.layout_no_wrap(row2_text, font_id.clone(), row2_col);
+    let row2_text_width = row2_galley.size().x;
     let row2_y = info_rect.min.y + line_height * 1.5 + 2.0;
-    let hex_galley = painter.layout_no_wrap(
-        format!("{}{}", text.magnifier.hex, hex_text),
-        font_id.clone(),
-        text_color,
-    );
-    let hex_text_width = hex_galley.size().x;
     painter.galley(
-        Pos2::new(info_rect.min.x + 8.0, row2_y - hex_galley.size().y / 2.0),
-        hex_galley,
-        text_color,
+        Pos2::new(info_rect.min.x + 8.0, row2_y - row2_galley.size().y / 2.0),
+        row2_galley,
+        row2_col,
     );
 
+    // 颜色预览色块
     let color_preview_size = 12.0;
-    let color_preview_pos = Pos2::new(
-        info_rect.min.x + 8.0 + hex_text_width + 8.0,
-        row2_y - color_preview_size / 2.0,
-    );
+    let preview_x = info_rect.min.x + 8.0 + row2_text_width + 8.0;
+    let color_preview_pos = Pos2::new(preview_x, row2_y - color_preview_size / 2.0);
     let color_preview_rect = Rect::from_min_size(
         color_preview_pos,
         Vec2::new(color_preview_size, color_preview_size),
@@ -360,6 +371,7 @@ fn paint_info_panel(
         StrokeKind::Outside,
     );
 
+    // Row 3: 快捷键提示
     painter.text(
         Pos2::new(info_rect.min.x + 8.0, info_rect.min.y + line_height * 2.5),
         Align2::LEFT_CENTER,

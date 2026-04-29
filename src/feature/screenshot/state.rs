@@ -129,6 +129,7 @@ impl Default for ScreenshotDrawingState {
 pub struct ScreenshotRuntimeState {
     pub window_configured: bool,
     pub prev_window_state: WindowPrevState,
+    pub color_copied_time: Option<f64>,
 }
 
 impl ScreenshotRuntimeState {
@@ -136,6 +137,7 @@ impl ScreenshotRuntimeState {
         Self {
             window_configured: false,
             prev_window_state,
+            color_copied_time: None,
         }
     }
 }
