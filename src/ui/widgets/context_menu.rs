@@ -87,7 +87,11 @@ pub fn handle_context_menu_action(
             }
         }
         ContextMenuAction::ShowProperties => {
-            *panel = PanelMode::Properties;
+            *panel = if *panel == PanelMode::Properties {
+                PanelMode::None
+            } else {
+                PanelMode::Properties
+            };
         }
     }
 }
