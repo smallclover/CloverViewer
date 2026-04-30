@@ -1,7 +1,7 @@
 use crate::{
     core::viewer_state::ViewerState,
     i18n::lang::get_i18n_text,
-    model::mode::OverlayMode,
+    model::mode::PanelMode,
     ui::widgets::toast::ToastManager,
     utils::clipboard::{copy_image_path_to_clipboard, copy_image_to_clipboard_async},
 };
@@ -68,7 +68,7 @@ pub fn handle_context_menu_action(
     ctx: &Context,
     action: ContextMenuAction,
     viewer: &ViewerState,
-    overlay: &mut OverlayMode,
+    panel: &mut PanelMode,
     toast_manager: &ToastManager,
 ) {
     match action {
@@ -87,7 +87,7 @@ pub fn handle_context_menu_action(
             }
         }
         ContextMenuAction::ShowProperties => {
-            *overlay = OverlayMode::Properties;
+            *panel = PanelMode::Properties;
         }
     }
 }

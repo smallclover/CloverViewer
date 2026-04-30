@@ -8,14 +8,14 @@ use crate::feature::viewer::preview::show_preview_window;
 use crate::i18n::lang::get_i18n_text;
 use crate::{
     core::viewer_state::{TransitionPhase, ViewerState},
-    model::mode::OverlayMode,
+    model::mode::PopupMode,
 };
 
 pub fn draw_single_view(
     ctx: &Context,
     ui: &mut Ui,
     viewer: &mut ViewerState,
-    overlay: &mut OverlayMode,
+    popup: &mut PopupMode,
 ) {
     let rect = ui.available_rect_before_wrap();
     let text = get_i18n_text(ctx);
@@ -42,7 +42,7 @@ pub fn draw_single_view(
             }
         }
         if allow_context_menu {
-            *overlay = OverlayMode::ContextMenu(pos);
+            *popup = PopupMode::ContextMenu(pos);
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::i18n::lang::get_i18n_text;
 use crate::model::config::get_context_config;
-use crate::model::mode::OverlayMode;
+use crate::model::mode::PopupMode;
 use egui::{Button, MenuBar, Panel, Ui};
 
 /// 菜单动作
@@ -19,7 +19,7 @@ pub enum MenuAction {
 /// 1. 是否点击了"打开文件"
 /// 2. 是否点击了"打开文件夹"
 /// 3. 菜单动作
-pub fn draw_menu(ui: &mut Ui, overlay: &mut OverlayMode) -> (bool, bool, MenuAction) {
+pub fn draw_menu(ui: &mut Ui, popup: &mut PopupMode) -> (bool, bool, MenuAction) {
     let mut open_file_dialog = false;
     let mut open_folder_dialog = false;
     let mut action = MenuAction::None;
@@ -43,7 +43,7 @@ pub fn draw_menu(ui: &mut Ui, overlay: &mut OverlayMode) -> (bool, bool, MenuAct
 
                 if ui.button(text.menu.settings).clicked() {
                     let config = get_context_config(ui);
-                    *overlay = OverlayMode::Settings {
+                    *popup = PopupMode::Settings {
                         config: (*config).clone(),
                     };
                     ui.close();
@@ -71,7 +71,7 @@ pub fn draw_menu(ui: &mut Ui, overlay: &mut OverlayMode) -> (bool, bool, MenuAct
 
             ui.menu_button(text.menu.help, |ui| {
                 if ui.button(text.menu.about).clicked() {
-                    *overlay = OverlayMode::About;
+                    *popup = PopupMode::About;
                     ui.close();
                 }
             });

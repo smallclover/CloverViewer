@@ -13,7 +13,7 @@ use crate::{
     model::{
         config::Config,
         image_meta::SUPPORTED_IMAGE_EXTENSIONS,
-        mode::{AppMode, OverlayMode},
+        mode::{AppMode, PanelMode, PopupMode},
         state::CommonState,
     },
     ui::widgets::{
@@ -39,7 +39,8 @@ pub mod single_view;
 /// ViewerFeature - 图片查看器功能模块
 pub struct ViewerFeature {
     pub state: ViewerState,
-    overlay: OverlayMode,
+    popup: PopupMode,
+    panel: PanelMode,
     /// 待处理的配置应用动作
     pending_config_action: Option<ModalAction>,
     /// 待处理的配置（当 pending_config_action 为 Apply 时）
@@ -52,7 +53,8 @@ impl ViewerFeature {
     pub fn new() -> Self {
         Self {
             state: ViewerState::new(),
-            overlay: OverlayMode::None,
+            popup: PopupMode::None,
+            panel: PanelMode::None,
             pending_config_action: None,
             pending_config: None,
             pending_mode_switch: None,
@@ -145,7 +147,7 @@ impl ViewerFeature {
         let ctx = ui.ctx().clone();
 
         // 1. 顶部面板
-        let (open_file, open_folder, menu_action) = draw_menu(ui, &mut self.overlay);
+        let (open_file, open_folder, menu_action) = draw_menu(ui, &mut self.popup);
 
         if open_file {
             let sender = common.path_sender.clone();
@@ -183,8 +185,8 @@ impl ViewerFeature {
         // 2. 底部面板 / 右侧面板 / 中央面板
         self.draw_bottom_panel(ui);
         ocr_panel::show_inside(ui, &mut common.ocr_state);
-        if matches!(self.overlay, OverlayMode::Properties) {
-            properties_panel::draw_properties_panel_inside(ui, &mut self.overlay, &self.state);
+        if matches!(self.panel, PanelMode::Properties) {
+            properties_panel::draw_properties_panel_inside(ui, &mut self.panel, &self.state);
         }
 
         let background_frame = Frame::NONE.fill(Color32::from_rgb(25, 25, 25));
@@ -192,7 +194,7 @@ impl ViewerFeature {
             .frame(background_frame)
             .show_inside(ui, |ui| match self.state.view_mode {
                 ViewMode::Single => {
-                    draw_single_view(&ctx, ui, &mut self.state, &mut self.overlay);
+                    draw_single_view(&ctx, ui, &mut self.state, &mut self.popup);
                 }
                 ViewMode::Grid => {
                     draw_grid_view(&ctx, ui, &mut self.state);
@@ -211,7 +213,7 @@ impl ViewerFeature {
                 &ctx,
                 action,
                 &self.state,
-                &mut self.overlay,
+                &mut self.panel,
                 &common.toast_manager,
             );
         }
@@ -269,15 +271,15 @@ impl ViewerFeature {
         let mut context_menu_action = None;
         let text = get_i18n_text(ctx);
 
-        match &mut self.overlay {
-            OverlayMode::About => {
+        match &mut self.popup {
+            PopupMode::About => {
                 let mut open = true;
                 render_about_window(ctx, &mut open);
                 if !open {
-                    self.overlay = OverlayMode::None;
+                    self.popup = PopupMode::None;
                 }
             }
-            OverlayMode::Settings { config } => {
+            PopupMode::Settings { config } => {
                 // 1. 设置最小尺寸，防止在设置界面时被鼠标缩得太小
                 ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::new(750.0, 550.0)));
 
@@ -308,10 +310,10 @@ impl ViewerFeature {
                 if !open || action == ModalAction::Close {
                     // 3. 设置关闭后，恢复看图时的极小限制
                     ctx.send_viewport_cmd(ViewportCommand::MinInnerSize(Vec2::new(100.0, 100.0)));
-                    self.overlay = OverlayMode::None;
+                    self.popup = PopupMode::None;
                 }
             }
-            OverlayMode::ContextMenu(pos) => {
+            PopupMode::ContextMenu(pos) => {
                 let mut pos_opt = Some(*pos);
                 let action = render_context_menu(ctx, &mut pos_opt);
 
@@ -320,10 +322,10 @@ impl ViewerFeature {
                 }
 
                 if pos_opt.is_none() {
-                    self.overlay = OverlayMode::None;
+                    self.popup = PopupMode::None;
                 }
             }
-            OverlayMode::None | OverlayMode::Properties => {}
+            PopupMode::None => {}
         }
 
         // 加载提示

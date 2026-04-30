@@ -8,12 +8,18 @@ pub enum AppMode {
     Screenshot, // 截图工具
 }
 
-/// UI 覆盖层状态 - 仅在 Viewer 模式下使用
+/// 弹窗/浮层状态 - 仅在 Viewer 模式下使用，互斥瞬态
 #[derive(Clone, PartialEq)]
-pub enum OverlayMode {
+pub enum PopupMode {
     None,
     About,
-    Settings { config: Config }, // 使用 Config 副本
+    Settings { config: Config },
     ContextMenu(Pos2),
+}
+
+/// 侧边面板状态 - 仅在 Viewer 模式下使用，可常驻
+#[derive(Clone, PartialEq)]
+pub enum PanelMode {
+    None,
     Properties,
 }

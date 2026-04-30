@@ -1,12 +1,12 @@
 use crate::core::viewer_state::ViewerState;
 use crate::i18n::lang::get_i18n_text;
 use crate::model::image_meta::ImageProperties;
-use crate::model::mode::OverlayMode;
+use crate::model::mode::PanelMode;
 use crate::ui::widgets::icons::{IconType, draw_icon_button};
 use egui::{Align, CursorIcon, Grid, Layout, Panel, RichText, Sense, Ui};
 
-pub fn draw_properties_panel_inside(ui: &mut Ui, overlay: &mut OverlayMode, viewer: &ViewerState) {
-    let mut is_open = matches!(overlay, OverlayMode::Properties);
+pub fn draw_properties_panel_inside(ui: &mut Ui, panel: &mut PanelMode, viewer: &ViewerState) {
+    let mut is_open = matches!(panel, PanelMode::Properties);
     if !is_open {
         return;
     }
@@ -40,7 +40,7 @@ pub fn draw_properties_panel_inside(ui: &mut Ui, overlay: &mut OverlayMode, view
         });
 
     if !is_open {
-        *overlay = OverlayMode::None;
+        *panel = PanelMode::None;
     }
 }
 
@@ -88,11 +88,9 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
             egui::vec2(label_width, 0.0),
             Layout::top_down(Align::Min),
             |ui| {
-                let label = egui::Label::new(
-                    RichText::new(&path_str).color(link_color),
-                )
-                .wrap()
-                .sense(Sense::click());
+                let label = egui::Label::new(RichText::new(&path_str).color(link_color))
+                    .wrap()
+                    .sense(Sense::click());
 
                 let response = ui.add(label).on_hover_text(&path_str);
 
