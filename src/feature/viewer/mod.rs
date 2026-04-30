@@ -4,11 +4,9 @@ use crate::ui::widgets::context_menu::{
 };
 use crate::ui::widgets::menu::{MenuAction, draw_menu};
 use crate::{
-    core::{
-        hotkeys::HotkeyAction,
-        viewer_state::{ViewMode, ViewerState},
-    },
+    core::hotkeys::HotkeyAction,
     feature::Feature,
+    feature::viewer::viewer_state::{ViewMode, ViewerState},
     i18n::lang::get_i18n_text,
     model::{
         config::Config,
@@ -35,6 +33,7 @@ pub mod grid_view;
 pub mod preview;
 pub mod properties_panel;
 pub mod single_view;
+pub mod viewer_state;
 
 /// ViewerFeature - 图片查看器功能模块
 pub struct ViewerFeature {

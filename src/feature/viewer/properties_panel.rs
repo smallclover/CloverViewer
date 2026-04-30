@@ -1,4 +1,4 @@
-use crate::core::viewer_state::ViewerState;
+use super::viewer_state::ViewerState;
 use crate::i18n::lang::get_i18n_text;
 use crate::model::image_meta::ImageProperties;
 use crate::model::mode::PanelMode;

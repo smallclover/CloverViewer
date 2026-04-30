@@ -5,11 +5,9 @@ use egui::{
 
 use crate::feature::viewer::arrows::{Nav, draw_arrows};
 use crate::feature::viewer::preview::show_preview_window;
+use crate::feature::viewer::viewer_state::{TransitionPhase, ViewerState};
 use crate::i18n::lang::get_i18n_text;
-use crate::{
-    core::viewer_state::{TransitionPhase, ViewerState},
-    model::mode::PopupMode,
-};
+use crate::model::mode::PopupMode;
 
 pub fn draw_single_view(
     ctx: &Context,

@@ -1,4 +1,4 @@
-use crate::core::viewer_state::ViewerState;
+use super::viewer_state::ViewerState;
 use egui::{
     Align2, Area, Color32, Context, CornerRadius, CursorIcon, FontId, Frame, Id, Image, Rect,
     Sense, Shadow, Spinner, Stroke, StrokeKind, TextureHandle, Ui, UiBuilder, Vec2,

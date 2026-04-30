@@ -1,5 +1,5 @@
 use crate::{
-    core::viewer_state::ViewerState,
+    feature::viewer::viewer_state::ViewerState,
     i18n::lang::get_i18n_text,
     model::mode::PanelMode,
     ui::widgets::toast::ToastManager,
