@@ -15,6 +15,7 @@ pub enum IconType {
     Cancel,
     Save,
     SaveToClipboard,
+    Copy,
     Ocr,
 }
 
@@ -32,6 +33,7 @@ impl IconType {
             IconType::Cancel => text.tooltip.cancel,
             IconType::Save => text.tooltip.save,
             IconType::SaveToClipboard => text.tooltip.save_to_clipboard,
+            IconType::Copy => text.tooltip.copy,
             IconType::Ocr => text.tooltip.ocr,
         }
     }
@@ -57,6 +59,7 @@ pub fn paint_icon(
         IconType::Cancel => paint_cancel_icon(painter, icon_rect, stroke),
         IconType::Save => paint_save_icon(painter, icon_rect, stroke),
         IconType::SaveToClipboard => paint_clipboard_icon(painter, icon_rect, stroke, bg_color),
+        IconType::Copy => paint_copy_icon(painter, icon_rect, stroke),
         IconType::Ocr => paint_ocr_icon(painter, icon_rect, stroke),
     }
 }
@@ -199,6 +202,21 @@ fn paint_clipboard_icon(
 
     let fore_rect = Rect::from_min_size(icon_rect.min, rect_size);
     painter.rect_filled(fore_rect, 1.0, bg_color);
+    painter.rect_stroke(fore_rect, 1.0, stroke, StrokeKind::Outside);
+}
+
+fn paint_copy_icon(painter: &egui::Painter, icon_rect: Rect, stroke: Stroke) {
+    let w = icon_rect.width();
+    let h = icon_rect.height();
+    // 背层矩形（右上偏移）
+    let offset = vec2(w * 0.25, h * 0.25);
+    let back_size = vec2(w * 0.7, h * 0.7);
+    let back_rect = Rect::from_min_size(icon_rect.min + offset, back_size);
+    painter.rect_stroke(back_rect, 1.0, stroke, StrokeKind::Outside);
+
+    // 前层矩形
+    let fore_rect = Rect::from_min_size(icon_rect.min, back_size);
+    painter.rect_filled(fore_rect, 1.0, Color32::WHITE);
     painter.rect_stroke(fore_rect, 1.0, stroke, StrokeKind::Outside);
 }
 

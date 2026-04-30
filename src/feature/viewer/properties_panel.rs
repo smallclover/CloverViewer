@@ -3,7 +3,7 @@ use crate::i18n::lang::get_i18n_text;
 use crate::model::image_meta::ImageProperties;
 use crate::model::mode::OverlayMode;
 use crate::ui::widgets::icons::{IconType, draw_icon_button};
-use egui::{Align, Color32, CursorIcon, Grid, Layout, Panel, RichText, Sense, Ui};
+use egui::{Align, CursorIcon, Grid, Layout, Panel, RichText, Sense, Ui};
 
 pub fn draw_properties_panel_inside(ui: &mut Ui, overlay: &mut OverlayMode, viewer: &ViewerState) {
     let mut is_open = matches!(overlay, OverlayMode::Properties);
@@ -51,6 +51,7 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
     Grid::new("basic_properties_grid")
         .num_columns(2)
         .spacing([20.0, 4.0])
+        .min_col_width(70.0)
         .show(ui, |ui| {
             ui.label(format!("{}:", text.image.name));
             ui.add(egui::Label::new(&properties.name).wrap())
@@ -62,10 +63,12 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
             ui.end_row();
 
             ui.label(format!("{}:", text.image.dimensions));
+            ui.label(format!("{}x{}", properties.width, properties.height));
+            ui.end_row();
+
+            ui.label(format!("{}:", text.image.file_size));
             ui.label(format!(
-                "{}x{} {:.1} MB",
-                properties.width,
-                properties.height,
+                "{:.1} MB",
                 (properties.size as f64) / (1024.0 * 1024.0)
             ));
             ui.end_row();
@@ -77,6 +80,7 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
     ui.label(format!("{}:", text.image.path));
     ui.horizontal(|ui| {
         let path_str = properties.path.to_string_lossy().to_string();
+        let link_color = ui.visuals().hyperlink_color;
         // 预留复制按钮的空间
         let label_width = ui.available_width() - 30.0;
 
@@ -85,7 +89,7 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
             Layout::top_down(Align::Min),
             |ui| {
                 let label = egui::Label::new(
-                    RichText::new(&path_str).color(Color32::from_rgb(200, 50, 50)),
+                    RichText::new(&path_str).color(link_color),
                 )
                 .wrap()
                 .sense(Sense::click());
@@ -105,9 +109,8 @@ fn render_properties_content(ui: &mut Ui, properties: &ImageProperties) {
             },
         );
 
-        // 复制按钮 - 使用 egui Button 内置点击状态
-        let btn_response = ui.button("📋");
-        if btn_response.clicked() {
+        // 复制按钮
+        if draw_icon_button(ui, false, IconType::Copy, 20.0).clicked() {
             ui.copy_text(path_str);
         }
     });

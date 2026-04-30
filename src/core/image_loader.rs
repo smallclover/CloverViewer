@@ -231,14 +231,16 @@ impl ImageLoader {
                     .map(|f| f.display_value().to_string())
             };
 
-            properties.date = get_val(Tag::DateTime).unwrap_or_default();
-            properties.make = get_val(Tag::Make).unwrap_or_default();
-            properties.model = get_val(Tag::Model).unwrap_or_default();
-            properties.f_number = get_val(Tag::FNumber).unwrap_or_default();
-            properties.iso = exif
-                .get_field(Tag::PhotographicSensitivity, exif::In::PRIMARY)
-                .and_then(|f| f.value.get_uint(0));
-            properties.focal_length = get_val(Tag::FocalLength).unwrap_or_default();
+            properties.date = get_val(Tag::DateTime)
+                .map(|d| {
+                    let parts: Vec<&str> = d.splitn(2, ' ').collect();
+                    if parts.len() == 2 {
+                        format!("{} {}", parts[0].replace(':', "-"), parts[1])
+                    } else {
+                        d
+                    }
+                })
+                .unwrap_or_default();
 
             return exif
                 .get_field(Tag::Orientation, exif::In::PRIMARY)
@@ -246,6 +248,42 @@ impl ImageLoader {
                 .unwrap_or(1);
         }
         1
+    }
+
+    fn unix_timestamp_to_ymd_hms(mut secs: u64) -> (u32, u32, u32, u32, u32, u32) {
+        let second = (secs % 60) as u32;
+        secs /= 60;
+        let minute = (secs % 60) as u32;
+        secs /= 60;
+        let hour = (secs % 24) as u32;
+        let mut days = secs / 24;
+
+        let mut year = 1970u32;
+        loop {
+            let yd = if Self::is_leap_year(year) { 366 } else { 365 };
+            if days < yd {
+                break;
+            }
+            days -= yd;
+            year += 1;
+        }
+
+        let leap = Self::is_leap_year(year);
+        let month_days = [31, 28 + leap as u64, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let mut month = 1u32;
+        for &md in &month_days {
+            if days < md {
+                break;
+            }
+            days -= md;
+            month += 1;
+        }
+
+        (year, month, days as u32 + 1, hour, minute, second)
+    }
+
+    fn is_leap_year(year: u32) -> bool {
+        (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
     }
 
     fn decode_image(
@@ -272,6 +310,17 @@ impl ImageLoader {
         };
 
         let orientation_value = Self::extract_exif_properties(&data, &mut properties);
+
+        // 无 EXIF 日期时，使用文件修改时间兜底
+        if properties.date.is_empty() {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
+                    let secs = duration.as_secs();
+                    let (y, mo, d, h, mi, s) = Self::unix_timestamp_to_ymd_hms(secs);
+                    properties.date = format!("{y:04}-{mo:02}-{d:02} {h:02}:{mi:02}:{s:02}");
+                }
+            }
+        }
 
         let is_jpeg = data.len() > 2 && data[0] == 0xFF && data[1] == 0xD8;
 
@@ -311,7 +360,6 @@ impl ImageLoader {
 
         properties.width = img.width();
         properties.height = img.height();
-        properties.bits = Some(img.color().bits_per_pixel() as u32);
 
         let processed_img = if let Some((w, h)) = size {
             img.resize_to_fill(w, h, FilterType::Nearest)

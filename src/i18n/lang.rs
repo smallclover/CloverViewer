@@ -121,6 +121,7 @@ pub struct ImageText {
     pub date: &'static str,
     pub path: &'static str,
     pub dimensions: &'static str,
+    pub file_size: &'static str,
 }
 
 pub struct StatusText {
@@ -140,6 +141,7 @@ pub struct TooltipText {
     pub save: &'static str,
     pub save_to_clipboard: &'static str,
     pub mouse_copy_color: &'static str,
+    pub copy: &'static str,
 }
 
 pub struct HelpText {
@@ -256,6 +258,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
         date: "日期",
         path: "图片路径",
         dimensions: "图片尺寸",
+        file_size: "文件大小",
     },
     status: StatusText {
         grid: "网格视图",
@@ -273,6 +276,7 @@ pub const ZH_TEXT: TextBundle = TextBundle {
         save: "保存到桌面",
         save_to_clipboard: "复制到剪贴板",
         mouse_copy_color: "复制颜色",
+        copy: "复制",
     },
     help: HelpText {
         shortcuts: "【快捷键】",
@@ -366,6 +370,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
         date: "Datetime",
         path: "File Path",
         dimensions: "Dimension",
+        file_size: "File Size",
     },
     status: StatusText {
         grid: "Grid View",
@@ -383,6 +388,7 @@ pub const EN_TEXT: TextBundle = TextBundle {
         save: "Save to Desktop",
         save_to_clipboard: "Copy to Clipboard",
         mouse_copy_color: "Copy Color",
+        copy: "Copy",
     },
     help: HelpText {
         shortcuts: "[ Shortcuts ]",
@@ -476,6 +482,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
         date: "日付",
         path: "ファイルパス",
         dimensions: "ディメンション",
+        file_size: "ファイルサイズ",
     },
     status: StatusText {
         grid: "グリッド表示",
@@ -493,6 +500,7 @@ pub const JA_TEXT: TextBundle = TextBundle {
         save: "デスクトップに保存",
         save_to_clipboard: "クリップボードにコピー",
         mouse_copy_color: "色をコピー",
+        copy: "コピー",
     },
     help: HelpText {
         shortcuts: "【ショートカット】",
