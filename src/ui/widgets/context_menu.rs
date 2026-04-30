@@ -74,8 +74,8 @@ pub fn handle_context_menu_action(
     match action {
         ContextMenuAction::Copy => {
             if let (Some(tex), Some(pixels)) = (
-                viewer.current_texture.as_ref(),
-                viewer.current_raw_pixels.clone(),
+                viewer.current.texture.as_ref(),
+                viewer.current.raw_pixels.clone(),
             ) {
                 let [w, h] = tex.size();
                 copy_image_to_clipboard_async(ctx, pixels, w, h, toast_manager);

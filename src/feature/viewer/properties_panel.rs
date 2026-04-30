@@ -32,7 +32,7 @@ pub fn draw_properties_panel_inside(ui: &mut Ui, panel: &mut PanelMode, viewer: 
             });
             ui.separator();
 
-            if let Some(props) = &viewer.current_properties {
+            if let Some(props) = &viewer.current.properties {
                 render_properties_content(ui, props);
             } else {
                 ui.label(text.properties.no_image);

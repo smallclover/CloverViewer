@@ -50,9 +50,9 @@ pub fn draw_grid_view(ctx: &Context, ui: &mut Ui, viewer: &mut ViewerState) {
 
     let list = &viewer.list;
     let current_index = viewer.index;
-    let thumb_cache = &mut viewer.thumb_cache;
-    let loading_thumbs = &mut viewer.loading_thumbs;
-    let failed_thumbs = &viewer.failed_thumbs;
+    let thumb_cache = &mut viewer.thumbs.cache;
+    let loading_thumbs = &mut viewer.thumbs.loading;
+    let failed_thumbs = &viewer.thumbs.failed;
     let loader = &mut viewer.loader;
 
     let visible_rect = ui.clip_rect();

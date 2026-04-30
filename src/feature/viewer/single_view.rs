@@ -18,8 +18,8 @@ pub fn draw_single_view(
     let rect = ui.available_rect_before_wrap();
     let text = get_i18n_text(ctx);
 
-    let current_texture = viewer.current_texture.clone();
-    let is_transitioning = viewer.transition_phase != TransitionPhase::None;
+    let current_texture = viewer.current.texture.clone();
+    let is_transitioning = viewer.transition.phase != TransitionPhase::None;
 
     render_image_viewer(ui, rect, current_texture.as_ref(), viewer);
 
@@ -44,8 +44,8 @@ pub fn draw_single_view(
         }
     }
 
-    if current_texture.is_none() && viewer.transition_phase == TransitionPhase::None {
-        if let Some(err) = viewer.error.as_ref() {
+    if current_texture.is_none() && viewer.transition.phase == TransitionPhase::None {
+        if let Some(err) = viewer.current.error.as_ref() {
             ui.scope_builder(UiBuilder::new().max_rect(rect), |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(ui.available_height() * 0.4);
@@ -99,16 +99,16 @@ fn render_image_viewer(
 
     let fade_in_duration = 0.12;
 
-    let next_ready = viewer.transition_target_path.is_some()
-        && viewer.current_texture.is_some()
-        && viewer.current_texture_path.as_ref() == viewer.transition_target_path.as_ref();
+    let next_ready = viewer.transition.target_path.is_some()
+        && viewer.current.texture.is_some()
+        && viewer.current.texture_path.as_ref() == viewer.transition.target_path.as_ref();
 
-    if viewer.transition_phase == TransitionPhase::WaitNext && next_ready {
-        viewer.transition_phase = TransitionPhase::FadeIn;
-        viewer.transition_phase_start_time = Some(now);
+    if viewer.transition.phase == TransitionPhase::WaitNext && next_ready {
+        viewer.transition.phase = TransitionPhase::FadeIn;
+        viewer.transition.phase_start_time = Some(now);
     }
 
-    match viewer.transition_phase {
+    match viewer.transition.phase {
         TransitionPhase::None => {
             if let Some(tex) = tex {
                 render_normal_image(ui, tex, viewer);
@@ -123,22 +123,22 @@ fn render_image_viewer(
                 ui.put(spinner_rect, egui::Spinner::new().size(32.0));
             }
 
-            if viewer.error.is_some() && !viewer.loader.is_loading {
-                viewer.transition_phase = TransitionPhase::None;
-                viewer.transition_phase_start_time = None;
-                viewer.transition_target_path = None;
+            if viewer.current.error.is_some() && !viewer.loader.is_loading {
+                viewer.transition.phase = TransitionPhase::None;
+                viewer.transition.phase_start_time = None;
+                viewer.transition.target_path = None;
             } else if viewer.loader.is_loading {
                 ui.request_repaint();
             }
         }
         TransitionPhase::FadeIn => {
             if !next_ready {
-                viewer.transition_phase = TransitionPhase::WaitNext;
-                viewer.transition_phase_start_time = Some(now);
+                viewer.transition.phase = TransitionPhase::WaitNext;
+                viewer.transition.phase_start_time = Some(now);
                 return;
             }
 
-            let start = viewer.transition_phase_start_time.unwrap_or(now);
+            let start = viewer.transition.phase_start_time.unwrap_or(now);
             let progress = ((now - start) / fade_in_duration).clamp(0.0, 1.0) as f32;
             let overlay_alpha = 1.0 - progress;
 
@@ -156,11 +156,11 @@ fn render_image_viewer(
             if progress < 1.0 {
                 ui.request_repaint();
             } else {
-                viewer.transition_phase = TransitionPhase::None;
-                viewer.transition_phase_start_time = None;
-                viewer.transition_target_path = None;
-                viewer.previous_texture = None;
-                viewer.previous_zoom = None;
+                viewer.transition.phase = TransitionPhase::None;
+                viewer.transition.phase_start_time = None;
+                viewer.transition.target_path = None;
+                viewer.transition.previous_texture = None;
+                viewer.transition.previous_zoom = None;
             }
         }
     }

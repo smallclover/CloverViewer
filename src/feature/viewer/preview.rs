@@ -242,9 +242,9 @@ fn render_visible_items(
                 Vec2::new(PICKER_ITEM_WIDTH, PICKER_ITEM_HEIGHT) * preview_scale(factor),
             );
 
-            let thumb_state = if let Some(tex) = viewer.thumb_cache.get(path) {
+            let thumb_state = if let Some(tex) = viewer.thumbs.cache.get(path) {
                 ThumbnailState::Loaded(tex)
-            } else if viewer.failed_thumbs.contains(path) {
+            } else if viewer.thumbs.failed.contains(path) {
                 ThumbnailState::Failed
             } else {
                 to_load.push(path.clone());
@@ -284,8 +284,8 @@ fn queue_thumbnail_loads(
     to_load: Vec<std::path::PathBuf>,
 ) {
     for path in to_load {
-        if !viewer.loading_thumbs.contains(&path) {
-            viewer.loading_thumbs.insert(path.clone());
+        if !viewer.thumbs.loading.contains(&path) {
+            viewer.thumbs.loading.insert(path.clone());
             viewer
                 .loader
                 .load_async(ctx.clone(), path, false, Some((160, 120)));

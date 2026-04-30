@@ -328,7 +328,7 @@ impl ViewerFeature {
         }
 
         // 加载提示
-        if self.state.current_texture.is_none() && self.state.loader.is_loading {
+        if self.state.current.texture.is_none() && self.state.loader.is_loading {
             global_loading(ctx, text.loading.parsing.to_string());
         }
 
