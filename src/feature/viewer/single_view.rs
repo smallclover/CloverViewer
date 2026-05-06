@@ -168,12 +168,6 @@ fn render_image_viewer(
 
 fn render_normal_image(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerState) {
     let available_size = ui.available_size();
-    if let Some(last_size) = viewer.last_view_size
-        && ((last_size.x - available_size.x).abs() > 1.0
-            || (last_size.y - available_size.y).abs() > 1.0)
-    {
-        viewer.zoom = viewer.calc_fit_zoom(ui, tex.size_vec2());
-    }
     viewer.last_view_size = Some(available_size);
 
     let is_loading_high_res = viewer.loader.is_loading;
