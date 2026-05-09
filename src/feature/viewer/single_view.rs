@@ -24,9 +24,8 @@ pub fn draw_single_view(
     // 设置光标：仅当指针在中央区域、图片可拖拽、且不在箭头区域时显示 Move
     let pointer_pos = ui.input(|i| i.pointer.hover_pos());
     let pointer_in_rect = pointer_pos.is_some_and(|pos| rect.contains(pos));
-    let in_arrow_zone = pointer_pos.is_some_and(|pos| {
-        pos.x < rect.min.x + 100.0 || pos.x > rect.max.x - 100.0
-    });
+    let in_arrow_zone =
+        pointer_pos.is_some_and(|pos| pos.x < rect.min.x + 100.0 || pos.x > rect.max.x - 100.0);
 
     let has_popup = !matches!(popup, PopupMode::None);
 
