@@ -1,5 +1,6 @@
 use crate::feature::screenshot::capture::ScreenshotState;
 use crate::i18n::lang::get_i18n_text;
+use crate::model::device::get_screen_phys_rect;
 use eframe::egui::ColorImage;
 use eframe::egui::{Align2, Color32, FontId, Painter, Pos2, Rect, Stroke, StrokeKind, Ui, Vec2};
 use egui::epaint::Vertex;
@@ -71,10 +72,7 @@ pub fn handle_magnifier(
     // 1. 寻找鼠标当前所在的具体屏幕
     let mut target_screen = None;
     for cap in &state.capture.captures {
-        let rect = Rect::from_min_size(
-            Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
-            eframe::egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32),
-        );
+        let rect = get_screen_phys_rect(&cap.screen_info);
         if rect.contains(global_pointer_phys) {
             target_screen = Some(cap);
             break;

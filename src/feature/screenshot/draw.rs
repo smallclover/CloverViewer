@@ -1,7 +1,7 @@
 use crate::feature::screenshot::canvas::mosaic::apply_mosaic_to_cropped_image;
 use crate::feature::screenshot::capture::{DrawnShape, ScreenshotTool};
 use ab_glyph::{FontRef, PxScale};
-use eframe::egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2};
+use eframe::egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, Vec2, pos2};
 use image::{Rgba, RgbaImage};
 use std::sync::LazyLock;
 
@@ -49,6 +49,17 @@ pub fn draw_egui_shape(
     }
 }
 
+/// 计算箭头头部两翼的顶点坐标
+fn compute_arrow_head(start: Pos2, end: Pos2, stroke_width: f32) -> Option<[Pos2; 2]> {
+    let dir = (end - start).normalized();
+    if dir == Vec2::ZERO {
+        return None;
+    }
+    let arrow_size = 12.0 + stroke_width * 2.0;
+    let perp = Vec2::new(dir.y, -dir.x) * arrow_size * 0.5;
+    Some([end - dir * arrow_size + perp, end - dir * arrow_size - perp])
+}
+
 /// 绘制箭头 (Egui)
 fn draw_arrow_egui(painter: &Painter, start: Pos2, end: Pos2, stroke_width: f32, color: Color32) {
     let stroke = Stroke::new(stroke_width, color);
@@ -56,22 +67,13 @@ fn draw_arrow_egui(painter: &Painter, start: Pos2, end: Pos2, stroke_width: f32,
     // 绘制主线
     painter.line_segment([start, end], stroke);
 
-    // 计算箭头方向
-    let dir = (end - start).normalized();
-    if dir == Vec2::ZERO {
+    let Some([p1, p2]) = compute_arrow_head(start, end, stroke_width) else {
         return;
-    }
-
-    // 箭头头部大小
-    let arrow_size = 12.0 + stroke_width * 2.0;
-
-    // 计算箭头两翼
-    let arrow_p1 = end - dir * arrow_size + Vec2::new(dir.y, -dir.x) * arrow_size * 0.5;
-    let arrow_p2 = end - dir * arrow_size - Vec2::new(dir.y, -dir.x) * arrow_size * 0.5;
+    };
 
     // 绘制箭头头部
-    painter.line_segment([end, arrow_p1], stroke);
-    painter.line_segment([end, arrow_p2], stroke);
+    painter.line_segment([end, p1], stroke);
+    painter.line_segment([end, p2], stroke);
 }
 
 /// 绘制箭头 (Tiny-Skia)
@@ -85,21 +87,8 @@ fn draw_arrow_skia(
     stroke: &tiny_skia::Stroke,
 ) {
     let transform = tiny_skia::Transform::identity();
-    let dx = end_x - start_x;
-    let dy = end_y - start_y;
-    let len = (dx * dx + dy * dy).sqrt();
-    if len <= 0.0 {
-        return;
-    }
-
-    let dir_x = dx / len;
-    let dir_y = dy / len;
-    let arrow_size = 12.0 + stroke.width * 2.0;
-
-    let arrow_p1_x = end_x - dir_x * arrow_size + dir_y * arrow_size * 0.5;
-    let arrow_p1_y = end_y - dir_y * arrow_size - dir_x * arrow_size * 0.5;
-    let arrow_p2_x = end_x - dir_x * arrow_size - dir_y * arrow_size * 0.5;
-    let arrow_p2_y = end_y - dir_y * arrow_size + dir_x * arrow_size * 0.5;
+    let start = pos2(start_x, start_y);
+    let end = pos2(end_x, end_y);
 
     let mut pb = tiny_skia::PathBuilder::new();
     pb.move_to(start_x, start_y);
@@ -108,16 +97,20 @@ fn draw_arrow_skia(
         pixmap.stroke_path(&path, paint, stroke, transform, None);
     }
 
+    let Some([p1, p2]) = compute_arrow_head(start, end, stroke.width) else {
+        return;
+    };
+
     let mut pb1 = tiny_skia::PathBuilder::new();
     pb1.move_to(end_x, end_y);
-    pb1.line_to(arrow_p1_x, arrow_p1_y);
+    pb1.line_to(p1.x, p1.y);
     if let Some(path1) = pb1.finish() {
         pixmap.stroke_path(&path1, paint, stroke, transform, None);
     }
 
     let mut pb2 = tiny_skia::PathBuilder::new();
     pb2.move_to(end_x, end_y);
-    pb2.line_to(arrow_p2_x, arrow_p2_y);
+    pb2.line_to(p2.x, p2.y);
     if let Some(path2) = pb2.finish() {
         pixmap.stroke_path(&path2, paint, stroke, transform, None);
     }

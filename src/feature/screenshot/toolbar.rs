@@ -1,4 +1,5 @@
 use super::capture::{ScreenshotAction, ScreenshotState, ScreenshotTool};
+use crate::model::device::get_screen_phys_rect;
 use crate::ui::widgets::icons::{IconType, draw_icon_button};
 use eframe::egui::{self, Color32, Painter, Pos2, Rect, Stroke, StrokeKind, Ui, Vec2};
 use egui::{Response, UiBuilder};
@@ -36,10 +37,7 @@ pub fn calculate_toolbar_rect(
     // 2. 找到当前工具栏所在的物理显示器边界
     let mut current_monitor_rect = None;
     for cap in &state.capture.captures {
-        let cap_phys_rect = Rect::from_min_size(
-            Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
-            egui::vec2(cap.screen_info.width as f32, cap.screen_info.height as f32),
-        );
+        let cap_phys_rect = get_screen_phys_rect(&cap.screen_info);
 
         // 因为 toolbar_pos 是选区右下角，可能正好压在边界上，所以向外扩展几个像素来保证能命中
         if cap_phys_rect.expand(5.0).contains(global_toolbar_pos_phys) {

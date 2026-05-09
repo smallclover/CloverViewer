@@ -1,7 +1,7 @@
 use crate::feature::screenshot::capture::{ScreenshotAction, ScreenshotState};
 use crate::feature::screenshot::draw::draw_skia_shapes_on_image;
+use crate::model::device::get_screen_phys_rect;
 use arboard::{Clipboard, ImageData};
-use eframe::egui::Rect;
 use image::{GenericImage, RgbaImage};
 use std::borrow::Cow;
 use std::path::PathBuf;
@@ -60,15 +60,7 @@ pub fn extract_cropped_image(screenshot_state: &ScreenshotState) -> Option<RgbaI
         .capture
         .captures
         .iter()
-        .map(|c| {
-            (
-                c.raw_image.clone(),
-                Rect::from_min_size(
-                    egui::pos2(c.screen_info.x as f32, c.screen_info.y as f32),
-                    egui::vec2(c.screen_info.width as f32, c.screen_info.height as f32),
-                ),
-            )
-        })
+        .map(|c| (c.raw_image.clone(), get_screen_phys_rect(&c.screen_info)))
         .collect();
 
     let final_width = selection_phys.width().round() as u32;

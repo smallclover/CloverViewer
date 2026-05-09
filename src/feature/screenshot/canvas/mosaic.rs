@@ -5,6 +5,7 @@ use std::collections::HashSet;
 use super::MOSAIC_BLOCK_SIZE;
 use crate::feature::screenshot::capture::CapturedScreen;
 use crate::feature::screenshot::state::MosaicCache;
+use crate::model::device::get_screen_phys_rect;
 
 fn mosaic_radius_phys(mosaic_width: f32, ppp: f32) -> f32 {
     (mosaic_width * ppp) / 2.0
@@ -81,10 +82,7 @@ fn collect_clipped_mosaic_cells(
 
 fn sample_mosaic_color(captures: &[CapturedScreen], cell_center_phys: Pos2) -> Color32 {
     for cap in captures {
-        let rect = Rect::from_min_size(
-            Pos2::new(cap.screen_info.x as f32, cap.screen_info.y as f32),
-            Vec2::new(cap.screen_info.width as f32, cap.screen_info.height as f32),
-        );
+        let rect = get_screen_phys_rect(&cap.screen_info);
         if rect.contains(cell_center_phys) {
             let local_x = (cell_center_phys.x - rect.min.x) as u32;
             let local_y = (cell_center_phys.y - rect.min.y) as u32;
