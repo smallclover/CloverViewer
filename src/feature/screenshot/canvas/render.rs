@@ -1,7 +1,7 @@
 use eframe::egui::{Color32, Painter, Pos2, Rect, Stroke, StrokeKind, Ui};
 
 use crate::feature::screenshot::canvas::{
-    ANCHOR_SIZE, CanvasState, OVERLAY_ALPHA, phys_to_local, shape::ShapeRender,
+    ANCHOR_SIZE, CanvasState, OVERLAY_ALPHA, phys_rect_to_local, phys_to_local, shape::ShapeRender,
 };
 use crate::feature::screenshot::capture::{ScreenshotState, ScreenshotTool};
 
@@ -170,10 +170,7 @@ fn render_overlay(
     let overlay_color = Color32::from_rgba_unmultiplied(0, 0, 0, OVERLAY_ALPHA);
 
     if let Some(global_sel_phys) = state.select.selection {
-        let vec_min = global_sel_phys.min - global_offset_phys;
-        let vec_max = global_sel_phys.max - global_offset_phys;
-        let local_logical_rect =
-            Rect::from_min_max(Pos2::ZERO + (vec_min / ppp), Pos2::ZERO + (vec_max / ppp));
+        let local_logical_rect = phys_rect_to_local(global_sel_phys, global_offset_phys, ppp);
         let clipped_local_sel = local_logical_rect.intersect(viewport_rect);
 
         if clipped_local_sel.is_positive() {
@@ -222,12 +219,8 @@ fn render_overlay(
                     &state.capture.captures,
                     global_pointer_phys,
                 ) {
-                    let vec_min = cap_phys_rect.min - global_offset_phys;
-                    let vec_max = cap_phys_rect.max - global_offset_phys;
-                    let local_logical_rect = Rect::from_min_max(
-                        Pos2::ZERO + (vec_min / ppp),
-                        Pos2::ZERO + (vec_max / ppp),
-                    );
+                    let local_logical_rect =
+                        phys_rect_to_local(cap_phys_rect, global_offset_phys, ppp);
                     paint_style_box(painter, local_logical_rect, 3.0);
                 }
             }
@@ -254,10 +247,7 @@ fn paint_hover_window_overlay(
     viewport_rect: Rect,
     overlay_color: Color32,
 ) {
-    let vec_min = hover_phys_rect.min - global_offset_phys;
-    let vec_max = hover_phys_rect.max - global_offset_phys;
-    let local_logical_rect =
-        Rect::from_min_max(Pos2::ZERO + (vec_min / ppp), Pos2::ZERO + (vec_max / ppp));
+    let local_logical_rect = phys_rect_to_local(hover_phys_rect, global_offset_phys, ppp);
     let clipped_local_sel = local_logical_rect.intersect(viewport_rect);
 
     if clipped_local_sel.is_positive() {
@@ -346,10 +336,7 @@ fn render_selection_frame(
         return;
     };
 
-    let vec_min = global_sel_phys.min - global_offset_phys;
-    let vec_max = global_sel_phys.max - global_offset_phys;
-    let local_logical_rect =
-        Rect::from_min_max(Pos2::ZERO + (vec_min / ppp), Pos2::ZERO + (vec_max / ppp));
+    let local_logical_rect = phys_rect_to_local(global_sel_phys, global_offset_phys, ppp);
     let clipped_local_sel = local_logical_rect.intersect(viewport_rect);
 
     if clipped_local_sel.is_positive() {

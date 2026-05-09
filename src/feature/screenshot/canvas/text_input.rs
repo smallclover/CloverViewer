@@ -1,6 +1,6 @@
 use eframe::egui::{Color32, Id, Pos2, Rect, Stroke, Ui};
 
-use crate::feature::screenshot::canvas::commit_text_shape;
+use crate::feature::screenshot::canvas::{commit_text_shape, phys_to_local};
 use crate::feature::screenshot::capture::{DrawnShape, ScreenshotState};
 
 const TEXT_EDIT_ID: &str = "screenshot_text_edit";
@@ -14,7 +14,7 @@ pub fn render_text_input(
 ) {
     if let Some((pos_phys, mut text)) = state.input.active_text_input.clone() {
         let font_size = DrawnShape::text_font_size(state.drawing.stroke_width);
-        let mut pos_local = Pos2::ZERO + ((pos_phys - global_offset_phys) / ppp);
+        let mut pos_local = phys_to_local(pos_phys, global_offset_phys, ppp);
 
         // 默认文本框宽度（逻辑坐标）：约1字宽 + 内边距16
         let default_box_width = font_size + 16.0;

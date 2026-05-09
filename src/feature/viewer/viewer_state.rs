@@ -331,7 +331,12 @@ impl ViewerState {
         }
     }
 
-    pub fn update_zoom(&mut self, delta: f32, pointer_pos: Option<egui::Pos2>, viewport: egui::Rect) {
+    pub fn update_zoom(
+        &mut self,
+        delta: f32,
+        pointer_pos: Option<egui::Pos2>,
+        viewport: egui::Rect,
+    ) {
         if delta == 0.0 {
             return;
         }

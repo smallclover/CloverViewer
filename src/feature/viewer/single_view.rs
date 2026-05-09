@@ -1,7 +1,5 @@
 use eframe::egui;
-use egui::{
-    Color32, Context, CursorIcon, Rect, RichText, Spinner, TextureHandle, Ui, UiBuilder,
-};
+use egui::{Color32, Context, CursorIcon, Rect, RichText, Spinner, TextureHandle, Ui, UiBuilder};
 
 use crate::feature::viewer::arrows::{Nav, draw_arrows};
 use crate::feature::viewer::preview::show_preview_window;

@@ -8,12 +8,20 @@ pub mod shape;
 pub mod text_input;
 
 use crate::feature::screenshot::capture::{DrawnShape, ScreenshotState, ScreenshotTool};
-use eframe::egui::{Color32, Id, Pos2, Ui, Vec2};
+use eframe::egui::{Color32, Id, Pos2, Rect, Ui, Vec2};
 use std::sync::Arc;
 
 /// 物理坐标转换为本地逻辑坐标
 pub fn phys_to_local(pos: Pos2, global_offset_phys: Pos2, ppp: f32) -> Pos2 {
     Pos2::ZERO + ((pos - global_offset_phys) / ppp)
+}
+
+/// 物理矩形转换为本地逻辑矩形
+pub fn phys_rect_to_local(rect: Rect, global_offset_phys: Pos2, ppp: f32) -> Rect {
+    Rect::from_min_max(
+        phys_to_local(rect.min, global_offset_phys, ppp),
+        phys_to_local(rect.max, global_offset_phys, ppp),
+    )
 }
 
 /// 马赛克块大小（物理像素）

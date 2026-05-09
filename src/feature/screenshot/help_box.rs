@@ -1,3 +1,4 @@
+use crate::feature::screenshot::canvas::phys_to_local;
 use crate::feature::screenshot::state::ScreenshotState;
 use crate::i18n::lang::get_i18n_text;
 use crate::model::config::get_context_config;
@@ -21,12 +22,12 @@ pub fn render_help_box(ui: &mut Ui, state: &ScreenshotState, global_offset_phys:
                     .unwrap_or_else(|| Rect::from_min_size(Pos2::ZERO, egui::vec2(1920.0, 1080.0)))
             });
 
-        let screen_min_local = Pos2::ZERO + ((screen_phys.min - global_offset_phys) / ppp);
-        let screen_max_local = Pos2::ZERO + ((screen_phys.max - global_offset_phys) / ppp);
+        let screen_min_local = phys_to_local(screen_phys.min, global_offset_phys, ppp);
+        let screen_max_local = phys_to_local(screen_phys.max, global_offset_phys, ppp);
         let screen_logical = Rect::from_min_max(screen_min_local, screen_max_local);
 
-        let sel_min_local = Pos2::ZERO + ((global_sel_phys.min - global_offset_phys) / ppp);
-        let sel_max_local = Pos2::ZERO + ((global_sel_phys.max - global_offset_phys) / ppp);
+        let sel_min_local = phys_to_local(global_sel_phys.min, global_offset_phys, ppp);
+        let sel_max_local = phys_to_local(global_sel_phys.max, global_offset_phys, ppp);
         let sel_logical = Rect::from_min_max(sel_min_local, sel_max_local);
 
         let margin = 24.0;
