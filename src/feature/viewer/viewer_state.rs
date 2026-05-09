@@ -51,6 +51,7 @@ pub struct ViewerState {
     pub current: CurrentImage,
     pub zoom: f32,
     pub last_view_size: Option<egui::Vec2>,
+    pub viewport_offset: egui::Vec2,
     pub thumbs: ThumbManager,
     pub transition: TransitionState,
     pub view_mode: ViewMode,
@@ -72,6 +73,7 @@ impl ViewerState {
             },
             zoom: 1.0,
             last_view_size: None,
+            viewport_offset: egui::Vec2::ZERO,
             thumbs: ThumbManager {
                 cache: LruCache::new(NonZeroUsize::new(1000).expect("1000 is non-zero")),
                 failed: HashSet::new(),
@@ -160,6 +162,7 @@ impl ViewerState {
         self.current.texture_path = None;
         self.current.properties = None;
         self.current.raw_pixels = None;
+        self.viewport_offset = egui::Vec2::ZERO;
         self.transition.previous_texture = None;
         self.transition.previous_zoom = None;
         self.transition.phase = TransitionPhase::None;
@@ -207,6 +210,7 @@ impl ViewerState {
                                     let new_zoom =
                                         self.calc_fit_zoom(ctx, success.texture.size_vec2());
                                     self.zoom = new_zoom;
+                                    self.viewport_offset = egui::Vec2::ZERO;
 
                                     self.current.texture = Some(success.texture);
                                     self.current.texture_path = self.current();
@@ -266,6 +270,7 @@ impl ViewerState {
             if let Some(tex) = cached_tex {
                 let new_zoom = self.calc_fit_zoom(&ctx, tex.size_vec2());
                 self.zoom = new_zoom;
+                self.viewport_offset = egui::Vec2::ZERO;
                 self.current.texture = Some(tex.clone());
                 self.current.texture_path = Some(path);
                 self.loader.is_loading = false;
@@ -326,9 +331,33 @@ impl ViewerState {
         }
     }
 
-    pub fn update_zoom(&mut self, delta: f32) {
-        if delta != 0.0 {
-            self.zoom = (self.zoom + delta * 0.001).clamp(0.1, 10.0);
+    pub fn update_zoom(&mut self, delta: f32, pointer_pos: Option<egui::Pos2>, viewport: egui::Rect) {
+        if delta == 0.0 {
+            return;
+        }
+        let old_zoom = self.zoom;
+        let new_zoom = (old_zoom + delta * 0.001).clamp(0.1, 10.0);
+        if (new_zoom - old_zoom).abs() < f32::EPSILON {
+            return;
+        }
+
+        if let Some(pointer) = pointer_pos
+            && let Some(tex) = self.current.texture.as_ref()
+        {
+            let img_size = tex.size_vec2();
+            let img_origin = viewport.min + self.viewport_offset;
+            // pointer position in image pixel space
+            let img_coord = (pointer - img_origin) / old_zoom;
+            self.zoom = new_zoom;
+            let new_scaled_size = img_size * new_zoom;
+            // keep the same image pixel under the pointer
+            let new_origin = pointer - img_coord * new_zoom;
+            self.viewport_offset = new_origin - viewport.min;
+            // clamp so image doesn't go too far off-screen
+            let max_off = new_scaled_size * 0.5;
+            self.viewport_offset = self.viewport_offset.clamp(-max_off, max_off);
+        } else {
+            self.zoom = new_zoom;
         }
     }
 

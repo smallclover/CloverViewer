@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui::{
-    Color32, Context, CursorIcon, Rect, RichText, ScrollArea, Spinner, TextureHandle, Ui, UiBuilder,
+    Color32, Context, CursorIcon, Rect, RichText, Spinner, TextureHandle, Ui, UiBuilder,
 };
 
 use crate::feature::viewer::arrows::{Nav, draw_arrows};
@@ -21,7 +21,22 @@ pub fn draw_single_view(
     let current_texture = viewer.current.texture.clone();
     let is_transitioning = viewer.transition.phase != TransitionPhase::None;
 
-    render_image_viewer(ui, rect, current_texture.as_ref(), viewer);
+    let is_draggable = render_image_viewer(ui, rect, current_texture.as_ref(), viewer);
+
+    // 设置光标：仅当指针在中央区域、图片可拖拽、且不在箭头区域时显示 Move
+    let pointer_pos = ui.input(|i| i.pointer.hover_pos());
+    let pointer_in_rect = pointer_pos.map_or(false, |pos| rect.contains(pos));
+    let in_arrow_zone = pointer_pos.map_or(false, |pos| {
+        pos.x < rect.min.x + 100.0 || pos.x > rect.max.x - 100.0
+    });
+
+    let has_popup = !matches!(popup, PopupMode::None);
+
+    if !has_popup && is_draggable && pointer_in_rect && !in_arrow_zone {
+        ui.set_cursor_icon(CursorIcon::Move);
+    } else {
+        ui.set_cursor_icon(CursorIcon::Default);
+    }
 
     if !is_transitioning
         && ui.input(|i| i.pointer.secondary_clicked())
@@ -94,7 +109,7 @@ fn render_image_viewer(
     view_rect: Rect,
     tex: Option<&TextureHandle>,
     viewer: &mut ViewerState,
-) {
+) -> bool {
     let now = ui.input(|i| i.time);
 
     let fade_in_duration = 0.12;
@@ -111,7 +126,7 @@ fn render_image_viewer(
     match viewer.transition.phase {
         TransitionPhase::None => {
             if let Some(tex) = tex {
-                render_normal_image(ui, tex, viewer);
+                return render_normal_image(ui, tex, viewer);
             }
         }
         TransitionPhase::WaitNext => {
@@ -135,7 +150,7 @@ fn render_image_viewer(
             if !next_ready {
                 viewer.transition.phase = TransitionPhase::WaitNext;
                 viewer.transition.phase_start_time = Some(now);
-                return;
+                return false;
             }
 
             let start = viewer.transition.phase_start_time.unwrap_or(now);
@@ -163,65 +178,75 @@ fn render_image_viewer(
                 viewer.transition.previous_zoom = None;
             }
         }
-    }
+    };
+
+    false
 }
 
-fn render_normal_image(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerState) {
+fn render_normal_image(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerState) -> bool {
     let available_size = ui.available_size();
     viewer.last_view_size = Some(available_size);
 
     let is_loading_high_res = viewer.loader.is_loading;
     let zoom = viewer.zoom.max(0.01);
-    let size = (tex.size_vec2() * zoom).max(egui::Vec2::ZERO);
-    let is_draggable = size.x > available_size.x || size.y > available_size.y;
+    let img_size = tex.size_vec2() * zoom;
+    let viewport = ui.max_rect();
 
-    if is_draggable && ui.rect_contains_pointer(ui.max_rect()) {
-        ui.set_cursor_icon(CursorIcon::Move);
+    let is_draggable = img_size.x > viewport.width() || img_size.y > viewport.height();
+
+    // Auto-center when image is smaller than viewport
+    if !is_draggable {
+        viewer.viewport_offset = egui::vec2(
+            (viewport.width() - img_size.x) * 0.5,
+            (viewport.height() - img_size.y) * 0.5,
+        );
     }
 
+    let img_origin = viewport.min + viewer.viewport_offset;
+    let img_rect = Rect::from_min_size(img_origin, img_size);
+
+    // Handle drag
+    let sense = if is_draggable {
+        egui::Sense::drag()
+    } else {
+        egui::Sense::hover()
+    };
+    let response = ui.allocate_rect(viewport, sense);
+
+    if is_draggable && response.dragged() {
+        viewer.viewport_offset += response.drag_delta();
+    }
+
+    // Draw the image
+    ui.painter().image(
+        tex.id(),
+        img_rect,
+        Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        Color32::WHITE,
+    );
+
+    // Loading overlay
     let fade_alpha = ui.animate_bool_with_time(
         egui::Id::new(tex.id()).with("loading_fade"),
         is_loading_high_res,
         0.25,
     );
 
-    ScrollArea::both()
-        .scroll_source(egui::scroll_area::ScrollSource::DRAG)
-        .auto_shrink([false; 2])
-        .show(ui, |ui| {
-            let x_offset = (available_size.x - size.x).max(0.0) * 0.5;
-            let y_offset = (available_size.y - size.y).max(0.0) * 0.5;
+    if fade_alpha > 0.0 {
+        let painter = ui.painter_at(img_rect);
+        painter.rect_filled(
+            img_rect,
+            0.0,
+            Color32::BLACK.gamma_multiply(fade_alpha * 0.4),
+        );
+        let spinner_rect = Rect::from_center_size(img_rect.center(), egui::vec2(32.0, 32.0));
+        ui.put(
+            spinner_rect,
+            egui::Spinner::new()
+                .size(32.0)
+                .color(Color32::WHITE.gamma_multiply(fade_alpha)),
+        );
+    }
 
-            ui.horizontal(|ui| {
-                ui.add_space(x_offset);
-                ui.vertical(|ui| {
-                    ui.add_space(y_offset);
-                    let img_rect = ui.allocate_exact_size(size, egui::Sense::hover()).0;
-
-                    ui.painter().image(
-                        tex.id(),
-                        img_rect,
-                        Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                        Color32::WHITE,
-                    );
-
-                    if fade_alpha > 0.0 {
-                        let painter = ui.painter_at(img_rect);
-                        painter.rect_filled(
-                            img_rect,
-                            0.0,
-                            Color32::BLACK.gamma_multiply(fade_alpha * 0.4),
-                        );
-                        let spinner_rect =
-                            Rect::from_center_size(img_rect.center(), egui::vec2(32.0, 32.0));
-                        ui.put(
-                            spinner_rect,
-                            egui::Spinner::new()
-                                .size(32.0)
-                                .color(Color32::WHITE.gamma_multiply(fade_alpha)),
-                        );
-                    }
-                });
-            });
-        });
+    is_draggable
 }

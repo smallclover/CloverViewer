@@ -138,7 +138,9 @@ impl ViewerFeature {
 
         // 缩放
         let scroll_delta = ctx.input(|i| i.smooth_scroll_delta.y);
-        self.state.update_zoom(scroll_delta);
+        let pointer_pos = ctx.input(|i| i.pointer.hover_pos());
+        let viewport = ctx.content_rect();
+        self.state.update_zoom(scroll_delta, pointer_pos, viewport);
     }
 
     /// 完整的 UI 绘制
