@@ -130,7 +130,7 @@ fn draw_screenshot_toolbar(
     painter.rect_stroke(
         toolbar_rect,
         8.0,
-        Stroke::new(1.0, Color32::from_gray(200)),
+        Stroke::new(1.0, super::SCREENSHOT_BORDER_COLOR),
         StrokeKind::Inside,
     );
 

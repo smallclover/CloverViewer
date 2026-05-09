@@ -127,7 +127,7 @@ pub fn render_text_input(
                 });
 
                 let rect = frame_response.response.rect;
-                let stroke = Stroke::new(1.5, Color32::from_gray(200));
+                let stroke = Stroke::new(1.5, super::SCREENSHOT_BORDER_COLOR);
                 let painter = ui.painter();
                 painter.add(egui::Shape::dashed_line(
                     &[rect.left_top(), rect.right_top()],

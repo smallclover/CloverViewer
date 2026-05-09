@@ -10,7 +10,7 @@ const MAGNIFIER_PIXEL_SIZE: f32 = 10.0;
 const MAGNIFIER_CARD_OFFSET: f32 = 20.0;
 const MAGNIFIER_INFO_BAR_HEIGHT: f32 = 64.0;
 const MAGNIFIER_CARD_CORNER_RADIUS: f32 = 4.0;
-const MAGNIFIER_BORDER_COLOR: Color32 = Color32::from_gray(200);
+const MAGNIFIER_BORDER_COLOR: Color32 = super::SCREENSHOT_BORDER_COLOR;
 const MAGNIFIER_GRID_LINE_ALPHA: u8 = 80;
 const MAGNIFIER_MESH_RESERVE_CELLS: usize = 961;
 
@@ -389,7 +389,7 @@ fn paint_info_panel(
     painter.rect_stroke(
         color_preview_rect,
         2.0,
-        Stroke::new(1.0, Color32::from_gray(200)),
+        Stroke::new(1.0, super::SCREENSHOT_BORDER_COLOR),
         StrokeKind::Outside,
     );
 

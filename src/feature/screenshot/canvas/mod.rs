@@ -7,6 +7,7 @@ pub mod render;
 pub mod shape;
 pub mod text_input;
 
+pub use crate::feature::screenshot::SCREENSHOT_BORDER_COLOR;
 use crate::feature::screenshot::capture::{DrawnShape, ScreenshotState, ScreenshotTool};
 use eframe::egui::{Color32, Id, Pos2, Rect, Ui, Vec2};
 use std::sync::Arc;

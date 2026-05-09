@@ -8,6 +8,11 @@ pub mod ocr;
 pub mod state;
 pub mod toolbar;
 
+use eframe::egui::Color32;
+
+/// 截图功能中通用的边框颜色
+pub const SCREENSHOT_BORDER_COLOR: Color32 = Color32::from_gray(200);
+
 use self::state::{ScreenshotState, WindowPrevState};
 use crate::core::hotkeys::HotkeyAction;
 use crate::feature::Feature;
