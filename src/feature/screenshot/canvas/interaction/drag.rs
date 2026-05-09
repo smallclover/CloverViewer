@@ -213,17 +213,15 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
             };
             let points = Arc::new(std::mem::take(&mut state.input.current_pen_points));
 
-            state.edit.shapes.push(DrawnShape {
+            state.edit.shapes.push(DrawnShape::new(
                 tool,
-                start: min_pos,
-                end: max_pos,
-                color: state.drawing.active_color,
-                stroke_width: used_width,
-                text: None,
-                points: Some(points),
-                cached_galley: None,
-                cached_mosaic: None,
-            });
+                min_pos,
+                max_pos,
+                state.drawing.active_color,
+                used_width,
+                None,
+                Some(points),
+            ));
             state.record_shape_added(state.edit.shapes.len() - 1);
         }
     } else if let Some(start_pos) = state.input.current_shape_start {
@@ -231,17 +229,15 @@ pub(super) fn on_drag_stop(state: &mut ScreenshotState, canvas_state: &mut Canva
         if start_pos.distance(end_pos) > 5.0
             && let Some(tool) = state.drawing.current_tool
         {
-            state.edit.shapes.push(DrawnShape {
+            state.edit.shapes.push(DrawnShape::new(
                 tool,
-                start: start_pos,
-                end: end_pos,
-                color: state.drawing.active_color,
-                stroke_width: state.drawing.stroke_width,
-                text: None,
-                points: None,
-                cached_galley: None,
-                cached_mosaic: None,
-            });
+                start_pos,
+                end_pos,
+                state.drawing.active_color,
+                state.drawing.stroke_width,
+                None,
+                None,
+            ));
             state.record_shape_added(state.edit.shapes.len() - 1);
         }
         state.input.current_shape_start = None;

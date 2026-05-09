@@ -166,16 +166,14 @@ pub fn commit_text_shape(
     let text_width_phys = galley.size().x * ppp;
     let end_pos = start_pos_phys + Vec2::new(text_width_phys, 0.0);
 
-    state.edit.shapes.push(DrawnShape {
-        tool: ScreenshotTool::Text,
-        start: start_pos_phys,
-        end: end_pos,
-        color: state.drawing.active_color,
-        stroke_width: state.drawing.stroke_width,
-        text: Some(Arc::<str>::from(baked_text)),
-        points: None,
-        cached_galley: None,
-        cached_mosaic: None,
-    });
+    state.edit.shapes.push(DrawnShape::new(
+        ScreenshotTool::Text,
+        start_pos_phys,
+        end_pos,
+        state.drawing.active_color,
+        state.drawing.stroke_width,
+        Some(Arc::<str>::from(baked_text)),
+        None,
+    ));
     state.record_shape_added(state.edit.shapes.len() - 1);
 }

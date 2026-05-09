@@ -46,6 +46,28 @@ pub struct DrawnShape {
 }
 
 impl DrawnShape {
+    pub fn new(
+        tool: ScreenshotTool,
+        start: Pos2,
+        end: Pos2,
+        color: Color32,
+        stroke_width: f32,
+        text: Option<Arc<str>>,
+        points: Option<Arc<Vec<Pos2>>>,
+    ) -> Self {
+        Self {
+            tool,
+            start,
+            end,
+            color,
+            stroke_width,
+            text,
+            points,
+            cached_galley: None,
+            cached_mosaic: None,
+        }
+    }
+
     fn clone_for_history(&self) -> Self {
         Self {
             tool: self.tool,
