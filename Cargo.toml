@@ -2,6 +2,8 @@
 name = "CloverViewer"
 version = "0.0.20"
 edition = "2024"
+description = "A lightweight image viewer and screenshot tool for Windows, written in Rust."
+keywords = ["screenshot", "image-viewer", "screen-capture", "screenshot-tool", "image-browser"]
 #cargo packager --release打包安装文件
 [package.metadata.packager]
 before-packaging-command = "cargo build --release"

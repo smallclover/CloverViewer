@@ -6,7 +6,7 @@
     ロゴデザインは、大文字のCとLに由来しています。Cは剣のガード、Lは剣そのものを表しています。
   </p>
   <p>
-    <img src="https://img.shields.io/badge/version-0.0.19-2E7D32" alt="Version">
+    <img src="https://img.shields.io/badge/version-0.0.20-2E7D32" alt="Version">
     <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
     <a href="https://github.com/smallclover/CloverViewer/actions/workflows/ci.yml"><img src="https://github.com/smallclover/CloverViewer/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   </p>
