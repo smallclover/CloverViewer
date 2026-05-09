@@ -283,7 +283,7 @@ impl ImageLoader {
     }
 
     fn is_leap_year(year: u32) -> bool {
-        (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+        (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
     }
 
     fn decode_image(
@@ -312,14 +312,13 @@ impl ImageLoader {
         let orientation_value = Self::extract_exif_properties(&data, &mut properties);
 
         // 无 EXIF 日期时，使用文件修改时间兜底
-        if properties.date.is_empty() {
-            if let Ok(modified) = metadata.modified() {
-                if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
-                    let secs = duration.as_secs();
-                    let (y, mo, d, h, mi, s) = Self::unix_timestamp_to_ymd_hms(secs);
-                    properties.date = format!("{y:04}-{mo:02}-{d:02} {h:02}:{mi:02}:{s:02}");
-                }
-            }
+        if properties.date.is_empty()
+            && let Ok(modified) = metadata.modified()
+            && let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH)
+        {
+            let secs = duration.as_secs();
+            let (y, mo, d, h, mi, s) = Self::unix_timestamp_to_ymd_hms(secs);
+            properties.date = format!("{y:04}-{mo:02}-{d:02} {h:02}:{mi:02}:{s:02}");
         }
 
         let is_jpeg = data.len() > 2 && data[0] == 0xFF && data[1] == 0xD8;
