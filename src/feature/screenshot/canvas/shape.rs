@@ -43,13 +43,18 @@ pub trait ShapeRender {
 }
 
 impl DrawnShape {
+    /// 根据笔触宽度计算文本字体大小
+    pub fn text_font_size(stroke_width: f32) -> f32 {
+        20.0 + (stroke_width * 2.0)
+    }
+
     /// 获取或创建文本的 Galley 缓存
     pub fn ensure_galley(&mut self, painter: &Painter) -> Option<Arc<Galley>> {
         if let Some(ref g) = self.cached_galley {
             return Some(g.clone());
         }
         let text = self.text.as_ref()?;
-        let font_size = 20.0 + (self.stroke_width * 2.0);
+        let font_size = Self::text_font_size(self.stroke_width);
         let galley = painter.layout_no_wrap(
             text.to_string(),
             egui::FontId::proportional(font_size),
@@ -67,7 +72,7 @@ impl DrawnShape {
     /// 无缓存的情况下布局文本（用于 hit_test）
     fn layout_text_galley(&self, painter: &Painter) -> Option<Arc<Galley>> {
         let text = self.text.as_ref()?;
-        let font_size = 20.0 + (self.stroke_width * 2.0);
+        let font_size = Self::text_font_size(self.stroke_width);
         Some(painter.layout_no_wrap(
             text.to_string(),
             egui::FontId::proportional(font_size),

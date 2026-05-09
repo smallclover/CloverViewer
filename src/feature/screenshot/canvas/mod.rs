@@ -125,7 +125,7 @@ pub fn commit_text_shape(
     global_offset_phys: Pos2,
     ppp: f32,
 ) {
-    let font_size = 20.0 + (state.drawing.stroke_width * 2.0);
+    let font_size = DrawnShape::text_font_size(state.drawing.stroke_width);
     let max_width_logical = if let Some(sel) = state.select.selection {
         let sel_max_x_local = Pos2::ZERO.x + ((sel.max.x - global_offset_phys.x) / ppp);
         let start_local_x = Pos2::ZERO.x + ((pos.x - global_offset_phys.x) / ppp);

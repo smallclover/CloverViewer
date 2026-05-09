@@ -65,7 +65,6 @@ impl ColorPicker {
         self.is_open = false;
     }
 
-    // 【修改】加入 show_colors 参数
     pub fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -85,7 +84,7 @@ impl ColorPicker {
                 .title_bar(false)
                 .collapsible(false)
                 .resizable(false)
-                .show(ui.ctx(), |ui| {
+                .show(ui, |ui| {
                     draw_popup_background(ui, &layout);
 
                     ui.scope_builder(
