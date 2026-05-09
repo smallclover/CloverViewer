@@ -36,8 +36,6 @@ struct MagnifierPixelContext<'a> {
     card_pos: Pos2,
     center_phys_x: isize,
     center_phys_y: isize,
-    img_width: isize,
-    img_height: isize,
     half_grid: i32,
 }
 
@@ -51,8 +49,6 @@ struct MagnifierLayout {
 struct MagnifierSample {
     center_phys_x: isize,
     center_phys_y: isize,
-    img_width: isize,
-    img_height: isize,
 }
 
 /// 处理放大镜和取色器的核心入口
@@ -165,7 +161,7 @@ fn draw_magnifier_ui(
     let info_bar_height = MAGNIFIER_INFO_BAR_HEIGHT;
     let card_size = Vec2::new(magnifier_size, magnifier_size + info_bar_height);
     let layout = resolve_magnifier_layout(ui, draw_pos, card_size, magnifier_size, info_bar_height);
-    let sample = sample_image(image, sample_pos, ppp);
+    let sample = sample_image(sample_pos, ppp);
 
     painter.rect_filled(
         layout.card_rect,
@@ -220,12 +216,10 @@ fn resolve_magnifier_layout(
     }
 }
 
-fn sample_image(image: &ColorImage, sample_pos: Pos2, ppp: f32) -> MagnifierSample {
+fn sample_image(sample_pos: Pos2, ppp: f32) -> MagnifierSample {
     MagnifierSample {
         center_phys_x: (sample_pos.x * ppp).round() as isize,
         center_phys_y: (sample_pos.y * ppp).round() as isize,
-        img_width: image.width() as isize,
-        img_height: image.height() as isize,
     }
 }
 
@@ -245,8 +239,6 @@ fn paint_pixel_grid(
         card_pos: layout.card_pos,
         center_phys_x: sample.center_phys_x,
         center_phys_y: sample.center_phys_y,
-        img_width: sample.img_width,
-        img_height: sample.img_height,
         half_grid,
     };
     paint_magnifier_pixels(painter, &pixel_context, &mut mesh);
@@ -403,17 +395,16 @@ fn paint_info_panel(
     );
 }
 
-fn sampled_center_color(image: &ColorImage, sample: &MagnifierSample) -> Color32 {
-    if sample.center_phys_x < 0
-        || sample.center_phys_x >= sample.img_width
-        || sample.center_phys_y < 0
-        || sample.center_phys_y >= sample.img_height
-    {
-        return Color32::BLACK;
+fn sample_pixel(image: &ColorImage, x: isize, y: isize) -> Color32 {
+    if x >= 0 && x < image.width() as isize && y >= 0 && y < image.height() as isize {
+        image.pixels[y as usize * image.width() + x as usize]
+    } else {
+        Color32::BLACK
     }
+}
 
-    let center_idx = sample.center_phys_y as usize * image.width() + sample.center_phys_x as usize;
-    image.pixels[center_idx]
+fn sampled_center_color(image: &ColorImage, sample: &MagnifierSample) -> Color32 {
+    sample_pixel(image, sample.center_phys_x, sample.center_phys_y)
 }
 
 fn paint_card_border(painter: &Painter, card_rect: Rect) {
@@ -434,16 +425,7 @@ fn paint_magnifier_pixels(
         for dx in -context.half_grid..=context.half_grid {
             let src_x = context.center_phys_x + dx as isize;
             let src_y = context.center_phys_y + dy as isize;
-            let color = if src_x >= 0
-                && src_x < context.img_width
-                && src_y >= 0
-                && src_y < context.img_height
-            {
-                let idx = src_y as usize * context.image.width() + src_x as usize;
-                context.image.pixels[idx]
-            } else {
-                Color32::BLACK
-            };
+            let color = sample_pixel(context.image, src_x, src_y);
 
             let grid_x = (dx + context.half_grid) as f32;
             let grid_y = (dy + context.half_grid) as f32;
