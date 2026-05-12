@@ -107,8 +107,7 @@ impl ViewerFeature {
         let target = if panel_is_open { 1.0 } else { 0.0 };
         let dt = ctx.input(|i| i.stable_dt);
         let t = (-dt / 0.15).exp(); // ~150ms 时间常数
-        self.state.panel_animation =
-            egui::lerp(self.state.panel_animation..=target, 1.0 - t);
+        self.state.panel_animation = egui::lerp(self.state.panel_animation..=target, 1.0 - t);
         if (self.state.panel_animation - target).abs() < 0.001 {
             self.state.panel_animation = target;
         }
