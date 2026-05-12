@@ -136,11 +136,19 @@ impl ViewerFeature {
             self.state.handle_dropped_file(ctx.clone(), path);
         }
 
-        // 缩放
-        let scroll_delta = ctx.input(|i| i.smooth_scroll_delta.y);
-        let pointer_pos = ctx.input(|i| i.pointer.hover_pos());
-        let viewport = ctx.content_rect();
-        self.state.update_zoom(scroll_delta, pointer_pos, viewport);
+        // 缩放（属性面板区域禁止）
+        let pointer_over_panel = matches!(self.panel, PanelMode::Properties)
+            && ctx.input(|i| {
+                i.pointer
+                    .hover_pos()
+                    .is_some_and(|pos| pos.x > i.viewport_rect().max.x - 300.0)
+            });
+        if !pointer_over_panel {
+            let scroll_delta = ctx.input(|i| i.smooth_scroll_delta.y);
+            let pointer_pos = ctx.input(|i| i.pointer.hover_pos());
+            let viewport = ctx.content_rect();
+            self.state.update_zoom(scroll_delta, pointer_pos, viewport);
+        }
     }
 
     /// 完整的 UI 绘制
