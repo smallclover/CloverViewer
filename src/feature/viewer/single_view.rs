@@ -199,7 +199,9 @@ fn render_normal_image(ui: &mut Ui, tex: &TextureHandle, viewer: &mut ViewerStat
         );
     }
 
-    let img_origin = viewport.min + viewer.viewport_offset;
+    // 属性面板动画位移：面板从右侧打开，图片向左移动远离面板
+    let panel_shift = egui::vec2(-viewer.panel_animation * 150.0, 0.0);
+    let img_origin = viewport.min + viewer.viewport_offset + panel_shift;
     let img_rect = Rect::from_min_size(img_origin, img_size);
 
     // Handle drag

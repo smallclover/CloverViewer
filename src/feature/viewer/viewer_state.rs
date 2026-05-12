@@ -55,6 +55,8 @@ pub struct ViewerState {
     pub thumbs: ThumbManager,
     pub transition: TransitionState,
     pub view_mode: ViewMode,
+    /// 属性面板打开/关闭动画进度 (0.0=关闭, 1.0=完全打开)
+    pub panel_animation: f32,
 }
 
 impl ViewerState {
@@ -87,6 +89,7 @@ impl ViewerState {
                 target_path: None,
             },
             view_mode: ViewMode::Single,
+            panel_animation: 0.0,
         }
     }
 
@@ -163,6 +166,7 @@ impl ViewerState {
         self.current.properties = None;
         self.current.raw_pixels = None;
         self.viewport_offset = egui::Vec2::ZERO;
+        self.panel_animation = 0.0;
         self.transition.previous_texture = None;
         self.transition.previous_zoom = None;
         self.transition.phase = TransitionPhase::None;

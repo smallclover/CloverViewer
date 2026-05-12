@@ -102,6 +102,20 @@ impl ViewerFeature {
         //处理看图模式下的输入事件
         self.handle_input(ctx);
 
+        // 更新属性面板动画进度
+        let panel_is_open = matches!(self.panel, PanelMode::Properties);
+        let target = if panel_is_open { 1.0 } else { 0.0 };
+        let dt = ctx.input(|i| i.stable_dt);
+        let t = (-dt / 0.15).exp(); // ~150ms 时间常数
+        self.state.panel_animation =
+            egui::lerp(self.state.panel_animation..=target, 1.0 - t);
+        if (self.state.panel_animation - target).abs() < 0.001 {
+            self.state.panel_animation = target;
+        }
+        if self.state.panel_animation != target {
+            ctx.request_repaint();
+        }
+
         // 处理图片加载结果
         if self.state.process_load_results(ctx) {
             ctx.request_repaint();
