@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "clover-viewer": {
+      "command": "D:\\programing\\CloverViewer\\target\\release\\CloverViewer.exe",
+      "args": ["--mcp"]
+    }
+  }
+}

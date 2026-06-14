@@ -22,6 +22,10 @@ pub fn parse_launch_options() -> LaunchOptions {
             continue;
         }
 
+        if arg == OsStr::new("--mcp") {
+            continue;
+        }
+
         if start_path.is_none() {
             start_path = Some(PathBuf::from(arg));
         }
