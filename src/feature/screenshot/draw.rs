@@ -6,7 +6,7 @@ use image::{Rgba, RgbaImage};
 use std::sync::LazyLock;
 
 static EMBEDDED_FONT: LazyLock<Option<FontRef<'static>>> = LazyLock::new(|| {
-    let data = include_bytes!("../../../assets/fonts/msyhl.ttf");
+    let data = crate::ui::resources::APP_FONT;
     match FontRef::try_from_slice(data) {
         Ok(font) => Some(font),
         Err(err) => {
